@@ -12,6 +12,11 @@ The product direction is broader than storing embeddings: documents, memories,
 structured records, files and metadata should become manageable database objects
 that can be projected into native context for SDKs, agents and RAG systems.
 
+For complete usage patterns, examples, and integration choices, see:
+
+- [docs/en/USAGE_GUIDE.md](docs/en/USAGE_GUIDE.md)
+- [docs/pt-br/USAGE_GUIDE.md](docs/pt-br/USAGE_GUIDE.md)
+
 ---
 
 ## What it is
@@ -198,6 +203,8 @@ the `Hippocore` engine in `lib.rs`.
   [docs/pt-br/STATUS.md](docs/pt-br/STATUS.md)
 - Next feature: [docs/en/NEXT_FEATURE.md](docs/en/NEXT_FEATURE.md) /
   [docs/pt-br/NEXT_FEATURE.md](docs/pt-br/NEXT_FEATURE.md)
+- Usage guide: [docs/en/USAGE_GUIDE.md](docs/en/USAGE_GUIDE.md) /
+  [docs/pt-br/USAGE_GUIDE.md](docs/pt-br/USAGE_GUIDE.md)
 - Data model direction: [docs/en/DATA_MODEL.md](docs/en/DATA_MODEL.md) /
   [docs/pt-br/DATA_MODEL.md](docs/pt-br/DATA_MODEL.md)
 - Admin interface direction: [docs/en/ADMIN_INTERFACE.md](docs/en/ADMIN_INTERFACE.md) /

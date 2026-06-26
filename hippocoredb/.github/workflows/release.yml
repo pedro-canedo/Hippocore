@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  # ─── Gate: all checks must pass before releasing ─────────────────────────────
+  gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: hippocoredb
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: hippocoredb
+      - run: cargo fmt --all --check
+        working-directory: hippocoredb
+      - run: cargo test --workspace
+        working-directory: hippocoredb
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: hippocoredb
+
+  # ─── Build CLI binaries ───────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.target }}
+    needs: gate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: hippocore-linux-x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: hippocore-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: hippocore-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: hippocore-windows-x86_64.exe
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: hippocoredb
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: hippocoredb
+      - name: Build release binary
+        run: >
+          cargo build --release
+          --package hippocore-cli
+          --target ${{ matrix.target }}
+        working-directory: hippocoredb
+      - name: Rename artifact (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cp target/${{ matrix.target }}/release/hippocore \
+             ${{ matrix.artifact }}
+      - name: Rename artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Copy-Item "target\${{ matrix.target }}\release\hippocore.exe" `
+                    "${{ matrix.artifact }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  # ─── GitHub Release ───────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/**/*
