@@ -2,40 +2,42 @@
 
 ## Nome
 
-**Metadata Filter Regression Suite v0.1** — testes determinísticos cobrindo
-combinações de filtros de metadata exatos para todos os tipos de item.
+**Supersession Lifecycle Tests v0.1** — testes determinísticos cobrindo o
+ciclo de vida completo da substituição de memórias.
 
 ## Por que importa
 
-O filtro de metadata é o mecanismo principal para escopar o recall a um usuário,
-sessão ou contexto. Embora a lógica de filtro exista, não há uma suite de testes
-focada que cubra todos os tipos de item × combinações de filtro × casos extremos.
-Uma lacuna aqui arrisca regressões silenciosas quando as camadas de query ou
-storage mudarem.
+A vinculação `supersedes` / `superseded_by` permite que uma nova memória
+substitua uma mais antiga. Este é o mecanismo primário para atualizar fatos
+desatualizados sem deletar o histórico. Embora o código de produção lide com
+isso, não há uma suite de regressão focada que verifique:
+
+- Memórias substituídas são excluídas do recall padrão.
+- Memórias substituídas são visíveis com `include_superseded = true`.
+- A vinculação é bidirecional e simétrica.
+- O relacionamento sobrevive à compactação do WAL.
 
 ## Comportamento
 
 Sem novo código de produção. A suite de testes cobrirá:
 
-1. Filtro de correspondência exata (`key == value`) em memories, chunks de
-   documento e records.
-2. Filtros multi-chave (todas as chaves devem corresponder, semântica AND).
-3. Um filtro que não corresponde a nenhum item (resultado vazio, não um erro).
-4. Um filtro escopado a uma coleção específica dentro de um tenant.
-5. Verificar que filtrar em um tenant não afeta outro tenant com as mesmas
-   chaves e valores de metadata.
-6. `build_context` com filtro de metadata respeita o filtro (sem vazamento).
+1. Armazenar memória A; armazenar memória B que substitui A.
+2. Afirmar: recall sem `include_superseded` retorna B mas não A.
+3. Afirmar: recall com `include_superseded = true` retorna A e B.
+4. Afirmar: `superseded_by` de A é o id de B; `supersedes` de B contém o id de A.
+5. Compactar o WAL; reabrir o banco; repetir afirmações 2–4.
+6. Deletar B; afirmar: A não está mais substituída (ou que o delete é rejeitado
+   se integridade referencial for aplicada).
 
 ## Arquivos
 
-- `crates/hippocore/tests/metadata_filter.rs` — novo arquivo de testes dedicado.
-- `docs/en/METADATA_FILTER_REGRESSION.md` e
-  `docs/pt-br/METADATA_FILTER_REGRESSION.md`.
+- `crates/hippocore/tests/supersession.rs` — novo arquivo de testes dedicado.
+- `docs/en/SUPERSESSION_LIFECYCLE.md` e `docs/pt-br/SUPERSESSION_LIFECYCLE.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- Mínimo de 6 testes de integração determinísticos.
+- Mínimo de 5 testes de integração determinísticos.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -43,6 +45,6 @@ Sem novo código de produção. A suite de testes cobrirá:
 
 ## Fora de escopo
 
-- Novos operadores de filtro (prefixo, range, regex).
+- Cadeias de substituição (A → B → C).
 - Modo server.
-- Mudanças no código de produção.
+- Mudanças no código de produção do modelo de substituição.

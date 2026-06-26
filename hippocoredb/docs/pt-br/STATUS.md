@@ -4,7 +4,19 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Multi-tenant Query Isolation Audit v0.1**:
+**Metadata Filter Regression Suite v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/metadata_filter.rs` com 7
+  testes.
+- Cobre: correspondência exata em memories, semântica AND multi-chave, resultado
+  vazio (sem erro), filtro escopado por coleção, filtro de records, não-
+  interferência entre tenants e propagação de filtro em `build_context`.
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/METADATA_FILTER_REGRESSION.md` e
+  `docs/pt-br/METADATA_FILTER_REGRESSION.md`.
+- 7 novos testes. 145 testes no total.
+
+Anterior: **Multi-tenant Query Isolation Audit v0.1**:
 
 - Novo arquivo de testes dedicado `crates/hippocore/tests/tenant_isolation.rs`.
 - 6 asserções de isolamento cobrindo todos os caminhos de leitura públicos:
@@ -401,8 +413,8 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Metadata Filter Regression Suite v0.1** — testes determinísticos cobrindo
-combinações de filtros de metadata exatos e de prefixo para todos os tipos de
-item (memories, chunks, records), garantindo que predicados de filtro se
-compõem corretamente e nunca produzem falsos positivos entre tenants.
+**Supersession Lifecycle Tests v0.1** — testes determinísticos verificando que
+memórias substituídas são excluídas do recall padrão, visíveis com
+`include_superseded = true`, e que a vinculação superseded-by / supersedes é
+simétrica e durável após compactação do WAL.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

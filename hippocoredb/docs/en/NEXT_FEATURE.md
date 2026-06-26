@@ -2,38 +2,42 @@
 
 ## Feature name
 
-**Metadata Filter Regression Suite v0.1** — deterministic tests covering exact
-and prefix metadata filter combinations across all item kinds.
+**Supersession Lifecycle Tests v0.1** — deterministic tests covering the full
+lifecycle of memory supersession.
 
 ## Why it matters
 
-Metadata filtering is the primary mechanism for scoping recall to a user,
-session, or context. While the filter logic exists, there is no focused test
-suite that covers all item kinds × filter combinations × edge cases. A gap here
-risks silent regressions when the query or storage layers change.
+The `supersedes` / `superseded_by` linkage allows a new memory to replace an
+older one. This is the primary mechanism for updating stale facts without
+deleting history. While the production code handles it, there is no focused
+regression suite that verifies:
+
+- Superseded memories are excluded from default recall.
+- Superseded memories are visible when `include_superseded = true`.
+- The linkage is bidirectional and symmetric.
+- The relationship survives WAL compaction.
 
 ## Behaviour
 
 No new production code. The test suite will cover:
 
-1. Exact-match filter (`key == value`) on memories, document chunks, and records.
-2. Multi-key filters (all keys must match, i.e. AND semantics).
-3. A filter that matches zero items (empty result, not an error).
-4. A filter scoped to a specific collection within a tenant.
-5. Verify that filtering on one tenant does not affect another tenant with the
-   same metadata keys and values.
-6. `build_context` with a metadata filter respects the filter (no leakage).
+1. Store memory A; store memory B that supersedes A.
+2. Assert: recall without `include_superseded` returns B but not A.
+3. Assert: recall with `include_superseded = true` returns both A and B.
+4. Assert: A's `superseded_by` is B's id; B's `supersedes` contains A's id.
+5. Compact the WAL; re-open the database; repeat assertions 2–4.
+6. Delete B; assert: A is no longer superseded (since the superseding memory
+   is gone) — or that the delete is rejected if referential integrity is enforced.
 
 ## Files
 
-- `crates/hippocore/tests/metadata_filter.rs` — new dedicated test file.
-- `docs/en/METADATA_FILTER_REGRESSION.md` and
-  `docs/pt-br/METADATA_FILTER_REGRESSION.md`.
+- `crates/hippocore/tests/supersession.rs` — new dedicated test file.
+- `docs/en/SUPERSESSION_LIFECYCLE.md` and `docs/pt-br/SUPERSESSION_LIFECYCLE.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- At least 6 deterministic integration tests.
+- At least 5 deterministic integration tests.
 - All quality gates pass:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -41,6 +45,6 @@ No new production code. The test suite will cover:
 
 ## Out of scope
 
-- New filter operators (prefix, range, regex).
+- Chains of supersession (A → B → C).
 - Server mode.
-- Production code changes.
+- Production code changes to the supersession model.

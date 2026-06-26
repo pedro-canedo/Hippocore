@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Metadata Filter Regression Suite v0.1
+
+- New test file `crates/hippocore/tests/metadata_filter.rs` with 7 tests
+  covering: exact-match on memories, multi-key AND semantics (env=prod AND
+  tier=api), empty result without error, collection-scoped filter, record
+  filtering, cross-tenant non-interference, and `build_context`
+  `metadata_filter` propagation. No production code changes. 145 tests total.
+
 ### Added — Multi-tenant Query Isolation Audit v0.1
 
 - New test file `crates/hippocore/tests/tenant_isolation.rs` with 6 targeted
