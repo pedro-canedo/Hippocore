@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Phase 6: Interactive TUI (`hippocore studio`)
+
+- New `hippocore studio [--db <path>]` subcommand launching a full-terminal ratatui
+  interface for browsing and querying any Hippocore database without writing code.
+- Four navigable tabs via `1`–`4` or `Tab`/`Shift-Tab`:
+  - **Tenants** — lists all tenants with their collections and descriptions.
+  - **Memories** — live fuzzy search with `/` across all tenants (calls `recall()`).
+  - **Documents** — lists all stored documents with tenant/collection provenance.
+  - **Stats** — shows tenants, collections, memories, documents, chunks, records,
+    files, index entries, WAL entries, and disk usage.
+- Scroll with `↑↓` or `jk`; refresh with `r`; quit with `q` or `Ctrl-C`.
+- The binary's `main.rs` intercepts `studio` before delegating to `hippocore::cli`,
+  so all existing subcommands are unaffected.
+- `ratatui 0.29` and `crossterm 0.28` added to workspace and `hippocore-cli` deps.
+- 1 new CLI smoke test (`cli_studio_exits_without_panic`). 105 tests total.
+
 ### Added — Phase 4: Pluggable VectorIndex trait + HNSW from scratch
 
 - `VectorIndex` trait: `insert(key, embedding)`, `remove(key)`, `knn(query, k, ef)`.

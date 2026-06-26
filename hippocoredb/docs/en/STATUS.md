@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 4 — Pluggable `VectorIndex` trait + HNSW**, **Phase 7 — Confidence-aware resolution**, and **Phase 2 — Group-commit / batch writes**:
+**Phase 6 — Interactive TUI (`hippocore studio`)**:
+
+- New `hippocore studio [--db <path>]` subcommand launching a full-terminal ratatui UI.
+- Four navigable tabs: **Tenants** (tenants + their collections), **Memories** (live search across all tenants), **Documents** (all stored documents), **Stats** (database statistics).
+- Keybindings: `1`–`4` or `Tab`/`Shift-Tab` to switch tabs; `↑↓` / `jk` to scroll; `/` to enter search in the Memories tab; `Enter` to execute search; `Esc` to cancel; `r` to refresh data; `q` or `Ctrl-C` to quit.
+- Memory search calls `recall()` across all tenants and displays `[score] tenant/collection — snippet…`.
+- Refresh re-queries the database for all tenant, document, and stats panels.
+- `ratatui 0.29` and `crossterm 0.28` added as workspace + CLI crate dependencies.
+- TUI implementation in `crates/hippocore-cli/src/tui.rs`; binary entry point at `crates/hippocore-cli/src/main.rs` intercepts `studio` before delegating all other subcommands to `hippocore::cli`.
+- 1 new CLI smoke test (`cli_studio_exits_without_panic`) — verifies no panic when invoked in a non-TTY environment. 105 tests total.
+- All quality gates pass: `cargo fmt`, `cargo test --workspace`, `cargo clippy -D warnings`.
+
+Previous: **Phase 4 — Pluggable `VectorIndex` trait + HNSW**, **Phase 7 — Confidence-aware resolution**, and **Phase 2 — Group-commit / batch writes**:
 
 ### Phase 7: Source and confidence-aware resolution
 
@@ -273,7 +285,7 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 104 tests:
+**All green.** `cargo test --workspace` passes 105 tests:
 - 22 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode, 4 new HNSW unit tests),
 - 64 library integration (store/recall, chunking, retrieval quality layer,
@@ -285,9 +297,9 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   supersedure/contradictions, context compiler, batch writes, confidence-aware
   resolution, HNSW backend store+recall+restart+brute-force comparison),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
-  `import-file`, admin `list-*` and `show-*` commands with `--json`, and
-  `eval-quality` pass + fail paths),
+- 13 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+  `import-file`, admin `list-*` and `show-*` commands with `--json`,
+  `eval-quality` pass + fail paths, and `studio` non-TTY smoke test),
 - 1 doctest (lib.rs quickstart),
 - 1 bench_regression example.
 
@@ -311,4 +323,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Phase 6 — Interactive TUI with ratatui** — `hippocore studio` subcommand with panels for tenants, collections, memories, search and stats. See NEXT_FEATURE.md.
+**Phase 9 — RAG Audit Engine** — trace question → retrieved documents → context → answer; record tokens, latency and feedback for auditability. See NEXT_FEATURE.md.

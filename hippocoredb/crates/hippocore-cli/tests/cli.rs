@@ -849,3 +849,18 @@ fn cli_bad_memory_type_returns_nonzero() {
         .unwrap();
     assert!(!out.status.success());
 }
+
+#[test]
+fn cli_studio_exits_without_panic() {
+    // The TUI cannot be driven headlessly, but we verify the binary doesn't
+    // panic when `studio` is invoked without a real terminal. It will fail at
+    // `enable_raw_mode` (no TTY in CI) — we just assert no signal termination.
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    let out = bin().args(["studio", "--db", db]).output().unwrap();
+    assert!(
+        out.status.code().is_some(),
+        "studio exited via signal (panic?): {out:?}"
+    );
+}

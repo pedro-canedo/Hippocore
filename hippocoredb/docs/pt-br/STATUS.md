@@ -4,7 +4,19 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Fase 4 — Trait `VectorIndex` plugável + HNSW**, **Fase 7 — Resolução por confiança** e **Fase 2 — Group-commit / batch writes**:
+**Fase 6 — TUI interativo (`hippocore studio`)**:
+
+- Novo subcomando `hippocore studio [--db <path>]` que abre uma interface de terminal completa (ratatui).
+- Quatro abas navegáveis: **Tenants** (tenants + coleções), **Memories** (busca ao vivo em todos os tenants), **Documents** (todos os documentos armazenados), **Stats** (estatísticas do banco).
+- Teclas de atalho: `1`–`4` ou `Tab`/`Shift-Tab` para trocar de aba; `↑↓` / `jk` para rolar; `/` para abrir busca na aba Memories; `Enter` para executar; `Esc` para cancelar; `r` para atualizar dados; `q` ou `Ctrl-C` para sair.
+- Busca de memórias chama `recall()` em todos os tenants e exibe `[score] tenant/collection — trecho…`.
+- Refresh re-consulta o banco para tenants, documentos e estatísticas.
+- `ratatui 0.29` e `crossterm 0.28` adicionados como dependências do workspace e do crate CLI.
+- TUI implementado em `crates/hippocore-cli/src/tui.rs`; entry point binário em `main.rs` intercepta `studio` antes de delegar os demais subcomandos para `hippocore::cli`.
+- 1 novo smoke test CLI (`cli_studio_exits_without_panic`) — verifica ausência de panic em ambiente não-TTY. 105 testes no total.
+- Todos os quality gates passam: `cargo fmt`, `cargo test --workspace`, `cargo clippy -D warnings`.
+
+Anterior: **Fase 4 — Trait `VectorIndex` plugável + HNSW**, **Fase 7 — Resolução por confiança** e **Fase 2 — Group-commit / batch writes**:
 
 ### Fase 7: Resolução ciente de fonte e confiança
 
@@ -226,18 +238,17 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 104 testes:
+`cargo test --workspace` passa com 105 testes:
 
 - 22 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL, 4 novos testes HNSW);
 - 64 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
   batch writes, resolução por confiança, HNSW backend);
 - 1 fixture de qualidade de retrieval;
-- 12 smoke tests de CLI;
+- 13 smoke tests de CLI (incl. `cli_studio_exits_without_panic`);
 - 1 doctest (lib.rs quickstart);
 - 1 bench_regression example.
 
 ## Próxima feature
 
-**Fase 6 — TUI interativo com ratatui** — subcomando `hippocore studio` com painéis
-para tenants, coleções, memórias, busca e estatísticas.
+**Fase 9 — RAG Audit Engine** — rastreamento de pergunta → documentos recuperados → contexto → resposta; registro de tokens, latência e feedback para auditabilidade.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

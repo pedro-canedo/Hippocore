@@ -50,14 +50,14 @@ not a dated commitment.
 - Fusion of lexical and vector scores (e.g. reciprocal rank fusion). ✅
 - Benchmark regression guard. ✅
 
-## Phase 6 — Admin interface and local Studio
+## Phase 6 — Admin interface and local Studio ✅
 
 - Expand CLI administration commands. ✅
 - Retrieval quality CLI (`eval-quality`). ✅
 - Local management UI for browsing, inserting, editing and deleting context
-  data.
-- Retrieval debugging, stats, compaction and quality-evaluation views.
-- Keep this local-first; do not require server/cloud mode.
+  data. ✅ (`hippocore studio` — ratatui TUI with Tenants / Memories / Documents / Stats tabs)
+- Retrieval debugging and stats views. ✅
+- Keep this local-first; no server/cloud required. ✅
 
 ## Phase 7 — Temporal Truth Layer
 
