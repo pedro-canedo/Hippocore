@@ -2,61 +2,71 @@
 
 ## Nome
 
-**Admin CLI v0.1** — facilitar inspeção, listagem e exportação do banco sem
-introduzir server mode ou UI ainda.
+**RRF Hybrid Fusion** — substituir a normalização min-max + fusão linear com
+alpha do modo híbrido por Reciprocal Rank Fusion (RRF).
 
 ## Por que importa
 
-Hippocore DB agora armazena documentos, memórias, records estruturados e
-arquivos importados. Antes de construir um Studio local, usuários precisam de
-uma superfície prática de administração, no espírito dos fluxos básicos de
-pgAdmin/DBeaver: ver o que existe, inspecionar objetos, exportar dados e
-depurar contexto.
+O modo híbrido atual normaliza os scores de vetor e BM25 independentemente
+via min-max e combina como `alpha * vector_norm + (1-alpha) * text_norm`.
+Essa abordagem tem dois problemas conhecidos:
+
+1. **Sensibilidade à escala**: normalização min-max colapsa uma diferença de 0,9
+   entre os ranks 1 e 2 para a mesma largura que uma diferença de 0,001,
+   tornando ranks adjacentes indistinguíveis quando um score domina.
+2. **alpha manual**: `hybrid_alpha` exige ajuste por caso de uso. Um valor
+   padrão fixo de 0,5 é arbitrário.
+
+Reciprocal Rank Fusion é sem parâmetro, baseado em rank e bem estudado:
+
+```
+RRF(d) = 1 / (k + rank_vetor(d))  +  1 / (k + rank_texto(d))
+```
+
+onde `k = 60` é a constante de suavização padrão, `rank_vetor(d)` é o rank
+1-based de `d` na lista ordenada por vetor e `rank_texto(d)` é o rank na lista
+BM25 (itens sem match recebem rank penalizado além do conjunto de candidatos).
 
 ## Comportamento esperado
 
-- Adicionar comandos de listagem para tipos armazenados:
-  - `list-tenants`;
-  - `list-collections`;
-  - `list-documents`;
-  - `list-memories`;
-  - `list-records`;
-  - `list-files`.
-- Adicionar `inspect --json` ou saída equivalente legível por máquina.
-- Adicionar comandos de detalhe quando fizer sentido, como `show-record`,
-  `show-document` e `show-file`.
-- Adicionar exportação JSON de objetos ou collections selecionadas.
-- Manter tudo local-first e embedded; sem server mode.
-- Preservar tenant isolation e visibilidade de metadata.
+- `SearchMode::Hybrid` usa RRF internamente em vez de fusão ponderada com alpha.
+- `hybrid_alpha` em `Config` fica sem efeito para o modo híbrido; ainda é aceito
+  sem erro para compatibilidade, mas não influencia o score.
+- `RecallResult.vector_score` e `text_score` continuam com os scores brutos
+  (não normalizados) de cosine e BM25 para transparência.
+- `RecallResult.reason` para modo híbrido reporta o score RRF:
+  `hybrid/rrf(vector_rank=N, text_rank=M)`.
+- `SearchMode::Vector` e `SearchMode::Text` permanecem inalterados.
+- Todos os testes existentes devem passar; os thresholds do fixture de qualidade
+  devem continuar sendo atendidos ou melhorar.
 
 ## Arquivos afetados
 
-- `crates/hippocore/src/lib.rs` — APIs públicas de leitura/listagem quando
-  faltarem.
-- `crates/hippocore/src/cli.rs` — comandos administrativos e saída JSON.
-- `crates/hippocore-cli/tests/cli.rs` — cobertura por subprocesso.
-- `docs/en/ADMIN_INTERFACE.md` e `docs/pt-br/ADMIN_INTERFACE.md`.
-- `README.md`, `STATUS.md`, `CHANGELOG.md`.
+- `crates/hippocore/src/query.rs` — substituir lógica de fusão por RRF.
+- `crates/hippocore/tests/database.rs` — verificar que os testes de modo híbrido
+  ainda passam (asserções de comportamento devem ser estáveis).
+- `crates/hippocore/tests/retrieval_quality.rs` — executar fixture; verificar
+  thresholds.
+- `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
+- `CHANGELOG.md`, `ROADMAP.md`.
 
 ## Critérios de aceite
 
-- Usuário consegue listar tenants, collections e cada tipo de objeto armazenado.
-- Usuário consegue inspecionar record/file/document específico o suficiente para
-  entender o que foi armazenado e qual projeção de contexto existe.
-- Saída JSON é estável o bastante para scripts e futura integração com Studio.
-- Nenhum processo servidor é necessário.
-- `cargo fmt --all --check`, `cargo test --workspace` e clippy passam.
+- `SearchMode::Hybrid` usa RRF.
+- A string de reason inclui "rrf" no modo híbrido.
+- Os thresholds de qualidade (hit@1, hit@5, MRR) são atendidos.
+- Todos os 67+ testes passam.
+- `cargo fmt`, `cargo clippy -D warnings` limpos.
+- Sem novas dependências.
 
 ## Fora de escopo
 
-- Web UI.
-- Protocolo PostgreSQL.
-- Linguagem SQL.
-- Auth/autorização.
-- Server mode remoto.
+- Alterar `SearchMode::Vector` ou `SearchMode::Text`.
+- Remover `hybrid_alpha` da API pública (manter para compatibilidade, silenciando
+  o efeito).
+- HNSW, ANN, server mode.
 
 ## Follow-up
 
-Depois do Admin CLI v0.1, revisitar um protótipo local do Hippocore Studio e
-adicionar um comando pequeno de avaliação de qualidade usando o formato de
-fixture existente.
+Após RRF, o próximo passo é o comando CLI `eval-quality` para que operadores
+possam executar avaliações de fixture de qualidade contra qualquer banco implantado.

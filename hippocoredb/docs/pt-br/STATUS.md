@@ -4,7 +4,24 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**File ingestion v0.1**:
+**Admin CLI v0.1**:
+
+- Adicionados `list-tenants`, `list-collections`, `list-documents`,
+  `list-memories`, `list-records` e `list-files` para exploração completa do
+  banco.
+- Adicionados `show-document` (com listagem de chunks), `show-memory`,
+  `show-record` e `show-file` para inspeção detalhada de objetos.
+- Todos os comandos list e show suportam `--json` para saída legível por
+  máquina, estável para scripts e integração futura com o Studio.
+- `inspect` atualizado para suportar `--json`.
+- APIs públicas adicionadas: `list_documents`, `list_memories`, `list_records`,
+  `list_files`, `all_collections`, `get_document`, `get_memory`, `get_record`,
+  `get_file`, `get_document_chunks`.
+- `serde_json` adicionado como dev-dependency em `hippocore-cli` (para parsear
+  saída JSON nos testes de integração CLI).
+- 3 novos smoke tests CLI cobrindo todos os comandos admin e saída `--json`.
+
+Incremento anterior: **File ingestion v0.1**:
 
 - `FileObject`s agora são objetos duráveis de metadata para arquivos locais
   textuais importados.
@@ -64,14 +81,14 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 64 testes:
+`cargo test --workspace` passa com 67 testes:
 
 - 16 unit;
 - 39 integração da biblioteca;
 - 1 fixture de qualidade;
-- 7 smoke tests de CLI;
+- 10 smoke tests de CLI (incl. comandos admin `list-*` e `show-*` com `--json`);
 - 1 doctest.
 
 ## Próxima feature
 
-**Admin CLI v0.1** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**RRF Hybrid Fusion** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

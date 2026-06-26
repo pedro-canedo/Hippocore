@@ -56,6 +56,26 @@ enum Command {
     Inspect(InspectArgs),
     /// Fold the WAL into a fresh snapshot and truncate the log.
     Compact(DbArg),
+    /// List all tenants.
+    ListTenants(ListTenantsArgs),
+    /// List collections (optionally for one tenant).
+    ListCollections(ListCollectionsArgs),
+    /// List documents in a tenant.
+    ListDocuments(ListObjectsArgs),
+    /// List memories in a tenant.
+    ListMemories(ListObjectsArgs),
+    /// List structured records in a tenant.
+    ListRecords(ListRecordsArgs),
+    /// List imported files in a tenant.
+    ListFiles(ListObjectsArgs),
+    /// Show a document and its chunks.
+    ShowDocument(ShowIdArgs),
+    /// Show a memory.
+    ShowMemory(ShowIdArgs),
+    /// Show a structured record.
+    ShowRecord(ShowRecordArgs),
+    /// Show an imported file.
+    ShowFile(ShowIdArgs),
 }
 
 #[derive(Args)]
@@ -219,6 +239,92 @@ struct InspectArgs {
     /// Limit inspection to a single tenant.
     #[arg(long)]
     tenant: Option<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ListTenantsArgs {
+    #[arg(long)]
+    db: PathBuf,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ListCollectionsArgs {
+    #[arg(long)]
+    db: PathBuf,
+    /// Limit to one tenant.
+    #[arg(long)]
+    tenant: Option<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+/// Shared args for list-documents / list-memories / list-files.
+#[derive(Args)]
+struct ListObjectsArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: Option<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ListRecordsArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: Option<String>,
+    #[arg(long)]
+    table: Option<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+/// Shared args for show-document / show-memory / show-file.
+#[derive(Args)]
+struct ShowIdArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: String,
+    #[arg(long)]
+    id: String,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ShowRecordArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: String,
+    #[arg(long)]
+    table: String,
+    #[arg(long)]
+    id: String,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
 }
 
 /// Parse arguments from the process and run, returning a process exit code.
@@ -247,6 +353,16 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::Stats(a) => cmd_stats(a),
         Command::Inspect(a) => cmd_inspect(a),
         Command::Compact(a) => cmd_compact(a),
+        Command::ListTenants(a) => cmd_list_tenants(a),
+        Command::ListCollections(a) => cmd_list_collections(a),
+        Command::ListDocuments(a) => cmd_list_documents(a),
+        Command::ListMemories(a) => cmd_list_memories(a),
+        Command::ListRecords(a) => cmd_list_records(a),
+        Command::ListFiles(a) => cmd_list_files(a),
+        Command::ShowDocument(a) => cmd_show_document(a),
+        Command::ShowMemory(a) => cmd_show_memory(a),
+        Command::ShowRecord(a) => cmd_show_record(a),
+        Command::ShowFile(a) => cmd_show_file(a),
     }
 }
 
@@ -522,6 +638,26 @@ fn cmd_inspect(a: InspectArgs) -> Result<(), String> {
         Some(t) => tenants.into_iter().filter(|x| &x.id == t).collect(),
         None => tenants,
     };
+
+    if a.json {
+        let out: Vec<serde_json::Value> = filtered
+            .iter()
+            .map(|t| {
+                let cols = db.collections(&t.id);
+                serde_json::json!({
+                    "id": t.id,
+                    "name": t.name,
+                    "collections": cols.iter().map(|c| &c.name).collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+
     if filtered.is_empty() {
         println!("no tenants");
         return Ok(());
@@ -532,5 +668,320 @@ fn cmd_inspect(a: InspectArgs) -> Result<(), String> {
             println!("  collection {}", c.name);
         }
     }
+    Ok(())
+}
+
+fn cmd_list_tenants(a: ListTenantsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let tenants = db.tenants();
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&tenants)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if tenants.is_empty() {
+        println!("no tenants");
+        return Ok(());
+    }
+    for t in &tenants {
+        println!("{}\t{}", t.id, t.name);
+    }
+    Ok(())
+}
+
+fn cmd_list_collections(a: ListCollectionsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let cols = match &a.tenant {
+        Some(t) => db.collections(t),
+        None => db.all_collections(),
+    };
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&cols)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if cols.is_empty() {
+        println!("no collections");
+        return Ok(());
+    }
+    for c in &cols {
+        println!("{}/{}", c.tenant_id, c.name);
+    }
+    Ok(())
+}
+
+fn cmd_list_documents(a: ListObjectsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let docs = db.list_documents(&a.tenant, a.collection.as_deref());
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&docs)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if docs.is_empty() {
+        println!("no documents");
+        return Ok(());
+    }
+    for d in &docs {
+        let preview: String = d.text.chars().take(60).collect();
+        println!(
+            "{}/{}/{}\tv{}\t{}…",
+            d.tenant_id, d.collection, d.id, d.version, preview
+        );
+    }
+    Ok(())
+}
+
+fn cmd_list_memories(a: ListObjectsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let mems = db.list_memories(&a.tenant, a.collection.as_deref());
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&mems)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if mems.is_empty() {
+        println!("no memories");
+        return Ok(());
+    }
+    for m in &mems {
+        let preview: String = m.text.chars().take(60).collect();
+        println!(
+            "{}/{}/{}\t{}\t{}…",
+            m.tenant_id,
+            m.collection,
+            m.id,
+            m.memory_type.as_str(),
+            preview
+        );
+    }
+    Ok(())
+}
+
+fn cmd_list_records(a: ListRecordsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let recs = db.list_records(&a.tenant, a.collection.as_deref(), a.table.as_deref());
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&recs)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if recs.is_empty() {
+        println!("no records");
+        return Ok(());
+    }
+    for r in &recs {
+        println!(
+            "{}/{}/{}/{}\tv{}",
+            r.tenant_id, r.collection, r.table, r.id, r.version
+        );
+    }
+    Ok(())
+}
+
+fn cmd_list_files(a: ListObjectsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let files = db.list_files(&a.tenant, a.collection.as_deref());
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&files)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if files.is_empty() {
+        println!("no files");
+        return Ok(());
+    }
+    for f in &files {
+        println!(
+            "{}/{}/{}\t{}\t{} bytes",
+            f.tenant_id, f.collection, f.id, f.name, f.size_bytes
+        );
+    }
+    Ok(())
+}
+
+fn cmd_show_document(a: ShowIdArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let doc = db
+        .get_document(&a.tenant, &a.collection, &a.id)
+        .ok_or_else(|| format!("document not found: {}/{}/{}", a.tenant, a.collection, a.id))?;
+    let chunks = db.get_document_chunks(&a.tenant, &a.collection, &a.id);
+
+    if a.json {
+        let out = serde_json::json!({ "document": doc, "chunks": chunks });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+
+    println!(
+        "document {}/{}/{} (version {})",
+        doc.tenant_id, doc.collection, doc.id, doc.version
+    );
+    println!("  text:       {}", doc.text);
+    println!("  chunks:     {}", chunks.len());
+    if !doc.metadata.is_empty() {
+        let meta: Vec<String> = doc
+            .metadata
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
+        println!("  metadata:   {}", meta.join(", "));
+    }
+    if let Some(s) = &doc.source {
+        println!("  source:     {}", s.label);
+    }
+    println!("  created_at: {}", doc.created_at);
+    println!("  updated_at: {}", doc.updated_at);
+    if !chunks.is_empty() {
+        println!();
+        for c in &chunks {
+            println!("  chunk {} ({}):", c.ordinal, c.id);
+            println!("    {}", c.text);
+        }
+    }
+    Ok(())
+}
+
+fn cmd_show_memory(a: ShowIdArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let mem = db
+        .get_memory(&a.tenant, &a.collection, &a.id)
+        .ok_or_else(|| format!("memory not found: {}/{}/{}", a.tenant, a.collection, a.id))?;
+
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&mem).map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+
+    println!(
+        "memory {}/{}/{} ({})",
+        mem.tenant_id,
+        mem.collection,
+        mem.id,
+        mem.memory_type.as_str()
+    );
+    println!("  text:       {}", mem.text);
+    if let Some(u) = &mem.user_id {
+        println!("  user:       {u}");
+    }
+    if !mem.metadata.is_empty() {
+        let meta: Vec<String> = mem
+            .metadata
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
+        println!("  metadata:   {}", meta.join(", "));
+    }
+    if let Some(s) = &mem.source {
+        println!("  source:     {}", s.label);
+    }
+    println!("  created_at: {}", mem.created_at);
+    Ok(())
+}
+
+fn cmd_show_record(a: ShowRecordArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let rec = db
+        .get_record(&a.tenant, &a.collection, &a.table, &a.id)
+        .ok_or_else(|| {
+            format!(
+                "record not found: {}/{}/{}/{}",
+                a.tenant, a.collection, a.table, a.id
+            )
+        })?;
+
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&rec).map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+
+    println!(
+        "record {}/{}/{}/{} (version {})",
+        rec.tenant_id, rec.collection, rec.table, rec.id, rec.version
+    );
+    println!(
+        "  payload:    {}",
+        serde_json::to_string(&rec.payload).unwrap_or_default()
+    );
+    println!("  projection: {}", rec.projection);
+    if !rec.metadata.is_empty() {
+        let meta: Vec<String> = rec
+            .metadata
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
+        println!("  metadata:   {}", meta.join(", "));
+    }
+    if let Some(s) = &rec.source {
+        println!("  source:     {}", s.label);
+    }
+    println!("  created_at: {}", rec.created_at);
+    println!("  updated_at: {}", rec.updated_at);
+    Ok(())
+}
+
+fn cmd_show_file(a: ShowIdArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let file = db
+        .get_file(&a.tenant, &a.collection, &a.id)
+        .ok_or_else(|| format!("file not found: {}/{}/{}", a.tenant, a.collection, a.id))?;
+
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&file)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+
+    println!(
+        "file {}/{}/{} ({}, {} bytes, version {})",
+        file.tenant_id, file.collection, file.id, file.media_type, file.size_bytes, file.version
+    );
+    println!("  name:       {}", file.name);
+    println!("  path:       {}", file.path);
+    println!("  checksum:   {}", file.checksum);
+    println!("  document:   {}", file.document_id);
+    if !file.metadata.is_empty() {
+        let meta: Vec<String> = file
+            .metadata
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
+        println!("  metadata:   {}", meta.join(", "));
+    }
+    if let Some(s) = &file.source {
+        println!("  source:     {}", s.label);
+    }
+    println!("  created_at: {}", file.created_at);
+    println!("  updated_at: {}", file.updated_at);
     Ok(())
 }

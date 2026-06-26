@@ -372,6 +372,359 @@ fn cli_bad_metadata_returns_nonzero() {
 }
 
 #[test]
+fn cli_admin_list_and_show() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    // Seed a memory and a document.
+    let mem = bin()
+        .args([
+            "remember",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "kb",
+            "--type",
+            "semantic",
+            "--id",
+            "m1",
+            "--text",
+            "PostgreSQL listens on port 5432 by default",
+        ])
+        .output()
+        .unwrap();
+    assert!(mem.status.success(), "remember: {mem:?}");
+
+    let put = bin()
+        .args([
+            "put-document",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "kb",
+            "--id",
+            "doc1",
+            "--text",
+            "PostgreSQL connection guide",
+        ])
+        .output()
+        .unwrap();
+    assert!(put.status.success(), "put-document: {put:?}");
+
+    // list-tenants
+    let out = bin().args(["list-tenants", "--db", db]).output().unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("acme"), "list-tenants: {stdout}");
+
+    // list-tenants --json
+    let out = bin()
+        .args(["list-tenants", "--db", db, "--json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&out.stdout)).unwrap();
+    assert!(json.is_array());
+    assert_eq!(json.as_array().unwrap().len(), 1);
+
+    // list-collections
+    let out = bin()
+        .args(["list-collections", "--db", db, "--tenant", "acme"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("kb"),
+        "list-collections"
+    );
+
+    // list-documents
+    let out = bin()
+        .args(["list-documents", "--db", db, "--tenant", "acme"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("doc1"),
+        "list-documents"
+    );
+
+    // list-memories
+    let out = bin()
+        .args(["list-memories", "--db", db, "--tenant", "acme"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("m1"), "list-memories: {stdout}");
+
+    // show-document
+    let out = bin()
+        .args([
+            "show-document",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "kb",
+            "--id",
+            "doc1",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("PostgreSQL connection guide"),
+        "show-document: {stdout}"
+    );
+    assert!(stdout.contains("chunk"), "show-document chunks: {stdout}");
+
+    // show-document --json
+    let out = bin()
+        .args([
+            "show-document",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "kb",
+            "--id",
+            "doc1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&out.stdout)).unwrap();
+    assert!(json["document"]["id"] == "doc1");
+    assert!(json["chunks"].is_array());
+
+    // show-memory
+    let out = bin()
+        .args([
+            "show-memory",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "kb",
+            "--id",
+            "m1",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("PostgreSQL"),
+        "show-memory"
+    );
+
+    // show-document unknown id → nonzero exit
+    let out = bin()
+        .args([
+            "show-document",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "kb",
+            "--id",
+            "nonexistent",
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "should fail for unknown id");
+}
+
+#[test]
+fn cli_admin_list_records_and_show() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    let put = bin()
+        .args([
+            "put-record",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--table",
+            "systems",
+            "--id",
+            "db1",
+            "--json",
+            r#"{"engine":"postgresql","port":5432,"env":"prod"}"#,
+        ])
+        .output()
+        .unwrap();
+    assert!(put.status.success(), "put-record: {put:?}");
+
+    // list-records
+    let out = bin()
+        .args([
+            "list-records",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--table",
+            "systems",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("db1"),
+        "list-records"
+    );
+
+    // show-record
+    let out = bin()
+        .args([
+            "show-record",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--table",
+            "systems",
+            "--id",
+            "db1",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("postgresql"), "show-record: {stdout}");
+    assert!(
+        stdout.contains("projection"),
+        "show-record projection: {stdout}"
+    );
+
+    // show-record --json
+    let out = bin()
+        .args([
+            "show-record",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--table",
+            "systems",
+            "--id",
+            "db1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&out.stdout)).unwrap();
+    assert_eq!(json["id"], "db1");
+    assert_eq!(json["table"], "systems");
+    assert_eq!(json["payload"]["engine"], "postgresql");
+}
+
+#[test]
+fn cli_admin_list_files_and_show() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().join("db");
+    let db = db.to_str().unwrap();
+    let file_path = dir.path().join("guide.md");
+    std::fs::write(&file_path, "PostgreSQL guide for operators").unwrap();
+    let path = file_path.to_str().unwrap();
+
+    let import = bin()
+        .args([
+            "import-file",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--id",
+            "f1",
+            "--path",
+            path,
+        ])
+        .output()
+        .unwrap();
+    assert!(import.status.success(), "import-file: {import:?}");
+
+    // list-files
+    let out = bin()
+        .args(["list-files", "--db", db, "--tenant", "t"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    assert!(
+        String::from_utf8_lossy(&out.stdout).contains("f1"),
+        "list-files"
+    );
+
+    // show-file
+    let out = bin()
+        .args([
+            "show-file",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--id",
+            "f1",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("guide.md"), "show-file name: {stdout}");
+    assert!(stdout.contains("document"), "show-file doc: {stdout}");
+
+    // show-file --json
+    let out = bin()
+        .args([
+            "show-file",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--id",
+            "f1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&out.stdout)).unwrap();
+    assert_eq!(json["id"], "f1");
+    assert_eq!(json["name"], "guide.md");
+    assert!(json["document_id"].as_str().unwrap().starts_with("file:"));
+}
+
+#[test]
 fn cli_bad_memory_type_returns_nonzero() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();

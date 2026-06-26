@@ -4,7 +4,23 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**File ingestion v0.1**:
+**Admin CLI v0.1**:
+
+- Added `list-tenants`, `list-collections`, `list-documents`, `list-memories`,
+  `list-records`, and `list-files` commands for full database exploration.
+- Added `show-document` (with chunk listing), `show-memory`, `show-record`, and
+  `show-file` commands for detailed object inspection.
+- All list and show commands support `--json` for stable machine-readable output
+  ready for scripts and future Studio integration.
+- Updated `inspect` to support `--json`.
+- Added corresponding public library APIs: `list_documents`, `list_memories`,
+  `list_records`, `list_files`, `all_collections`, `get_document`,
+  `get_memory`, `get_record`, `get_file`, `get_document_chunks`.
+- Added `serde_json` as a dev-dependency to `hippocore-cli` (needed for CLI
+  integration tests parsing JSON output).
+- Added 3 new CLI smoke tests covering all admin commands and `--json` output.
+
+Previous increment: **File ingestion v0.1**:
 
 - `FileObject`s are now durable stored metadata objects for imported text-like
   local files.
@@ -110,7 +126,7 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 64 tests:
+**All green.** `cargo test --workspace` passes 67 tests:
 - 16 unit (embedder/chunker, cosine/index/BM25, query normalization, CRC32 + WAL
   line decode),
 - 39 library integration (store/recall, chunking, retrieval quality layer,
@@ -120,8 +136,8 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
   error paths, dimension-mismatch, torn-WAL recovery),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 7 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
-  `import-file`),
+- 10 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+  `import-file`, admin `list-*` and `show-*` commands with `--json`),
 - 1 doctest.
 
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
@@ -144,4 +160,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Admin CLI v0.1** — see NEXT_FEATURE.md.
+**RRF Hybrid Fusion** — see NEXT_FEATURE.md.

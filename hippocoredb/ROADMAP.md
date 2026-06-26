@@ -36,7 +36,7 @@ not a dated commitment.
 - Native context projection for documents, memories, records and files. ✅
 - CLI `put-record` / `delete-record`. ✅
 - CLI `import-file` / `delete-file`. ✅
-- CLI inspection/list/import/export workflows for broader database management.
+- CLI inspection/list/import/export workflows for broader database management. ✅
 
 ## Phase 4 — HNSW or pluggable ANN vector index
 
@@ -47,7 +47,7 @@ not a dated commitment.
 
 - Lexical BM25 scoring. ✅
 - Retrieval quality fixtures. ✅
-- Fusion of lexical and vector scores (e.g. reciprocal rank fusion).
+- Fusion of lexical and vector scores (e.g. reciprocal rank fusion). ← next
 - Benchmark regression guard.
 
 ## Phase 6 — Admin interface and local Studio

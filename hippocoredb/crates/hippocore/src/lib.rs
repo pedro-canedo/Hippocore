@@ -751,7 +751,7 @@ impl Hippocore {
         self.state.tenants.clone()
     }
 
-    /// List collections for a tenant.
+    /// List collections for a tenant (or all tenants when `tenant_id` is `None`).
     pub fn collections(&self, tenant_id: &str) -> Vec<Collection> {
         self.state
             .collections
@@ -759,6 +759,112 @@ impl Hippocore {
             .filter(|c| c.tenant_id == tenant_id)
             .cloned()
             .collect()
+    }
+
+    /// List all collections across all tenants (admin view).
+    pub fn all_collections(&self) -> Vec<Collection> {
+        self.state.collections.clone()
+    }
+
+    /// List documents within a tenant, optionally scoped to a collection.
+    pub fn list_documents(&self, tenant_id: &str, collection: Option<&str>) -> Vec<Document> {
+        self.state
+            .documents
+            .iter()
+            .filter(|d| d.tenant_id == tenant_id && collection.map_or(true, |c| d.collection == c))
+            .cloned()
+            .collect()
+    }
+
+    /// List memories within a tenant, optionally scoped to a collection.
+    pub fn list_memories(&self, tenant_id: &str, collection: Option<&str>) -> Vec<Memory> {
+        self.state
+            .memories
+            .iter()
+            .filter(|m| m.tenant_id == tenant_id && collection.map_or(true, |c| m.collection == c))
+            .cloned()
+            .collect()
+    }
+
+    /// List records within a tenant, optionally scoped to a collection and table.
+    pub fn list_records(
+        &self,
+        tenant_id: &str,
+        collection: Option<&str>,
+        table: Option<&str>,
+    ) -> Vec<Record> {
+        self.state
+            .records
+            .iter()
+            .filter(|r| {
+                r.tenant_id == tenant_id
+                    && collection.map_or(true, |c| r.collection == c)
+                    && table.map_or(true, |t| r.table == t)
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// List files within a tenant, optionally scoped to a collection.
+    pub fn list_files(&self, tenant_id: &str, collection: Option<&str>) -> Vec<FileObject> {
+        self.state
+            .files
+            .iter()
+            .filter(|f| f.tenant_id == tenant_id && collection.map_or(true, |c| f.collection == c))
+            .cloned()
+            .collect()
+    }
+
+    /// Get a single document by identity (`None` when not found).
+    pub fn get_document(&self, tenant_id: &str, collection: &str, id: &str) -> Option<Document> {
+        self.find_document(tenant_id, collection, id).cloned()
+    }
+
+    /// Get a single memory by identity (`None` when not found).
+    pub fn get_memory(&self, tenant_id: &str, collection: &str, id: &str) -> Option<Memory> {
+        self.state
+            .memories
+            .iter()
+            .find(|m| m.tenant_id == tenant_id && m.collection == collection && m.id == id)
+            .cloned()
+    }
+
+    /// Get a single record by table and identity (`None` when not found).
+    pub fn get_record(
+        &self,
+        tenant_id: &str,
+        collection: &str,
+        table: &str,
+        id: &str,
+    ) -> Option<Record> {
+        self.find_record(tenant_id, collection, table, id).cloned()
+    }
+
+    /// Get a single file by identity (`None` when not found).
+    pub fn get_file(&self, tenant_id: &str, collection: &str, id: &str) -> Option<FileObject> {
+        self.find_file(tenant_id, collection, id).cloned()
+    }
+
+    /// Get the chunks that belong to a document, in ordinal order.
+    pub fn get_document_chunks(
+        &self,
+        tenant_id: &str,
+        collection: &str,
+        document_id: &str,
+    ) -> Vec<Chunk> {
+        let mut chunks: Vec<Chunk> = self
+            .state
+            .chunks
+            .iter()
+            .filter(|c| {
+                c.tenant_id == tenant_id
+                    && c.collection == collection
+                    && c.document_id == document_id
+            })
+            .cloned()
+            .collect();
+        chunks.sort_by_key(|c| c.ordinal);
+        chunks
     }
 
     /// Fold the WAL into a fresh snapshot and truncate the log.

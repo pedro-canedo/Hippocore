@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Admin CLI v0.1
+
+- Added `list-tenants`, `list-collections`, `list-documents`, `list-memories`,
+  `list-records`, and `list-files` commands for full exploration of stored
+  objects without launching a server.
+- Added `show-document` (includes per-chunk listing), `show-memory`,
+  `show-record` (with payload and context projection), and `show-file` commands
+  for detailed per-object inspection.
+- All new list and show commands accept `--json` for stable, script-friendly
+  machine-readable output.
+- Updated `inspect` to accept `--json`.
+- Added public library APIs: `list_documents`, `list_memories`, `list_records`,
+  `list_files`, `all_collections`, `get_document`, `get_memory`, `get_record`,
+  `get_file`, `get_document_chunks`.
+- Added `serde_json` as a dev-dependency to `hippocore-cli`.
+
 ### Added — File ingestion v0.1
 
 - Added first-class `FileObject` metadata for imported text-like local files,
