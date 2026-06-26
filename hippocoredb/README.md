@@ -8,6 +8,10 @@ copilots, RAG applications and multi-tenant AI systems. It runs embedded in your
 process, persists to a local directory, and recalls context through **vector**,
 **text**, and **hybrid** search — with **tenant isolation** built in.
 
+The product direction is broader than storing embeddings: documents, memories,
+structured records, files and metadata should become manageable database objects
+that can be projected into native context for SDKs, agents and RAG systems.
+
 ---
 
 ## What it is
@@ -20,11 +24,13 @@ process, persists to a local directory, and recalls context through **vector**,
   on open and a torn trailing WAL line is skipped, not fatal.
 - **Offline & deterministic**: a built-in hashing embedder means no network and
   reproducible tests. You can also supply your own embeddings.
+- A foundation for a broader context database where records, files and future
+  data types can be managed and projected into searchable context.
 
 ## What it is *not* (yet)
 
 No clustering, consensus, production auth, cloud embedders, GPU/ANN/HNSW, web
-dashboard, replication, SQL/query language, or external database. See
+dashboard, replication, SQL/query language, or external database yet. See
 [docs/MVP_SCOPE.md](docs/MVP_SCOPE.md) and [ROADMAP.md](ROADMAP.md).
 
 ## Why a memory database (not just a vector store)
@@ -176,6 +182,8 @@ the `Hippocore` engine in `lib.rs`.
 
 - Current status: [docs/STATUS.md](docs/STATUS.md)
 - Next feature: [docs/NEXT_FEATURE.md](docs/NEXT_FEATURE.md)
+- Data model direction: [docs/DATA_MODEL.md](docs/DATA_MODEL.md)
+- Admin interface direction: [docs/ADMIN_INTERFACE.md](docs/ADMIN_INTERFACE.md)
 - Decisions: [docs/DECISIONS.md](docs/DECISIONS.md)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Roadmap: [ROADMAP.md](ROADMAP.md)

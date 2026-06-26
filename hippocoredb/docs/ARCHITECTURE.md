@@ -3,6 +3,13 @@
 Hippocore is an embedded, single-process memory database. It is organized into
 small modules with clear boundaries.
 
+The long-term architecture is a database plus a context projection layer:
+documents, memories, future records and files are stored as database objects,
+then projected into indexed context items that SDKs, agents and RAG systems can
+retrieve. See [DATA_MODEL.md](DATA_MODEL.md) for the product data model
+direction and [ADMIN_INTERFACE.md](ADMIN_INTERFACE.md) for human administration
+direction.
+
 ## Module map (crate `hippocore`)
 
 | Module        | Responsibility                                                       |
@@ -68,6 +75,10 @@ Both document chunks and memories are projected into a single `IndexEntry`
 (`kind` distinguishes them). This keeps retrieval uniform — one vector scan and
 one inverted index serve both — while the persisted `Document`/`Chunk`/`Memory`
 models stay distinct and strongly typed.
+
+This is the current internal version of the broader **context projection** idea:
+stored objects are not all the same thing, but each searchable object must be
+projectable into a common context/search representation.
 
 ## Documents, chunks, memories, indexed entries, WAL entries
 

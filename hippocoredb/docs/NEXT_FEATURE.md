@@ -2,48 +2,69 @@
 
 ## Feature name
 
-**Benchmark regression guard v0.1** — lightweight performance budgets for the
-current exact retrieval path.
+**Context data model v0.1** — define and implement the first structured data
+surface that can become native context.
 
 ## Why it matters
 
-Criterion is useful during development, but today regressions are discovered by
-manually reading `cargo bench` output and comparing against a local baseline.
-Retrieval quality changes can accidentally add work to hot paths, especially
-pure vector search. A small guard gives the project a repeatable signal before
-future ranking changes land.
+Hippocore DB must be a database, not only a memory/vector retrieval library.
+Users should be able to insert and manage different information shapes, and the
+database should project those shapes into context for SDKs and agents.
+
+Documents and memories already do this. The next step is to introduce a minimal
+structured-data path without becoming SQL-first or pulling in server mode.
 
 ## Expected behavior
 
-- Add a deterministic performance smoke test or bench helper that measures:
-  - `remember` for a fixed number of memories,
-  - `recall_hybrid` over a fixed in-memory corpus,
-  - `search_vector` over the same corpus.
-- Keep it separate from Criterion's historical baseline files. The guard should
-  compare against explicit, documented budgets for this MVP and print measured
-  timings when it fails.
-- Ensure pure `SearchMode::Vector` does not run lexical normalization, BM25, or
-  entity detection work.
-- Keep default CI/runtime practical; if the guard is too noisy for regular
-  `cargo test`, make it an explicit ignored test with a documented command.
+- Add a small first-class structured record model:
+  - tenant,
+  - collection,
+  - table/name namespace,
+  - id,
+  - JSON object payload,
+  - metadata,
+  - source,
+  - created/updated/version fields.
+- Store records durably through WAL/snapshot/recovery.
+- Project each record into searchable context text deterministically.
+- Index record-derived context alongside memories and document chunks.
+- Allow recall/search to return the record-derived context with kind/source
+  information.
+- Add CLI commands for basic management if scope remains small:
+  - `put-record`,
+  - `delete-record`,
+  - `list-records` or `inspect --json` coverage.
 
 ## Affected modules / files
 
-- `benches/basic_bench.rs` — keep Criterion for developer trend analysis.
-- `crates/hippocore/tests/` — optional budget smoke test if stable enough.
-- `docs/STATUS.md`, `CHANGELOG.md` — update with measured budget and command.
+- `model.rs` — `Record` and item kind/type representation.
+- `storage.rs` — record operations and state persistence.
+- `index.rs` — project records into `IndexEntry`.
+- `lib.rs` — public request/response APIs.
+- `cli.rs` — minimal record commands or inspection path.
+- `docs/DATA_MODEL.md`, `README.md`, `STATUS.md`, `CHANGELOG.md`.
+- Tests for store/search/restart/delete/filter behavior.
 
 ## Acceptance criteria
 
-- Running the documented command reports timings for `remember`,
-  `recall_hybrid`, and `search_vector`.
-- The guard catches a clear vector-search regression caused by accidental text
-  or entity work in the vector-only path.
-- The current RAG Quality Layer remains within the documented budgets.
-- `cargo fmt`, `cargo test --workspace`, and clippy remain green.
+- A JSON record can be inserted and survives reopen.
+- Record fields are projected into searchable context.
+- Recall can retrieve a record-derived context item.
+- Metadata filters still apply.
+- Tenant isolation holds for records.
+- Deletes are durable and remove indexed record context.
+- `cargo fmt --all --check`, `cargo test --workspace`, and clippy pass.
 
-## Risks / open questions
+## Non-goals
 
-- Wall-clock timing is noisy across machines. Prefer broad budgets and clear
-  diagnostics over fragile microsecond thresholds.
-- Avoid conflating Criterion local baseline drift with true code regression.
+- SQL engine.
+- Joins.
+- JDBC/ODBC/PostgreSQL wire protocol.
+- Server mode.
+- Complex schema management.
+- Full admin UI.
+
+## Follow-up
+
+After this, improve CLI administration and evaluate a local Hippocore Studio
+prototype once there are enough data types to manage visually.

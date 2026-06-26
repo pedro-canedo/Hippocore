@@ -34,6 +34,17 @@ All notable changes to Hippocore DB are documented here. This project adheres to
   Entity detection no longer allocates a set for query tags, keeping the RAG
   quality layer out of the vector-only hot path.
 
+### Documentation — product direction
+
+- Added `docs/DATA_MODEL.md` to define Hippocore as a database plus native
+  context projection layer for documents, memories, future records, files and
+  context items.
+- Added `docs/ADMIN_INTERFACE.md` to define the CLI/admin UI direction,
+  including the future Hippocore Studio concept for human management of context
+  data.
+- Updated the roadmap and next-feature plan toward `Context data model v0.1`
+  before server mode, SQL compatibility or a full UI.
+
 ### Added — user-provided document embeddings
 
 - `StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>` (+ public `ChunkInput`):

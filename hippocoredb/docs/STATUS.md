@@ -53,6 +53,9 @@ Ollama embeddings + generation, idempotent ingestion).
   embeddings, and corruption.
 - Retrieval quality evaluation through
   `crates/hippocore/tests/fixtures/retrieval_quality_v01.json`.
+- Product direction docs now define Hippocore as a database plus native context
+  projection layer, with future record/file data types and human administration
+  surfaces.
 
 ## What is partial
 
@@ -60,6 +63,8 @@ Ollama embeddings + generation, idempotent ingestion).
 - The in-memory index is rebuilt fully on open (incremental during runtime).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
+- Structured records, file objects, and a user-facing admin interface are
+  product-direction documents only; they are not implemented yet.
 
 ## What is broken or missing
 
@@ -116,4 +121,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Benchmark regression guard v0.1** — see docs/NEXT_FEATURE.md.
+**Context data model v0.1** — see docs/NEXT_FEATURE.md.
