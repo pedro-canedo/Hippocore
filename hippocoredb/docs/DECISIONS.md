@@ -49,7 +49,7 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
 
 ## ADR-004: Hybrid fusion via min-max normalization
 
-- **Decision**: Score candidates with cosine (vector) and TF-IDF (text), min-max
+- **Decision**: Score candidates with cosine (vector) and BM25 (text), min-max
   normalize each signal across the candidate set into `[0,1]`, then fuse with
   `score = alpha*vector + (1-alpha)*text` (default `alpha = 0.5`).
 - **Context**: Vector and text scores live on different scales and cannot be

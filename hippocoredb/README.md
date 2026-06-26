@@ -14,7 +14,7 @@ process, persists to a local directory, and recalls context through **vector**,
 
 - An **embedded** Rust library (`hippocore`) plus a **CLI** (`hippocore`).
 - A durable store for **documents** (auto-chunked) and **memories**.
-- **Vector** (cosine), **text** (TF-IDF inverted index), and **hybrid** recall.
+- **Vector** (cosine), **text** (BM25 inverted index), and **hybrid** recall.
 - **Multi-tenant**: every recall is scoped to a tenant; data never leaks across.
 - **Crash-safe**: a write-ahead log + atomic snapshot; recovery rebuilds state
   on open and a torn trailing WAL line is skipped, not fatal.
@@ -46,10 +46,21 @@ Vector similarity alone is not reliable context:
 | `Document`   | A stored text, auto-split into `Chunk`s for retrieval.           |
 | `Chunk`      | A searchable slice of a document, with its own embedding.        |
 | `Memory`     | A long-term memory item (episodic/semantic/procedural/note).     |
+| `Indexed Entry` | In-memory searchable projection of one `Chunk` or one `Memory`. |
+| `WAL Entry`  | Durable append-only operation record replayed on database open.  |
 | `Embedding`  | `Vec<f32>`; produced by the built-in embedder or supplied by you.|
 | `Metadata`   | Exact-match `String→String` filter keys.                         |
 | `Source`     | Provenance/citation (label, optional URI/title).                 |
 | `RecallResult` | A hit with `score`, `vector_score`, `text_score`, and `reason`.|
+
+Documents and memories are intentionally distinct. A `Document` is source text
+managed as a whole and split into persisted `Chunk`s; each chunk becomes one
+indexed entry. A `Memory` is already an atomic remembered fact/procedure/note and
+also becomes one indexed entry directly. The WAL stores write/delete operations,
+not retrieval hits.
+
+Because memories do not create `Document` records, a memory-only RAG example can
+correctly report `documents=0` while `memories>0` and `indexed_entries>0`.
 
 ## Quickstart (CLI)
 

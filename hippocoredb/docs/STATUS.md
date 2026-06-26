@@ -1,20 +1,27 @@
 # Hippocore DB — Status
 
-_Last updated: 2026-06-25._
+_Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**User-provided embeddings for documents** (the previously planned next
-feature):
+**RAG Quality Layer v0.1**:
 
-- `StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>` — when set, the document
-  is stored with exactly those caller-supplied, pre-embedded chunks (text +
-  embedding) instead of the built-in auto chunk/embed path.
-- Each `ChunkInput` is validated (non-empty text and embedding); the chunk id
-  scheme (`<doc>#<ordinal>`) and persistence are unchanged.
-- When `chunks` is `None`, behavior is exactly as before (auto chunk + embed).
-- This makes documents first-class for production RAG with real embedding models
-  (memories and queries already accepted external embeddings).
+- Query normalization maps common PostgreSQL typos/aliases (`postgress`,
+  `postgres`) to `postgresql` and connection variants (`conexão`, `conexao`,
+  `connection`) to a shared lexical signal.
+- The query layer detects simple technology/entity tags (`oracle`,
+  `postgresql`, `python`, `listener`, `vacuum`, `connection`) on queries and
+  indexed entries.
+- Hybrid/text/vector final scores receive small explainable boosts/penalties
+  when a query clearly targets Oracle or PostgreSQL, preventing Oracle listener
+  memories from outranking Python/PostgreSQL connection memories unless Oracle
+  is explicitly mentioned.
+- The TypeScript Ollama RAG example now seeds PostgreSQL service, port, `pg_ctl`,
+  Python `psycopg`/`psycopg2`, and "not Oracle listener/lsnrctl" memories; it
+  also prints retrieval debug details and uses a stricter grounded answer prompt.
+
+Previous increment: user-provided document embeddings via
+`StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>`.
 
 Earlier increments (still current): multi-tenant model; JSON-lines WAL with
 per-line CRC32 + atomic snapshot; automatic + manual compaction; delete/forget
@@ -27,8 +34,9 @@ Ollama embeddings + generation, idempotent ingestion).
 ## What is working
 
 - Store/recall for both documents (chunked) and memories.
-- Vector, text, and hybrid modes; every result carries `score`, `vector_score`,
-  `text_score`, and a `reason`.
+- Vector, BM25 text, and hybrid modes; every result carries `score`,
+  `vector_score`, `text_score`, and a `reason` that includes entity tags and
+  boost/penalty explanations when applied.
 - Tenant isolation (verified by test).
 - Durable restart: snapshot + WAL replay; torn trailing line AND checksum
   mismatch both recover safely (no panic, no silently-loaded corruption).
@@ -42,31 +50,37 @@ Ollama embeddings + generation, idempotent ingestion).
 
 - Retrieval is exact brute force (O(n) per tenant). Correct, not yet scalable.
 - The in-memory index is rebuilt fully on open (incremental during runtime).
-- Text scoring is TF-IDF, not full BM25 (no length normalization / saturation).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
 
 ## What is broken or missing
 
 - No ANN/HNSW, no server, no auth — by design (see docs/MVP_SCOPE.md).
-- Text relevance uses TF-IDF; proper **BM25** is the next planned feature
-  (see docs/NEXT_FEATURE.md).
+- Retrieval quality is still heuristic. It is not a learned ranker and it does
+  not yet have a reusable evaluation harness beyond deterministic tests and the
+  manual RAG example checks.
 
 ## Commands run
 
 ```
 cargo fmt --all
+cargo fmt --all --check
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p hippocore --example basic_usage
-cargo bench -p hippocore --no-run
+cargo bench -p hippocore
+cd examples/ts-ollama-rag && npm run typecheck
+cd examples/ts-ollama-rag && npm start -- "Como inicio o listener do Oracle e postgress?"
+cd examples/ts-ollama-rag && npm start -- "Como postgress funciona?"
+cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no postgress?"
 ```
 
 ## Current test status
 
-**All green.** 45 tests pass:
-- 12 unit (embedder/chunker, cosine/index, CRC32 + WAL line decode),
-- 27 library integration (store/recall, chunking, user-supplied document
+**All green.** `cargo test --workspace` passes 53 tests:
+- 16 unit (embedder/chunker, cosine/index/BM25, query normalization, CRC32 + WAL
+  line decode),
+- 31 library integration (store/recall, chunking, retrieval quality layer,
+  user-supplied document
   embeddings + validation, modes, sorting, metadata & type/user filters, tenant
   isolation, restart, compaction, auto-compaction bounding the WAL,
   checksum-mismatch recovery, delete/forget + restart + compaction, user
@@ -77,6 +91,11 @@ cargo bench -p hippocore --no-run
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
 is clean.
 
+`cargo bench -p hippocore` completed. In the final run, `remember` showed no
+statistically significant change, while `recall_hybrid` and `search_vector`
+improved against the local Criterion baseline after avoiding tag work in pure
+vector search and reusing indexed tokens for entity detection.
+
 ## Current architectural decisions
 
 See docs/DECISIONS.md. Highlights: JSON-lines WAL with per-line CRC32 + atomic
@@ -86,5 +105,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**BM25 text scoring** (replace TF-IDF with length-normalized BM25 for better
-text and hybrid relevance) — see docs/NEXT_FEATURE.md.
+**Retrieval evaluation harness v0.1** — see docs/NEXT_FEATURE.md.

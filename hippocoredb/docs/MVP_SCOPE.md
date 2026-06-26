@@ -14,7 +14,7 @@
   - typed errors for invalid/corrupted data; safe recovery of torn trailing WAL.
 - Retrieval:
   - exact vector search (cosine similarity),
-  - text search via an inverted index (TF-IDF),
+  - text search via an inverted index (BM25),
   - hybrid recall fusing vector + text,
   - filters: tenant, collection, user_id, memory type, item kind, metadata,
   - deterministic built-in embedder; user-provided embeddings accepted.

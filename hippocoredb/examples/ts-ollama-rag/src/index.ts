@@ -48,8 +48,28 @@ const KNOWLEDGE: { id: string; text: string; meta?: Record<string, string> }[] =
   },
   {
     id: "pg-vacuum",
-    text: "No PostgreSQL, autovacuum remove tuplas mortas e evita inchaco de tabelas. Ajuste autovacuum_vacuum_scale_factor para tabelas grandes e muito atualizadas.",
-    meta: { produto: "postgres", tipo: "tuning" },
+    text: "No PostgreSQL, autovacuum remove tuplas mortas e evita inchaco de tabelas. VACUUM tambem pode ser executado manualmente quando necessario. Ajuste autovacuum_vacuum_scale_factor para tabelas grandes e muito atualizadas.",
+    meta: { produto: "postgresql", tipo: "tuning" },
+  },
+  {
+    id: "pg-systemd-start",
+    text: "Para iniciar PostgreSQL com systemd use 'sudo systemctl start postgresql'. Para verificar o status use 'sudo systemctl status postgresql'. Para habilitar na inicializacao use 'sudo systemctl enable postgresql'.",
+    meta: { produto: "postgresql", tipo: "operacao" },
+  },
+  {
+    id: "pg-ctl-start",
+    text: "PostgreSQL tambem pode ser iniciado com pg_ctl usando 'pg_ctl -D /path/to/data start', apontando -D para o diretorio de dados correto.",
+    meta: { produto: "postgresql", tipo: "operacao" },
+  },
+  {
+    id: "pg-network-python",
+    text: "PostgreSQL usa por padrao a porta TCP 5432. Em Python, a conexao com PostgreSQL normalmente usa psycopg ou psycopg2 com host, porta, database, user e password.",
+    meta: { produto: "postgresql", linguagem: "python", tipo: "conexao" },
+  },
+  {
+    id: "pg-no-oracle-listener",
+    text: "PostgreSQL nao usa listener estilo Oracle nem comandos lsnrctl. Para operacao do servico PostgreSQL, use systemctl, pg_ctl e a porta TCP 5432.",
+    meta: { produto: "postgresql", tipo: "comparacao" },
   },
 ];
 
@@ -57,6 +77,45 @@ const KNOWLEDGE: { id: string; text: string; meta?: Record<string, string> }[] =
  *  only re-embed passages that are new or whose text changed. */
 const MARKER = resolve(DB_DIR, ".ingested.json");
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
+
+function normalizeQuery(text: string): string {
+  return text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map((token) => {
+      if (token === "postgres" || token === "postgress") return "postgresql";
+      if (
+        token === "conexao" ||
+        token === "conexão" ||
+        token === "connection" ||
+        token === "connections"
+      ) {
+        return "connection";
+      }
+      return token;
+    })
+    .join(" ");
+}
+
+function detectTags(text: string, metadata: Record<string, string> = {}): string[] {
+  const normalized = normalizeQuery(`${text} ${Object.entries(metadata).flat().join(" ")}`);
+  const tokens = new Set(normalized.split(/\s+/).filter(Boolean));
+  const tags: string[] = [];
+  if (tokens.has("oracle") || tokens.has("lsnrctl")) tags.push("oracle");
+  if (tokens.has("postgresql") || tokens.has("psycopg") || tokens.has("psycopg2")) {
+    tags.push("postgresql");
+  }
+  if (tokens.has("python") || tokens.has("psycopg") || tokens.has("psycopg2")) {
+    tags.push("python");
+  }
+  if (tokens.has("listener") || tokens.has("lsnrctl")) tags.push("listener");
+  if (tokens.has("vacuum") || tokens.has("autovacuum")) tags.push("vacuum");
+  if (tokens.has("connection") || tokens.has("psycopg") || tokens.has("psycopg2")) {
+    tags.push("connection");
+  }
+  return tags;
+}
 
 function loadMarker(): Record<string, string> {
   if (!existsSync(MARKER)) return {};
@@ -100,22 +159,31 @@ async function ingest(db: Hippocore): Promise<void> {
 
 async function ask(db: Hippocore, question: string): Promise<void> {
   console.log(`\nQuestion: ${question}\n`);
+  const normalizedQuestion = normalizeQuery(question);
+  if (normalizedQuestion !== question.toLowerCase()) {
+    console.log(`Normalized query: ${normalizedQuestion}\n`);
+  }
 
   // 1. Embed the query with the SAME model used for ingestion.
-  const queryEmbedding = await embed(question);
+  const queryEmbedding = await embed(normalizedQuestion);
 
   // 2. Recall the most relevant passages (hybrid: vector + keyword).
   const hits = db.recall({
     tenant: TENANT,
-    query: question,
+    query: normalizedQuestion,
     embedding: queryEmbedding,
     mode: "hybrid",
-    topK: 3,
+    topK: 5,
   });
 
   console.log("Retrieved context:");
   for (const h of hits) {
-    console.log(`  - [${h.id}] score=${h.score.toFixed(3)} (${h.reason})`);
+    const tags = detectTags(h.text, h.metadata);
+    console.log(
+      `  - id=${h.id} final=${h.score.toFixed(3)} vector=${h.vector_score.toFixed(3)} ` +
+        `text=${h.text_score.toFixed(3)} tags=${tags.join(",") || "-"} ` +
+        `metadata=${JSON.stringify(h.metadata)} reason="${h.reason}"`,
+    );
   }
   if (hits.length === 0) {
     console.log("  (nothing relevant found)");
@@ -124,18 +192,27 @@ async function ask(db: Hippocore, question: string): Promise<void> {
 
   // 3. Build a grounded prompt and let Ollama generate the answer.
   const context = hits
-    .map((h, i) => `[${i + 1}] (id=${h.id}) ${h.text}`)
+    .map((h, i) => `[${i + 1}] id=${h.id} metadata=${JSON.stringify(h.metadata)} texto=${h.text}`)
     .join("\n");
 
   const answer = await chat([
     {
       role: "system",
       content:
-        "Voce e um assistente de suporte. Responda em portugues usando APENAS o " +
-        "contexto fornecido. Cite as fontes pelo id entre colchetes, ex: [ora-12514]. " +
-        "Se o contexto nao contiver a resposta, diga que nao sabe.",
+        "Voce e um assistente de suporte com regras estritas de grounding. Responda em portugues. " +
+        "Primeiro use somente fatos literalmente presentes no contexto recuperado e cite as memorias " +
+        "pelo indice, como [1] ou [2]. Nao inclua exemplos de codigo, comandos, definicoes, causas, " +
+        "parametros ou passos que nao aparecam no contexto. Se precisar acrescentar qualquer fato de " +
+        "conhecimento geral, coloque-o em uma secao separada chamada 'Fora do contexto recuperado' e " +
+        "deixe claro que esse fato nao veio das memorias. Se o contexto for insuficiente, diga " +
+        "exatamente o que esta faltando. Nao afirme que o contexto contem fatos que nao aparecem nele.",
     },
-    { role: "user", content: `Contexto:\n${context}\n\nPergunta: ${question}` },
+    {
+      role: "user",
+      content:
+        `Contexto recuperado:\n${context}\n\n` +
+        `Pergunta original: ${question}\nPergunta normalizada: ${normalizedQuestion}`,
+    },
   ]);
 
   console.log(`\nAnswer (via ${CHAT_MODEL}):\n${answer}\n`);

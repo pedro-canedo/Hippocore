@@ -2,61 +2,48 @@
 
 ## Feature name
 
-**BM25 text scoring** — replace the current TF-IDF text score with Okapi BM25
-(term-frequency saturation + document-length normalization).
+**Retrieval evaluation harness v0.1** — deterministic quality checks for common
+RAG query scenarios.
 
 ## Why it matters
 
-Text relevance is half of hybrid recall. The current score is `tf * idf` summed
-over query terms, with no length normalization — so longer chunks accumulate
-higher scores just by being long, and repeated terms grow unbounded. BM25 fixes
-both with term-frequency saturation (`k1`) and length normalization (`b`),
-which materially improves ranking quality (and therefore hybrid quality, since
-the text component feeds the fusion).
+The RAG Quality Layer v0.1 improves obvious Oracle/PostgreSQL confusion with
+normalization, entity tags, and small explainable score adjustments. The next
+highest-value step is to keep those improvements from regressing as BM25,
+hybrid fusion, seed data, and future ranking heuristics evolve.
 
 ## Expected behavior
 
-- `index::text_score` computes BM25 instead of TF-IDF:
-  - `idf(t) = ln(1 + (N - df + 0.5) / (df + 0.5))`,
-  - per term: `idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * |d| / avgdl))`,
-  - where `f` = term frequency in the entry, `|d|` = entry token count, `avgdl`
-    = average entry token count across the index.
-- The index tracks each entry's token count and the running average document
-  length (updated on insert/remove).
-- Defaults `k1 = 1.2`, `b = 0.75` (optionally configurable on `Config` later).
-- Hybrid fusion is unchanged (scores still min-max normalized before blending),
-  so only the raw text signal improves.
+- A small fixture file defines query scenarios, expected top technologies, and
+  disallowed first results.
+- A test or example runner ingests the fixture into an isolated temporary
+  database and reports top-k ids, scores, tags, and reasons.
+- The harness covers at least:
+  - Oracle listener questions.
+  - PostgreSQL service/start/status questions.
+  - Python + PostgreSQL connection questions.
+  - Mixed Oracle + PostgreSQL questions where both should be allowed.
+- The output is human-readable enough to compare before/after behavior, but the
+  assertions stay deterministic and do not require Ollama or network access.
 
 ## Affected modules / files
 
-- `index.rs` — store `token_count` per `IndexEntry`; maintain `total_tokens` and
-  entry count for `avgdl`; rewrite `text_score`; keep `idf` (or fold into BM25).
-- `query.rs` — no change to fusion; still calls `text_score`.
-- `config.rs` — optional `bm25_k1` / `bm25_b` (can default-only for now).
+- `crates/hippocore/tests/` — deterministic regression tests or shared fixtures.
+- `examples/ts-ollama-rag/` — optional fixture reuse for the demo seed memories.
 - `docs/STATUS.md`, `CHANGELOG.md` — update on completion.
 
 ## Acceptance criteria
 
-- For two chunks containing a query term, the shorter/more-focused chunk is not
-  unfairly out-ranked purely due to length; a targeted test asserts the BM25
-  ordering differs from naive TF in the expected case.
-- A term repeated many times saturates (does not grow linearly).
-- All existing recall/sorting/hybrid tests still pass (ordering may shift, but
-  relevance assertions in tests should hold; adjust any that depended on raw TF).
-- `cargo fmt`, `cargo test`, `cargo clippy -D warnings` all pass.
-
-## Tests to add
-
-- `bm25_length_normalization`: a short exact-match chunk ranks above a very long
-  chunk that mentions the term once among many tokens.
-- `bm25_saturates_repeated_terms`: doubling a term's count less-than-doubles its
-  contribution.
-- Keep an existing TF-style ordering test or update it for BM25 semantics.
+- `cargo test --workspace` includes the retrieval quality fixture checks.
+- The fixture catches an Oracle memory ranking first for a Python/PostgreSQL
+  connection query unless Oracle is explicitly mentioned.
+- Test output or failure messages include enough score/reason detail to debug a
+  ranking regression.
+- No networked model is required for the harness.
 
 ## Risks / open questions
 
-- `avgdl` must stay correct across inserts, overwrites, and deletes — update the
-  running totals in `Index::insert` / `Index::remove` and test after deletes.
-- Recomputing `avgdl` per query is O(1) if totals are maintained; avoid scanning.
-- BM25 with `b` and length norm interacts with min-max fusion; verify hybrid
-  tests still rank the intuitively-correct result first.
+- Keep the harness small enough that it tests ranking behavior without freezing
+  every exact score.
+- Avoid duplicating the TypeScript demo seed data in ways that drift silently;
+  either share concepts clearly or keep the Rust fixture intentionally minimal.

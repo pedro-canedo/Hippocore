@@ -28,6 +28,14 @@ fn remember(db: &mut Hippocore, collection: &str, text: &str) {
     .unwrap();
 }
 
+fn remember_id(db: &mut Hippocore, id: &str, text: &str) {
+    db.remember(RememberRequest {
+        id: Some(id.into()),
+        ..RememberRequest::new("acme", "support", MemoryType::Semantic, text)
+    })
+    .unwrap();
+}
+
 #[test]
 fn store_and_recall_memory() {
     let dir = TempDir::new().unwrap();
@@ -132,6 +140,107 @@ fn results_sorted_by_score_descending() {
     for w in hits.windows(2) {
         assert!(w[0].score >= w[1].score);
     }
+}
+
+#[test]
+fn postgres_query_prefers_postgres_memories() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(
+        &mut db,
+        "oracle-listener",
+        "Oracle ORA-12541 listener error uses lsnrctl start and tnsnames.ora.",
+    );
+    remember_id(
+        &mut db,
+        "postgres-start",
+        "PostgreSQL starts with sudo systemctl start postgresql and listens on TCP port 5432.",
+    );
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "Como postgress funciona?"))
+        .unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].id, "postgres-start");
+    assert!(hits[0].reason.contains("boost: query targets postgresql"));
+}
+
+#[test]
+fn oracle_query_prefers_oracle_memories() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(
+        &mut db,
+        "postgres-start",
+        "PostgreSQL starts with sudo systemctl start postgresql and uses TCP port 5432.",
+    );
+    remember_id(
+        &mut db,
+        "oracle-listener",
+        "Oracle listener errors are checked with lsnrctl status and started with lsnrctl start.",
+    );
+
+    let hits = db
+        .recall(RecallRequest::new(
+            "acme",
+            "Como inicio o listener do Oracle?",
+        ))
+        .unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].id, "oracle-listener");
+    assert!(hits[0].reason.contains("boost: query targets oracle"));
+}
+
+#[test]
+fn mixed_oracle_postgres_query_allows_both() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(
+        &mut db,
+        "postgres-start",
+        "PostgreSQL starts with sudo systemctl start postgresql and uses TCP port 5432.",
+    );
+    remember_id(
+        &mut db,
+        "oracle-listener",
+        "Oracle listener starts with lsnrctl start and status is checked with lsnrctl status.",
+    );
+
+    let mut req = RecallRequest::new("acme", "listener Oracle e postgress");
+    req.top_k = 2;
+    let hits = db.recall(req).unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(ids.contains(&"postgres-start"), "{ids:?}");
+    assert!(ids.contains(&"oracle-listener"), "{ids:?}");
+}
+
+#[test]
+fn python_postgres_connection_does_not_rank_oracle_first() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(
+        &mut db,
+        "oracle-listener",
+        "Oracle ORA-12514 and ORA-12541 are listener errors resolved with lsnrctl status.",
+    );
+    remember_id(
+        &mut db,
+        "postgres-python",
+        "Python connects to PostgreSQL using psycopg or psycopg2 on TCP port 5432.",
+    );
+
+    let hits = db
+        .recall(RecallRequest::new(
+            "acme",
+            "como faço uma conexão python no postgress?",
+        ))
+        .unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].id, "postgres-python");
+    assert_ne!(hits[0].id, "oracle-listener");
+    assert!(hits
+        .iter()
+        .any(|h| h.reason.contains("python+postgresql connection")));
 }
 
 #[test]
@@ -336,7 +445,7 @@ fn recall_without_query_or_embedding_errors() {
 }
 
 #[test]
-fn dimension_mismatch_does_not_panic() {
+fn vector_dimension_mismatch_does_not_panic() {
     let dir = TempDir::new().unwrap();
     let mut db = seeded(&dir);
     let mut req = RememberRequest::new("acme", "support", MemoryType::Note, "text");

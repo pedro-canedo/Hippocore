@@ -5,6 +5,26 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — RAG Quality Layer v0.1
+
+- Query normalization for PostgreSQL aliases/typos (`postgres`, `postgress`) and
+  connection variants (`conexão`, `conexao`, `connection`) before lexical
+  scoring and built-in query embedding.
+- Simple technology/entity detection for Oracle, PostgreSQL, Python, listener,
+  vacuum, and connection signals.
+- Explainable retrieval boosts/penalties so clearly PostgreSQL queries rank
+  PostgreSQL memories over Oracle memories, clearly Oracle queries rank Oracle
+  memories over PostgreSQL memories, and mixed Oracle/PostgreSQL queries can
+  still retrieve both.
+- Regression tests for PostgreSQL, Oracle, mixed Oracle/PostgreSQL, typo
+  normalization, Python/PostgreSQL connection ranking, and vector dimension
+  mismatch safety.
+- The TypeScript Ollama RAG example now includes stronger PostgreSQL seed
+  memories, richer retrieval debug output, and a stricter grounding prompt.
+- Docs now distinguish documents, chunks, memories, indexed entries, and WAL
+  entries, including why memory-only examples can show `documents=0` with
+  `memories>0`.
+
 ### Added — user-provided document embeddings
 
 - `StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>` (+ public `ChunkInput`):

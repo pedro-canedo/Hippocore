@@ -12,8 +12,8 @@ small modules with clear boundaries.
 | `model`       | Typed entities: `Tenant`, `Collection`, `Document`, `Chunk`, `Memory`, `Source`, `MemoryType`, `ItemKind`, `RecallResult`, plus validation. |
 | `storage`     | `Operation`, `State`, the JSON-lines WAL, atomic snapshot, recovery, compaction. |
 | `memory`      | Deterministic `Embedder` (signed feature hashing) + text `chunk_text` + `tokenize`. |
-| `index`       | In-memory `Index`: exact vector store + inverted text index; cosine + TF-IDF scoring. |
-| `query`       | `Filter`, `SearchMode`, `QueryRequest`, score normalization + hybrid fusion → `RecallResult`. |
+| `index`       | In-memory `Index`: exact vector store + inverted text index; cosine + BM25 scoring. |
+| `query`       | `Filter`, `SearchMode`, `QueryRequest`, query normalization, entity tags, score normalization + hybrid fusion → `RecallResult`. |
 | `cli`         | clap parser + command handlers (`init`/`put-document`/`remember`/`recall`/`stats`/`inspect`). |
 | `lib.rs`      | The `Hippocore` engine tying everything together; public API + request types. |
 
@@ -39,10 +39,13 @@ an un-acknowledged write, never corrupt committed state.
 caller → Hippocore.run_query
        → build Filter (tenant_id mandatory)
        → query::execute(index, embedder, request)
+           → normalize query text (for typo/entity handling)
            → filter entries (tenant/collection/user/type/kind/metadata)
-           → score: cosine (vector) and/or TF-IDF (text)
+           → score: cosine (vector) and/or BM25 (text)
            → min-max normalize each signal across candidates → [0,1]
            → fuse: hybrid = alpha*vec + (1-alpha)*text
+           → apply small entity boost/penalty when query clearly targets
+             Oracle or PostgreSQL
            → sort desc, truncate top_k, build RecallResult (+ reason)
 ```
 
@@ -65,6 +68,20 @@ Both document chunks and memories are projected into a single `IndexEntry`
 (`kind` distinguishes them). This keeps retrieval uniform — one vector scan and
 one inverted index serve both — while the persisted `Document`/`Chunk`/`Memory`
 models stay distinct and strongly typed.
+
+## Documents, chunks, memories, indexed entries, WAL entries
+
+- `Document`: persisted source text managed as one logical object.
+- `Chunk`: persisted slice of a document, with its own embedding.
+- `Memory`: persisted atomic remembered item, independent of documents.
+- `Indexed Entry`: in-memory search projection of either one chunk or one
+  memory. This is what recall scores.
+- `WAL Entry`: durable append-only operation (`remember`, `put document`,
+  delete, etc.) used for crash recovery and replay. It is not searchable.
+
+A database may legitimately show `documents=0` and `memories>0` when an app uses
+`remember` directly, as the TypeScript RAG example does. In that case each
+memory still contributes one indexed entry, so recall works without documents.
 
 ## Tenant isolation
 
