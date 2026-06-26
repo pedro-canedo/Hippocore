@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Record CRUD Tests v0.1**:
+**Graph Edge Lifecycle Tests v0.1**:
+
+- New test file `crates/hippocore/tests/graph_edge_lifecycle.rs` with 5 tests.
+- Covers: added edge appears in list, relation type round-trips, deleted edge
+  absent from list, edges survive compact + reopen, tenant isolation.
+- Key API note documented: `list_graph_edges` returns `Vec<GraphEdge>` directly
+  (not `Result`).
+- No production code changes.
+- Documentation in `docs/en/GRAPH_EDGE_LIFECYCLE.md` and
+  `docs/pt-br/GRAPH_EDGE_LIFECYCLE.md`.
+- 5 new tests. 185 tests total.
+
+Previous: **Record CRUD Tests v0.1**:
 
 - New test file `crates/hippocore/tests/record_crud.rs` with 6 tests.
 - Covers: store + retrieve by id, appears in recall, version increments on
@@ -562,6 +574,6 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Graph Edge Lifecycle Tests v0.1** — deterministic tests for the graph edge
-lifecycle: add edge, list edges, add with relation type, edges survive compact +
-reopen, tenant isolation on `list_graph_edges`. See NEXT_FEATURE.md.
+**Document Chunking Tests v0.1** — deterministic tests verifying that a stored
+document's text is split into chunks, each chunk is indexed independently, and
+chunk-level recall returns the correct parent document id. See NEXT_FEATURE.md.

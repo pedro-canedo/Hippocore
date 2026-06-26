@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Graph Edge Lifecycle Tests v0.1
+
+- New test file `crates/hippocore/tests/graph_edge_lifecycle.rs` with 5 tests:
+  added edge in list, relation type round-trips, deleted edge absent from list,
+  edges survive compact + reopen, tenant isolation. Documents API note that
+  `list_graph_edges` returns `Vec<GraphEdge>` directly (not `Result`). No
+  production code changes. 185 tests total.
+
 ### Added — Record CRUD Tests v0.1
 
 - New test file `crates/hippocore/tests/record_crud.rs` with 6 tests covering

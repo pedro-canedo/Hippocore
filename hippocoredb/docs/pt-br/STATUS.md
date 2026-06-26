@@ -4,7 +4,21 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Record CRUD Tests v0.1**:
+**Graph Edge Lifecycle Tests v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/graph_edge_lifecycle.rs` com
+  5 testes.
+- Cobre: aresta adicionada aparece na lista, tipo de relação persiste, aresta
+  deletada ausente da lista, arestas sobrevivem compact + reabrir, isolamento
+  de tenant.
+- Nota documentada: `list_graph_edges` retorna `Vec<GraphEdge>` diretamente
+  (não `Result`).
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/GRAPH_EDGE_LIFECYCLE.md` e
+  `docs/pt-br/GRAPH_EDGE_LIFECYCLE.md`.
+- 5 novos testes. 185 testes no total.
+
+Anterior: **Record CRUD Tests v0.1**:
 
 - Novo arquivo de testes `crates/hippocore/tests/record_crud.rs` com 6 testes.
 - Cobre: armazenar + recuperar por id, aparece no recall, versão incrementa na
@@ -493,7 +507,7 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Graph Edge Lifecycle Tests v0.1** — testes determinísticos para o ciclo de
-vida de arestas de grafo: adicionar aresta, listar, tipo de relação, sobrevivem
-compact + reabrir, isolamento de tenant em `list_graph_edges`.
+**Document Chunking Tests v0.1** — testes determinísticos verificando que o
+texto de um documento armazenado é dividido em chunks, cada chunk é indexado
+independentemente e o recall em nível de chunk retorna o document_id pai correto.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

@@ -2,33 +2,33 @@
 
 ## Nome
 
-**Graph Edge Lifecycle Tests v0.1** — testes determinísticos para o ciclo de
-vida de arestas de grafo.
+**Document Chunking Tests v0.1** — testes determinísticos verificando que
+`store_document` produz chunks corretos e que o recall em nível de chunk
+funciona.
 
 ## Por que importa
 
-As arestas de grafo são usadas em `build_context` para o recurso de ranking
-graph-aware. As APIs de aresta (`add_graph_edge`, `list_graph_edges`,
-`remove_graph_edge`) são exercidas incidentalmente em `tenant_isolation.rs` e
-`database.rs`, mas nenhuma suite dedicada verifica o ciclo de vida completo:
-adicionar, listar, tipos de relação, durabilidade após compact + reabrir e
-isolamento de tenant.
+`store_document` divide automaticamente o texto do documento em chunks e
+embedding de cada chunk independentemente. Se o chunker falhar, o índice vetorial
+recebe zero entradas e o recall silenciosamente não retorna nada. Nenhuma suite
+de testes dedicada bloqueia esse caminho.
 
 ## Comportamento
 
-Sem novo código de produção. A suite de testes cobrirá:
+Sem novo código de produção. A suite de testes verificará:
 
-1. `add_graph_edge` entre duas memórias; `list_graph_edges` a retorna.
-2. Adição de aresta com string de `relation` type; a relação persiste.
-3. `remove_graph_edge` remove a aresta da lista.
-4. Arestas sobrevivem `compact()` + reabertura a frio.
-5. `list_graph_edges` de um tenant não retorna arestas de outro tenant.
+1. Armazenar um documento com texto longo produz ao menos 1 chunk (via
+   `get_document_chunks`).
+2. Recall com uma query substring retorna o id do documento pai.
+3. Múltiplos documentos armazenados na mesma coleção produzem seus próprios
+   sets de chunks — sem contaminação cruzada.
+4. Chunks sobrevivem `compact()` + reabertura a frio.
+5. Deletar um documento remove seus chunks de `get_document_chunks`.
 
 ## Arquivos
 
-- `crates/hippocore/tests/graph_edge_lifecycle.rs` — novo arquivo de testes
-  dedicado.
-- `docs/en/GRAPH_EDGE_LIFECYCLE.md` e `docs/pt-br/GRAPH_EDGE_LIFECYCLE.md`.
+- `crates/hippocore/tests/document_chunking.rs` — novo arquivo de testes.
+- `docs/en/DOCUMENT_CHUNKING.md` e `docs/pt-br/DOCUMENT_CHUNKING.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
@@ -41,6 +41,6 @@ Sem novo código de produção. A suite de testes cobrirá:
 
 ## Fora de escopo
 
-- Algoritmos de travessia de grafo.
+- Configuração customizada do chunker.
 - Modo server.
 - Mudanças no código de produção.
