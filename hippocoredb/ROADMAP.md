@@ -26,7 +26,7 @@ not a dated commitment.
 - Threshold-based **automatic compaction** to bound disk + recovery time. ✅
 - Delete / forget operations (tombstones). ✅
 - User-provided embeddings for documents. ✅
-- Group-commit / batched writes for throughput.
+- Group-commit / batched writes for throughput. ✅
 
 ## Phase 3 — Data model expansion and context projection
 
@@ -66,7 +66,7 @@ not a dated commitment.
 - `supersedes`/`contradicts` relations with durable supersedure marking. ✅
 - Superseded memories excluded from default recall; `include_superseded` override. ✅
 - Contradiction ids surfaced in `RecallResult.contradictions`. ✅
-- Source and confidence-aware resolution of conflicting facts.
+- Source and confidence-aware resolution of conflicting facts. ✅
 - "What was true at time T?" queries. ✅ (basic `as_of` filter)
 
 ## Phase 8 — Context Compiler

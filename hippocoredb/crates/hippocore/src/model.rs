@@ -217,6 +217,11 @@ pub struct Memory {
     /// Id of the memory that superseded this one, if any.
     #[serde(default)]
     pub superseded_by: Option<String>,
+    /// Caller-assigned confidence in `[0.0, 1.0]`. `None` = unrated.
+    /// Higher confidence wins in conflict resolution when contradictions are
+    /// present in context assembly.
+    #[serde(default)]
+    pub confidence: Option<f32>,
 }
 
 impl Memory {
@@ -225,7 +230,15 @@ impl Memory {
         non_empty("memory id", &self.id)?;
         non_empty("tenant id", &self.tenant_id)?;
         non_empty("collection", &self.collection)?;
-        non_empty("memory text", &self.text)
+        non_empty("memory text", &self.text)?;
+        if let Some(c) = self.confidence {
+            if !(0.0..=1.0).contains(&c) {
+                return Err(HippocoreError::validation(format!(
+                    "confidence must be in [0.0, 1.0], got {c}"
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -375,6 +388,10 @@ pub struct RecallResult {
     /// Ids of memories that this result explicitly contradicts (advisory).
     #[serde(default)]
     pub contradictions: Vec<String>,
+    /// Confidence of the underlying memory in `[0.0, 1.0]`, or `None` if
+    /// unrated. Useful for surfacing reliability signals to the caller.
+    #[serde(default)]
+    pub confidence: Option<f32>,
 }
 
 fn non_empty(field: &str, value: &str) -> Result<()> {

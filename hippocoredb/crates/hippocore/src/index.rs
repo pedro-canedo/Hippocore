@@ -50,6 +50,8 @@ pub struct IndexEntry {
     pub superseded: bool,
     /// Ids of memories this entry contradicts (advisory).
     pub contradicts: Vec<String>,
+    /// Caller-assigned confidence in `[0.0, 1.0]`, or `None` if unrated.
+    pub confidence: Option<f32>,
 }
 
 impl IndexEntry {
@@ -95,6 +97,7 @@ impl IndexEntry {
             valid_until,
             superseded: false,
             contradicts: Vec::new(),
+            confidence: None,
         }
     }
 
@@ -121,6 +124,7 @@ impl IndexEntry {
             valid_until: memory.valid_until,
             superseded: memory.superseded_by.is_some(),
             contradicts: memory.contradicts.clone(),
+            confidence: memory.confidence,
         }
     }
 
@@ -147,6 +151,7 @@ impl IndexEntry {
             valid_until: None,
             superseded: false,
             contradicts: Vec::new(),
+            confidence: None,
         }
     }
 }
@@ -388,6 +393,7 @@ mod tests {
             supersedes: Vec::new(),
             contradicts: Vec::new(),
             superseded_by: None,
+            confidence: None,
         };
         IndexEntry::from_memory(&m)
     }

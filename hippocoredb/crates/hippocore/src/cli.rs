@@ -83,6 +83,8 @@ enum Command {
     EvalQuality(EvalQualityArgs),
     /// Assemble a token-budget-aware context block for an LLM prompt.
     BuildContext(BuildContextArgs),
+    /// Update the confidence score of a stored memory (human-in-the-loop rating).
+    RateMemory(RateMemoryArgs),
 }
 
 #[derive(Args)]
@@ -181,6 +183,9 @@ struct RememberArgs {
     /// advisory in recall results.
     #[arg(long, value_name = "ID")]
     contradicts: Vec<String>,
+    /// Optional confidence score in [0.0, 1.0] for this memory.
+    #[arg(long)]
+    confidence: Option<f32>,
 }
 
 #[derive(Args)]
@@ -380,6 +385,21 @@ struct EvalQualityArgs {
 }
 
 #[derive(Args)]
+struct RateMemoryArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: String,
+    #[arg(long)]
+    id: String,
+    /// Confidence score in [0.0, 1.0].
+    #[arg(long)]
+    confidence: f32,
+}
+
+#[derive(Args)]
 struct BuildContextArgs {
     #[arg(long)]
     db: PathBuf,
@@ -445,6 +465,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ShowFile(a) => cmd_show_file(a),
         Command::EvalQuality(a) => cmd_eval_quality(a),
         Command::BuildContext(a) => cmd_build_context(a),
+        Command::RateMemory(a) => cmd_rate_memory(a),
     }
 }
 
@@ -531,6 +552,7 @@ fn cmd_remember(a: RememberArgs) -> Result<(), String> {
     req.valid_until = a.valid_until;
     req.supersedes = a.supersedes;
     req.contradicts = a.contradicts;
+    req.confidence = a.confidence;
     let mem = db.remember(req).map_err(|e| format!("{e}"))?;
     db.close().map_err(|e| format!("close failed: {e}"))?;
     println!(
@@ -1386,5 +1408,18 @@ fn cmd_build_context(a: BuildContextArgs) -> Result<(), String> {
         );
     }
 
+    Ok(())
+}
+
+fn cmd_rate_memory(a: RateMemoryArgs) -> Result<(), String> {
+    let mut db = open(&a.db)?;
+    let mem = db
+        .rate_memory(&a.tenant, &a.collection, &a.id, a.confidence)
+        .map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!(
+        "rated memory {}/{}/{}: confidence={:.3}",
+        mem.tenant_id, mem.collection, mem.id, a.confidence
+    );
     Ok(())
 }

@@ -312,6 +312,7 @@ fn build_result(
         text_score,
         reason,
         contradictions: e.contradicts.clone(),
+        confidence: e.confidence,
     }
 }
 

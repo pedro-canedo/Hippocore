@@ -1419,3 +1419,277 @@ fn build_context_json_output_roundtrip() {
         "included token sum should be close to total"
     );
 }
+
+// ── Batch write / group-commit tests ─────────────────────────────────────────
+
+#[test]
+fn remember_many_stores_all_in_one_batch() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let reqs: Vec<RememberRequest> = (0..5)
+        .map(|i| {
+            RememberRequest::new(
+                "acme",
+                "support",
+                MemoryType::Semantic,
+                format!("batch memory item number {i} about network routing"),
+            )
+        })
+        .collect();
+
+    let memories = db.remember_many(reqs).unwrap();
+    assert_eq!(memories.len(), 5);
+
+    let stats = db.stats().unwrap();
+    assert_eq!(stats.memories, 5);
+
+    // All 5 should be recallable.
+    let hits = db
+        .recall(RecallRequest::new("acme", "network routing batch"))
+        .unwrap();
+    assert!(
+        hits.len() >= 5,
+        "all batch memories should be indexed: {}",
+        hits.len()
+    );
+}
+
+#[test]
+fn store_documents_stores_all_in_one_batch() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let reqs: Vec<StoreDocumentRequest> = (0..3)
+        .map(|i| {
+            StoreDocumentRequest::new(
+                "acme",
+                "support",
+                format!("batch document {i} about postgresql database configuration"),
+            )
+        })
+        .collect();
+
+    let docs = db.store_documents(reqs).unwrap();
+    assert_eq!(docs.len(), 3);
+
+    let stats = db.stats().unwrap();
+    assert_eq!(stats.documents, 3);
+    assert!(stats.chunks >= 3);
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "postgresql database"))
+        .unwrap();
+    assert!(!hits.is_empty(), "batch documents should be recallable");
+}
+
+#[test]
+fn batch_writes_survive_restart() {
+    let dir = TempDir::new().unwrap();
+    {
+        let mut db = seeded(&dir);
+        let reqs: Vec<RememberRequest> = (0..4)
+            .map(|i| {
+                RememberRequest::new(
+                    "acme",
+                    "support",
+                    MemoryType::Semantic,
+                    format!("durable batch item {i} about oracle database listener"),
+                )
+            })
+            .collect();
+        db.remember_many(reqs).unwrap();
+        db.close().unwrap();
+    }
+
+    let db = open(&dir);
+    assert_eq!(
+        db.stats().unwrap().memories,
+        4,
+        "all batch memories must survive restart"
+    );
+    let hits = db
+        .recall(RecallRequest::new("acme", "oracle listener"))
+        .unwrap();
+    assert!(
+        !hits.is_empty(),
+        "batch memories must be recallable after restart"
+    );
+}
+
+// ─── Phase 7: confidence-aware resolution ────────────────────────────────────
+
+#[test]
+fn remember_with_confidence_stores_and_recalls_correctly() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mut req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "redis caching strategy",
+    );
+    req.confidence = Some(0.9);
+    let mem = db.remember(req).unwrap();
+    assert_eq!(mem.confidence, Some(0.9));
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "redis caching"))
+        .unwrap();
+    let found = hits.iter().find(|h| h.id == mem.id).unwrap();
+    assert_eq!(found.confidence, Some(0.9));
+}
+
+#[test]
+fn confidence_out_of_range_is_rejected() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mut req = RememberRequest::new("acme", "support", MemoryType::Note, "some fact");
+    req.confidence = Some(1.5);
+    let err = db.remember(req).unwrap_err();
+    assert!(
+        matches!(err, HippocoreError::Validation(_)),
+        "confidence > 1.0 should fail validation"
+    );
+
+    let mut req2 = RememberRequest::new("acme", "support", MemoryType::Note, "another fact");
+    req2.confidence = Some(-0.1);
+    let err2 = db.remember(req2).unwrap_err();
+    assert!(matches!(err2, HippocoreError::Validation(_)));
+}
+
+#[test]
+fn rate_memory_updates_confidence() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mem = db
+        .remember(RememberRequest::new(
+            "acme",
+            "support",
+            MemoryType::Semantic,
+            "postgresql connection pooling",
+        ))
+        .unwrap();
+    assert_eq!(mem.confidence, None);
+
+    let updated = db.rate_memory("acme", "support", &mem.id, 0.85).unwrap();
+    assert_eq!(updated.confidence, Some(0.85));
+
+    // Verify it persists through re-open.
+    db.close().unwrap();
+    let db2 = open(&dir);
+    let hits = db2
+        .recall(RecallRequest::new("acme", "postgresql connection"))
+        .unwrap();
+    let found = hits.iter().find(|h| h.id == mem.id).unwrap();
+    assert_eq!(found.confidence, Some(0.85));
+}
+
+#[test]
+fn rate_memory_invalid_confidence_is_rejected() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mem = db
+        .remember(RememberRequest::new(
+            "acme",
+            "support",
+            MemoryType::Note,
+            "some note",
+        ))
+        .unwrap();
+
+    let err = db.rate_memory("acme", "support", &mem.id, 2.0).unwrap_err();
+    assert!(matches!(err, HippocoreError::Validation(_)));
+}
+
+#[test]
+fn rate_memory_nonexistent_returns_not_found() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let err = db
+        .rate_memory("acme", "support", "nonexistent-id", 0.5)
+        .unwrap_err();
+    assert!(matches!(err, HippocoreError::NotFound(_)));
+}
+
+#[test]
+fn confidence_aware_context_prefers_higher_confidence_on_conflict() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    // Store two memories that contradict each other: same topic, opposite claims.
+    let mut high = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "database server hostname is primary.example.internal",
+    );
+    high.confidence = Some(0.95);
+    let hi_mem = db.remember(high).unwrap();
+
+    let mut low = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "database server hostname is replica.example.internal",
+    );
+    low.contradicts = vec![hi_mem.id.clone()];
+    low.confidence = Some(0.3);
+    db.remember(low).unwrap();
+
+    let block = db
+        .build_context(BuildContextRequest {
+            tenant_id: "acme".into(),
+            query: "database server hostname".into(),
+            user_id: None,
+            max_tokens: 4096,
+            top_k_candidates: 10,
+            mode: SearchMode::Hybrid,
+            collection: None,
+            metadata_filter: Default::default(),
+        })
+        .unwrap();
+
+    // The high-confidence item must appear before the low-confidence one.
+    let positions: Vec<usize> = block
+        .items_included
+        .iter()
+        .enumerate()
+        .filter_map(
+            |(i, item)| {
+                if item.id == hi_mem.id {
+                    Some(i)
+                } else {
+                    None
+                }
+            },
+        )
+        .collect();
+    assert!(
+        !positions.is_empty(),
+        "high-confidence memory must be included in context"
+    );
+    let hi_pos = positions[0];
+    let lo_pos = block
+        .items_included
+        .iter()
+        .enumerate()
+        .find_map(|(i, item)| {
+            if item.confidence == Some(0.3) {
+                Some(i)
+            } else {
+                None
+            }
+        });
+    if let Some(lo) = lo_pos {
+        assert!(
+            hi_pos < lo,
+            "high-confidence item (pos={hi_pos}) must come before low-confidence (pos={lo})"
+        );
+    }
+}

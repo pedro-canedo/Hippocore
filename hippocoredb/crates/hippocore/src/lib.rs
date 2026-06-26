@@ -202,6 +202,8 @@ pub struct RememberRequest {
     pub supersedes: Vec<String>,
     /// Ids of memories this one contradicts (advisory).
     pub contradicts: Vec<String>,
+    /// Optional confidence score in `[0.0, 1.0]`. `None` = unrated.
+    pub confidence: Option<f32>,
 }
 
 impl RememberRequest {
@@ -226,6 +228,7 @@ impl RememberRequest {
             valid_until: None,
             supersedes: Vec::new(),
             contradicts: Vec::new(),
+            confidence: None,
         }
     }
 }
@@ -404,6 +407,8 @@ pub struct ContextItem {
     pub kind: ItemKind,
     /// Recall score used for ranking.
     pub score: f32,
+    /// Confidence of the underlying memory, or `None` for chunks/records.
+    pub confidence: Option<f32>,
     /// Approximate token count for this item's text (1 token ≈ 4 bytes).
     pub token_count: usize,
     /// First 120 characters of the item's text.
@@ -634,6 +639,7 @@ impl Hippocore {
             supersedes: req.supersedes.clone(),
             contradicts: req.contradicts,
             superseded_by: None,
+            confidence: req.confidence,
         };
         mem.validate()?;
         self.commit(Operation::PutMemory(mem.clone()))?;
@@ -840,6 +846,203 @@ impl Hippocore {
         })
     }
 
+    /// Update the confidence score of an existing memory (human-in-the-loop rating).
+    ///
+    /// `confidence` must be in `[0.0, 1.0]`. Returns an error if the memory is
+    /// not found or the value is out of range. The update is written durably to
+    /// the WAL before returning.
+    pub fn rate_memory(
+        &mut self,
+        tenant_id: &str,
+        collection: &str,
+        id: &str,
+        confidence: f32,
+    ) -> Result<Memory> {
+        if !(0.0..=1.0).contains(&confidence) {
+            return Err(HippocoreError::validation(format!(
+                "confidence must be in [0.0, 1.0], got {confidence}"
+            )));
+        }
+        let mut mem = self
+            .state
+            .memories
+            .iter()
+            .find(|m| m.tenant_id == tenant_id && m.collection == collection && m.id == id)
+            .cloned()
+            .ok_or_else(|| HippocoreError::NotFound(format!("memory {id:?} not found")))?;
+        mem.confidence = Some(confidence);
+        self.commit(Operation::PutMemory(mem.clone()))?;
+        Ok(mem)
+    }
+
+    /// Store multiple memories in a single WAL write + single fsync (group-commit).
+    ///
+    /// Semantically identical to calling [`remember`] for each request in order,
+    /// but all operations are appended to the WAL in one batched write, reducing
+    /// the number of `fsync` calls from N to 1. Useful for bulk ingestion.
+    ///
+    /// Returns an error on the first validation failure; no memories are written
+    /// if validation of any request fails.
+    ///
+    /// [`remember`]: Hippocore::remember
+    pub fn remember_many(&mut self, reqs: Vec<RememberRequest>) -> Result<Vec<Memory>> {
+        let mut memories = Vec::with_capacity(reqs.len());
+        let mut ops: Vec<storage::Operation> = Vec::new();
+
+        for req in reqs {
+            self.require_collection(&req.tenant_id, &req.collection)?;
+
+            let id = req.id.unwrap_or_else(|| gen_id("mem"));
+            let created_at = self
+                .state
+                .memories
+                .iter()
+                .find(|m| {
+                    m.tenant_id == req.tenant_id && m.collection == req.collection && m.id == id
+                })
+                .map(|m| m.created_at)
+                .unwrap_or_else(now_millis);
+
+            let embedding = match req.embedding {
+                Some(e) => {
+                    if e.is_empty() {
+                        return Err(HippocoreError::InvalidEmbedding(
+                            "supplied embedding is empty".into(),
+                        ));
+                    }
+                    e
+                }
+                None => self.embedder.embed(&req.text),
+            };
+
+            for sid in &req.supersedes {
+                if !self
+                    .state
+                    .memories
+                    .iter()
+                    .any(|m| m.tenant_id == req.tenant_id && m.id == *sid)
+                {
+                    return Err(HippocoreError::validation(format!(
+                        "supersedes id {sid:?} not found in tenant {:?}",
+                        req.tenant_id
+                    )));
+                }
+            }
+
+            let new_id = id.clone();
+            let mem = Memory {
+                id,
+                tenant_id: req.tenant_id.clone(),
+                collection: req.collection,
+                user_id: req.user_id,
+                memory_type: req.memory_type,
+                text: req.text,
+                embedding,
+                metadata: req.metadata,
+                source: req.source,
+                created_at,
+                valid_from: req.valid_from,
+                valid_until: req.valid_until,
+                supersedes: req.supersedes.clone(),
+                contradicts: req.contradicts,
+                superseded_by: None,
+                confidence: req.confidence,
+            };
+            mem.validate()?;
+            ops.push(storage::Operation::PutMemory(mem.clone()));
+
+            for sid in &req.supersedes {
+                if let Some(old) = self
+                    .state
+                    .memories
+                    .iter()
+                    .find(|m| m.tenant_id == req.tenant_id && m.id == *sid)
+                    .cloned()
+                {
+                    let mut updated = old;
+                    updated.superseded_by = Some(new_id.clone());
+                    ops.push(storage::Operation::PutMemory(updated));
+                }
+            }
+
+            memories.push(mem);
+        }
+
+        // Write all ops in one batch write + one fsync.
+        self.storage.append_many(&ops)?;
+        for op in ops {
+            self.state.apply(op.clone());
+            self.index_op(&op);
+        }
+        if self.should_auto_compact() {
+            self.storage.compact(&self.state)?;
+        }
+        Ok(memories)
+    }
+
+    /// Store multiple documents in a single WAL write + single fsync (group-commit).
+    ///
+    /// Semantically identical to calling [`store_document`] for each request,
+    /// but amortizes fsync cost over the batch. Returns an error on the first
+    /// validation failure; no documents are written if any request is invalid.
+    ///
+    /// [`store_document`]: Hippocore::store_document
+    pub fn store_documents(&mut self, reqs: Vec<StoreDocumentRequest>) -> Result<Vec<Document>> {
+        let mut documents = Vec::with_capacity(reqs.len());
+        let mut ops: Vec<storage::Operation> = Vec::new();
+
+        for req in reqs {
+            self.require_collection(&req.tenant_id, &req.collection)?;
+
+            let id = req.id.unwrap_or_else(|| gen_id("doc"));
+            let now = now_millis();
+            let (created_at, version) =
+                match self.find_document(&req.tenant_id, &req.collection, &id) {
+                    Some(existing) => (existing.created_at, existing.version + 1),
+                    None => (now, 0),
+                };
+
+            let document = Document {
+                id: id.clone(),
+                tenant_id: req.tenant_id.clone(),
+                collection: req.collection.clone(),
+                text: req.text.clone(),
+                metadata: req.metadata,
+                source: req.source,
+                created_at,
+                updated_at: now,
+                version,
+                valid_from: req.valid_from,
+                valid_until: req.valid_until,
+            };
+            document.validate()?;
+
+            let chunks = match req.chunks {
+                Some(inputs) => self.build_chunks_from_inputs(&document, inputs)?,
+                None => self.build_chunks(&document),
+            };
+
+            // Remove old chunks from the index eagerly (before applying state).
+            self.index
+                .remove_document(&document.tenant_id, &document.collection, &document.id);
+            ops.push(storage::Operation::PutDocument {
+                document: document.clone(),
+                chunks,
+            });
+            documents.push(document);
+        }
+
+        self.storage.append_many(&ops)?;
+        for op in ops {
+            self.state.apply(op.clone());
+            self.index_op(&op);
+        }
+        if self.should_auto_compact() {
+            self.storage.compact(&self.state)?;
+        }
+        Ok(documents)
+    }
+
     /// Hybrid contextual recall (vector + text) within a tenant.
     pub fn recall(&self, mut req: RecallRequest) -> Result<Vec<RecallResult>> {
         req.mode = SearchMode::Hybrid;
@@ -865,7 +1068,35 @@ impl Hippocore {
         recall_req.collection = req.collection;
         recall_req.metadata = req.metadata_filter;
 
-        let hits = self.run_query(recall_req)?;
+        let mut hits = self.run_query(recall_req)?;
+
+        // Confidence-aware re-ranking: when contradictions are present among the
+        // candidates, promote higher-confidence memories by blending their
+        // confidence into the effective score.  Items without a confidence rating
+        // are treated as confidence = 0.5 (neutral) so they are not penalised.
+        //
+        // effective_score = recall_score * 0.7 + confidence * 0.3
+        //
+        // This is only applied to Memory items (chunks and records do not carry
+        // confidence); other items keep their original recall score.
+        let has_contradictions = hits.iter().any(|h| !h.contradictions.is_empty());
+        if has_contradictions {
+            hits.sort_by(|a, b| {
+                let eff_a = if a.kind == ItemKind::Memory {
+                    a.score * 0.7 + a.confidence.unwrap_or(0.5) * 0.3
+                } else {
+                    a.score
+                };
+                let eff_b = if b.kind == ItemKind::Memory {
+                    b.score * 0.7 + b.confidence.unwrap_or(0.5) * 0.3
+                } else {
+                    b.score
+                };
+                eff_b
+                    .partial_cmp(&eff_a)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+        }
 
         let mut included: Vec<ContextItem> = Vec::new();
         let mut dropped: usize = 0;
@@ -891,6 +1122,7 @@ impl Hippocore {
                 id: hit.id.clone(),
                 kind: hit.kind,
                 score: hit.score,
+                confidence: hit.confidence,
                 token_count: item_tokens,
                 snippet,
             });

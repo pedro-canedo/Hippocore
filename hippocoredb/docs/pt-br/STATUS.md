@@ -4,7 +4,28 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Context Compiler** — `build_context(query, user, max_tokens)`:
+**Fase 7 — Resolução por confiança** e **Fase 2 — Group-commit / batch writes**:
+
+### Fase 7: Resolução ciente de fonte e confiança
+
+- Campo `confidence: Option<f32>` adicionado a `Memory`, `RecallResult`, `ContextItem` e `RememberRequest`. Todos são `#[serde(default)]` — entradas existentes no WAL recuperam como `None` (sem avaliação).
+- `Memory::validate()` exige `confidence ∈ [0.0, 1.0]`.
+- Nova API `Hippocore::rate_memory(tenant, collection, id, confidence)` — avaliação humana; persiste via WAL `PutMemory`.
+- `IndexEntry` carrega `confidence` e propaga via `build_result` para `RecallResult`.
+- `build_context` aplica reordenação por confiança quando há contradições entre candidatos: `effective_score = recall_score × 0.7 + confidence × 0.3`. Itens sem confiança usam `confidence = 0.5` (neutro).
+- `ContextItem` ganha `confidence: Option<f32>` para introspecção pelo chamador.
+- CLI: `remember --confidence <f32>` e novo subcomando `rate-memory --tenant --collection --id --confidence`.
+- 6 novos testes de integração: armazenamento+recall de confiança, rejeição fora de range, persistência de `rate_memory`, avaliação inválida, erro not-found, ordenação por conflito no `build_context`.
+
+### Fase 2: Group-commit / batch writes
+
+- `Storage::append_many(ops: &[Operation])` — serializa todas as ops em um único buffer, um único `write_all`, um único `sync_all` condicional. Um fsync para N ops.
+- `Hippocore::remember_many(reqs: Vec<RememberRequest>)` — valida todos os requests primeiro, constrói o vetor de ops, chama `append_many`, aplica estado e índice em loop. Compactação automática no fim.
+- `Hippocore::store_documents(reqs: Vec<StoreDocumentRequest>)` — mesmo padrão de group-commit para documentos.
+- 3 novos testes de integração: batch de memórias, batch de documentos, durabilidade após restart.
+- Sem novas dependências de crate. 94 testes no total.
+
+Incremento anterior: **Context Compiler** — `build_context(query, user, max_tokens)`:
 
 - Novo tipo `BuildContextRequest`: tenant, query, `max_tokens` (padrão 2048),
   `top_k_candidates` (padrão 20), `mode` (padrão `Hybrid`), `collection` e
@@ -191,10 +212,11 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 85 testes:
+`cargo test --workspace` passa com 94 testes:
 
 - 18 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL);
-- 52 integração da biblioteca (incl. temporal truth, supersedure, context compiler);
+- 61 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
+  batch writes, resolução por confiança);
 - 1 fixture de qualidade de retrieval;
 - 12 smoke tests de CLI;
 - 1 doctest (lib.rs quickstart);
@@ -202,5 +224,6 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**RAG Audit Engine** — rastreamento de proveniência, scores de confiança por item
-e log de auditoria no momento da query (Fase 9). Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**Fase 4 — Trait `VectorIndex` plugável + HNSW** — definir o trait em `index.rs`,
+refatorar `Index` para usar `Box<dyn VectorIndex>`, implementar brute-force e HNSW.
+Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

@@ -4,7 +4,28 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Context Compiler** — `build_context(query, user, max_tokens)`:
+**Phase 7 — Confidence-aware resolution** and **Phase 2 — Group-commit / batch writes**:
+
+### Phase 7: Source and confidence-aware resolution
+
+- `confidence: Option<f32>` field added to `Memory`, `RecallResult`, `ContextItem`, and `RememberRequest`. All are `#[serde(default)]` — existing WAL entries recover as `None` (unrated).
+- `Memory::validate()` enforces `confidence ∈ [0.0, 1.0]`.
+- New `Hippocore::rate_memory(tenant, collection, id, confidence)` — human-in-the-loop rating API; writes durably via WAL `PutMemory`.
+- `IndexEntry` carries `confidence` and propagates it through `build_result` to `RecallResult`.
+- `build_context` applies confidence-aware re-ranking when contradictions exist among candidates: `effective_score = recall_score × 0.7 + confidence × 0.3`. Unrated items use `confidence = 0.5` (neutral), so they are not penalised.
+- `ContextItem` gains `confidence: Option<f32>` for caller introspection.
+- CLI: `remember --confidence <f32>` and new `rate-memory --tenant --collection --id --confidence` subcommand.
+- 6 new integration tests: store+recall confidence, out-of-range rejection, `rate_memory` persistence, invalid rate, not-found error, conflict-ordering in `build_context`.
+
+### Phase 2: Group-commit / batch writes
+
+- `Storage::append_many(ops: &[Operation])` — serializes all ops to one buffer, single `write_all`, single conditional `sync_all`. One fsync for N ops.
+- `Hippocore::remember_many(reqs: Vec<RememberRequest>)` — validates all requests up-front, builds the ops vec, calls `append_many`, then applies state and index updates in a loop. Auto-compaction check at the end.
+- `Hippocore::store_documents(reqs: Vec<StoreDocumentRequest>)` — same group-commit pattern for documents.
+- 3 new integration tests: batch memories, batch documents, batch durability across restart.
+- No new crate dependencies. 94 tests total.
+
+Previous: **Context Compiler** — `build_context(query, user, max_tokens)`:
 
 - New `BuildContextRequest` type: tenant, query, `max_tokens` (default 2048),
   `top_k_candidates` (default 20), `mode` (default `Hybrid`), optional
@@ -238,16 +259,17 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 85 tests:
+**All green.** `cargo test --workspace` passes 94 tests:
 - 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode),
-- 52 library integration (store/recall, chunking, retrieval quality layer,
+- 61 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
   error paths, dimension-mismatch, torn-WAL recovery, temporal filtering,
-  supersedure/contradictions, context compiler),
+  supersedure/contradictions, context compiler, batch writes, confidence-aware
+  resolution),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`, and
@@ -275,4 +297,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**RAG Audit Engine** — provenance tracking, per-item confidence scores, and a query-time audit log (Phase 9). See NEXT_FEATURE.md.
+**Phase 4 — Pluggable `VectorIndex` trait + HNSW** — define the trait in `index.rs`, refactor `Index` to hold a `Box<dyn VectorIndex>`, implement brute-force and HNSW structs. See NEXT_FEATURE.md.

@@ -396,6 +396,38 @@ impl Storage {
         Ok(())
     }
 
+    /// Append multiple operations in a single write + single fsync (group-commit).
+    ///
+    /// All `ops` are serialized into one contiguous buffer and written with a
+    /// single `write_all` call, then one `sync_all` if `sync_writes` is set.
+    /// This amortizes fsync cost over the batch, which substantially improves
+    /// throughput for bulk ingestion workloads compared to calling [`append`]
+    /// in a loop.
+    ///
+    /// [`append`]: Storage::append
+    pub fn append_many(&mut self, ops: &[Operation]) -> Result<()> {
+        if ops.is_empty() {
+            return Ok(());
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        for op in ops {
+            let json = serde_json::to_vec(op)?;
+            let crc = crc32(&json);
+            let prefix = format!("{crc:08x}\t");
+            buf.extend_from_slice(prefix.as_bytes());
+            buf.extend_from_slice(&json);
+            buf.push(b'\n');
+            self.wal_len += 1;
+            self.wal_bytes += (prefix.len() + json.len() + 1) as u64;
+        }
+        self.wal.write_all(&buf)?;
+        self.wal.flush()?;
+        if self.sync_writes {
+            self.wal.sync_all()?;
+        }
+        Ok(())
+    }
+
     /// Write a fresh snapshot of `state` atomically and truncate the WAL.
     pub fn compact(&mut self, state: &State) -> Result<()> {
         let snapshot_path = self.data_dir.join(SNAPSHOT_FILE);

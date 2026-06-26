@@ -5,6 +5,33 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Phase 7: Confidence-aware resolution
+
+- `confidence: Option<f32>` on `Memory`, `RecallResult`, `ContextItem`, and
+  `RememberRequest` (all `#[serde(default)]`, backward-compatible with existing WAL).
+- `Memory::validate()` enforces `confidence ∈ [0.0, 1.0]` when set.
+- `Hippocore::rate_memory(tenant, collection, id, confidence)` — human-in-the-loop
+  rating API; durably persists via WAL `PutMemory`.
+- `IndexEntry` propagates `confidence` through `build_result` to `RecallResult`.
+- `build_context` applies confidence-aware re-ranking when contradictions exist:
+  `effective_score = recall_score × 0.7 + confidence × 0.3`; unrated items use
+  `confidence = 0.5` (neutral, not penalised).
+- `ContextItem` gains `confidence: Option<f32>` for caller introspection.
+- CLI: `remember --confidence <f32>` and new `rate-memory` subcommand.
+- 6 new integration tests.
+
+### Added — Phase 2: Group-commit / batch writes
+
+- `Storage::append_many(ops: &[Operation])` — serializes all ops to one buffer,
+  one `write_all`, one conditional `sync_all`. Cost: one fsync for N ops.
+- `Hippocore::remember_many(reqs: Vec<RememberRequest>)` — validates all requests
+  up-front, builds ops vec, calls `append_many`, applies state + index in loop.
+  Auto-compaction check at end.
+- `Hippocore::store_documents(reqs: Vec<StoreDocumentRequest>)` — same group-commit
+  pattern for documents and their chunks.
+- 3 new integration tests: batch memories, batch documents, batch durability across
+  restart.
+
 ### Added — Context Compiler (`build_context`)
 
 - New `BuildContextRequest` type with `tenant_id`, `query`, `max_tokens`
