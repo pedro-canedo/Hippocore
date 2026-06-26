@@ -2,48 +2,48 @@
 
 ## Feature name
 
-**Retrieval evaluation harness v0.1** — deterministic quality checks for common
-RAG query scenarios.
+**Benchmark regression guard v0.1** — lightweight performance budgets for the
+current exact retrieval path.
 
 ## Why it matters
 
-The RAG Quality Layer v0.1 improves obvious Oracle/PostgreSQL confusion with
-normalization, entity tags, and small explainable score adjustments. The next
-highest-value step is to keep those improvements from regressing as BM25,
-hybrid fusion, seed data, and future ranking heuristics evolve.
+Criterion is useful during development, but today regressions are discovered by
+manually reading `cargo bench` output and comparing against a local baseline.
+Retrieval quality changes can accidentally add work to hot paths, especially
+pure vector search. A small guard gives the project a repeatable signal before
+future ranking changes land.
 
 ## Expected behavior
 
-- A small fixture file defines query scenarios, expected top technologies, and
-  disallowed first results.
-- A test or example runner ingests the fixture into an isolated temporary
-  database and reports top-k ids, scores, tags, and reasons.
-- The harness covers at least:
-  - Oracle listener questions.
-  - PostgreSQL service/start/status questions.
-  - Python + PostgreSQL connection questions.
-  - Mixed Oracle + PostgreSQL questions where both should be allowed.
-- The output is human-readable enough to compare before/after behavior, but the
-  assertions stay deterministic and do not require Ollama or network access.
+- Add a deterministic performance smoke test or bench helper that measures:
+  - `remember` for a fixed number of memories,
+  - `recall_hybrid` over a fixed in-memory corpus,
+  - `search_vector` over the same corpus.
+- Keep it separate from Criterion's historical baseline files. The guard should
+  compare against explicit, documented budgets for this MVP and print measured
+  timings when it fails.
+- Ensure pure `SearchMode::Vector` does not run lexical normalization, BM25, or
+  entity detection work.
+- Keep default CI/runtime practical; if the guard is too noisy for regular
+  `cargo test`, make it an explicit ignored test with a documented command.
 
 ## Affected modules / files
 
-- `crates/hippocore/tests/` — deterministic regression tests or shared fixtures.
-- `examples/ts-ollama-rag/` — optional fixture reuse for the demo seed memories.
-- `docs/STATUS.md`, `CHANGELOG.md` — update on completion.
+- `benches/basic_bench.rs` — keep Criterion for developer trend analysis.
+- `crates/hippocore/tests/` — optional budget smoke test if stable enough.
+- `docs/STATUS.md`, `CHANGELOG.md` — update with measured budget and command.
 
 ## Acceptance criteria
 
-- `cargo test --workspace` includes the retrieval quality fixture checks.
-- The fixture catches an Oracle memory ranking first for a Python/PostgreSQL
-  connection query unless Oracle is explicitly mentioned.
-- Test output or failure messages include enough score/reason detail to debug a
-  ranking regression.
-- No networked model is required for the harness.
+- Running the documented command reports timings for `remember`,
+  `recall_hybrid`, and `search_vector`.
+- The guard catches a clear vector-search regression caused by accidental text
+  or entity work in the vector-only path.
+- The current RAG Quality Layer remains within the documented budgets.
+- `cargo fmt`, `cargo test --workspace`, and clippy remain green.
 
 ## Risks / open questions
 
-- Keep the harness small enough that it tests ranking behavior without freezing
-  every exact score.
-- Avoid duplicating the TypeScript demo seed data in ways that drift silently;
-  either share concepts clearly or keep the Rust fixture intentionally minimal.
+- Wall-clock timing is noisy across machines. Prefer broad budgets and clear
+  diagnostics over fragile microsecond thresholds.
+- Avoid conflating Criterion local baseline drift with true code regression.

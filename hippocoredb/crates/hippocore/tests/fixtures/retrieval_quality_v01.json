@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "description": "RAG retrieval quality fixture for Oracle/PostgreSQL support memories.",
+  "memories": [
+    {
+      "id": "ora-12514",
+      "text": "O erro Oracle ORA-12514 significa que o listener nao conhece o servico solicitado. Verifique o SERVICE_NAME no tnsnames.ora e confirme que o servico esta registrado no listener com lsnrctl status.",
+      "metadata": { "produto": "oracle", "tipo": "erro" }
+    },
+    {
+      "id": "ora-12541",
+      "text": "O erro Oracle ORA-12541 indica que nao ha listener escutando no host ou porta. Inicie o listener com lsnrctl start e verifique o host e a porta no tnsnames.ora.",
+      "metadata": { "produto": "oracle", "tipo": "erro" }
+    },
+    {
+      "id": "oracle-staging-policy",
+      "text": "No ambiente de homologacao a aplicacao roda Oracle 19c. Mudancas de configuracao do listener nesse ambiente exigem abertura de chamado antes da aplicacao.",
+      "metadata": { "produto": "oracle", "ambiente": "staging" }
+    },
+    {
+      "id": "pg-systemd-start",
+      "text": "Para iniciar PostgreSQL com systemd use sudo systemctl start postgresql. Para verificar o status use sudo systemctl status postgresql. Para habilitar na inicializacao use sudo systemctl enable postgresql.",
+      "metadata": { "produto": "postgresql", "tipo": "operacao" }
+    },
+    {
+      "id": "pg-ctl-start",
+      "text": "PostgreSQL tambem pode ser iniciado com pg_ctl usando pg_ctl -D /path/to/data start, apontando -D para o diretorio de dados correto.",
+      "metadata": { "produto": "postgresql", "tipo": "operacao" }
+    },
+    {
+      "id": "pg-network-python",
+      "text": "PostgreSQL usa por padrao a porta TCP 5432. Em Python, a conexao com PostgreSQL normalmente usa psycopg ou psycopg2 com host, porta, database, user e password.",
+      "metadata": { "produto": "postgresql", "linguagem": "python", "tipo": "conexao" }
+    },
+    {
+      "id": "pg-no-oracle-listener",
+      "text": "PostgreSQL nao usa listener estilo Oracle nem comandos lsnrctl. Para operacao do servico PostgreSQL, use systemctl, pg_ctl e a porta TCP 5432.",
+      "metadata": { "produto": "postgresql", "tipo": "comparacao" }
+    },
+    {
+      "id": "pg-vacuum",
+      "text": "No PostgreSQL, autovacuum remove tuplas mortas e evita inchaco de tabelas. VACUUM tambem pode ser executado manualmente quando necessario.",
+      "metadata": { "produto": "postgresql", "tipo": "tuning" }
+    }
+  ],
+  "cases": [
+    {
+      "name": "oracle_listener_start",
+      "query": "Como inicio o listener do Oracle?",
+      "relevant_ids": ["ora-12541", "ora-12514"],
+      "expected_first_ids": ["ora-12541", "ora-12514"],
+      "forbidden_first_ids": ["pg-systemd-start", "pg-network-python", "pg-vacuum"],
+      "answer_must_include": ["lsnrctl start"]
+    },
+    {
+      "name": "postgres_typo_general",
+      "query": "Como postgress funciona?",
+      "relevant_ids": ["pg-systemd-start", "pg-network-python", "pg-no-oracle-listener", "pg-ctl-start", "pg-vacuum"],
+      "expected_first_ids": ["pg-systemd-start", "pg-network-python", "pg-no-oracle-listener", "pg-ctl-start", "pg-vacuum"],
+      "forbidden_first_ids": ["ora-12514", "ora-12541", "oracle-staging-policy"],
+      "answer_must_include": ["postgresql"]
+    },
+    {
+      "name": "python_postgres_connection",
+      "query": "como faço uma conexão python no postgress?",
+      "relevant_ids": ["pg-network-python"],
+      "expected_first_ids": ["pg-network-python"],
+      "forbidden_first_ids": ["ora-12514", "ora-12541", "oracle-staging-policy"],
+      "answer_must_include": ["psycopg", "5432"]
+    },
+    {
+      "name": "mixed_oracle_postgres_listener",
+      "query": "Como inicio o listener do Oracle e postgress?",
+      "relevant_ids": ["pg-no-oracle-listener", "ora-12541", "ora-12514"],
+      "expected_first_ids": ["pg-no-oracle-listener", "ora-12541", "ora-12514"],
+      "forbidden_first_ids": ["pg-vacuum"],
+      "answer_must_include": ["lsnrctl", "PostgreSQL"]
+    },
+    {
+      "name": "postgres_vacuum",
+      "query": "Para que serve vacuum no postgres?",
+      "relevant_ids": ["pg-vacuum"],
+      "expected_first_ids": ["pg-vacuum"],
+      "forbidden_first_ids": ["ora-12514", "ora-12541", "oracle-staging-policy"],
+      "answer_must_include": ["VACUUM", "tuplas mortas"]
+    }
+  ],
+  "thresholds": {
+    "min_hit_at_1": 0.8,
+    "min_hit_at_k": 1.0,
+    "min_mrr": 0.9
+  }
+}

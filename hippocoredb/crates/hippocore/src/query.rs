@@ -4,8 +4,6 @@
 //! Tenant isolation is enforced here: every query requires a `tenant_id` and no
 //! entry from another tenant can ever match.
 
-use std::collections::HashSet;
-
 use crate::index::{cosine_similarity, text_score, Index, IndexEntry};
 use crate::memory::tokenize;
 use crate::model::{ItemKind, MemoryType, Metadata, RecallResult};
@@ -169,19 +167,30 @@ pub fn execute(
     embed: impl Fn(&str) -> Vec<f32>,
     request: &QueryRequest,
 ) -> Vec<RecallResult> {
-    let normalized_query = request
-        .query_text
-        .as_deref()
-        .map(normalize_query_text)
-        .unwrap_or_default();
-    let query_tokens = tokenize(&normalized_query);
-    let query_tags = detect_entity_tags(&normalized_query);
+    let original_query = request.query_text.as_deref().unwrap_or_default();
+    let normalized_query = match request.mode {
+        SearchMode::Vector => String::new(),
+        SearchMode::Text | SearchMode::Hybrid => normalize_query_text(original_query),
+    };
+    let query_tokens = match request.mode {
+        SearchMode::Vector => Vec::new(),
+        SearchMode::Text | SearchMode::Hybrid => tokenize(&normalized_query),
+    };
+    let query_tags = if request.mode == SearchMode::Vector {
+        EntityTags::default()
+    } else {
+        detect_entity_tags(&normalized_query)
+    };
     let should_adjust_scores =
         request.mode != SearchMode::Vector && (query_tags.oracle || query_tags.postgresql);
 
     let query_embedding: Option<Vec<f32>> = match request.mode {
         SearchMode::Text => None,
-        _ => request
+        SearchMode::Vector => request
+            .query_embedding
+            .clone()
+            .or_else(|| (!original_query.trim().is_empty()).then(|| embed(original_query))),
+        SearchMode::Hybrid => request
             .query_embedding
             .clone()
             .or_else(|| (!normalized_query.trim().is_empty()).then(|| embed(&normalized_query))),
@@ -325,14 +334,9 @@ fn detect_entry_tags(entry: &IndexEntry) -> EntityTags {
 }
 
 fn detect_entity_tags(text: &str) -> EntityTags {
-    let tokens: HashSet<String> = tokenize(text)
-        .into_iter()
-        .map(|token| normalize_token(&token).to_string())
-        .collect();
-
     let mut tags = EntityTags::default();
-    for token in tokens {
-        mark_tag(&mut tags, &token);
+    for token in tokenize(text) {
+        mark_tag(&mut tags, normalize_token(&token));
     }
     tags
 }

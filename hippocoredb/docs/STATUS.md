@@ -20,6 +20,11 @@ _Last updated: 2026-06-26._
   Python `psycopg`/`psycopg2`, and "not Oracle listener/lsnrctl" memories; it
   also prunes obsolete demo memory ids, prints retrieval debug details, and uses
   a stricter grounded answer prompt.
+- A deterministic retrieval-quality fixture now validates Oracle/PostgreSQL RAG
+  scenarios with hit@1, hit@5, and MRR thresholds, plus expected answer terms in
+  retrieved context.
+- Pure vector search skips query normalization and entity detection, keeping the
+  quality layer out of the vector-only hot path.
 
 Previous increment: user-provided document embeddings via
 `StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>`.
@@ -46,6 +51,8 @@ Ollama embeddings + generation, idempotent ingestion).
 - User-supplied embeddings for memories and queries; built-in embedder otherwise.
 - Typed errors for unknown tenant/collection, validation, empty/mismatched
   embeddings, and corruption.
+- Retrieval quality evaluation through
+  `crates/hippocore/tests/fixtures/retrieval_quality_v01.json`.
 
 ## What is partial
 
@@ -57,9 +64,8 @@ Ollama embeddings + generation, idempotent ingestion).
 ## What is broken or missing
 
 - No ANN/HNSW, no server, no auth — by design (see docs/MVP_SCOPE.md).
-- Retrieval quality is still heuristic. It is not a learned ranker and it does
-  not yet have a reusable evaluation harness beyond deterministic tests and the
-  manual RAG example checks.
+- Retrieval quality is still heuristic. It is not a learned ranker; the current
+  evaluation fixture is intentionally small and should grow with real use cases.
 
 ## Commands run
 
@@ -77,7 +83,7 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 53 tests:
+**All green.** `cargo test --workspace` passes 54 tests:
 - 16 unit (embedder/chunker, cosine/index/BM25, query normalization, CRC32 + WAL
   line decode),
 - 31 library integration (store/recall, chunking, retrieval quality layer,
@@ -86,16 +92,20 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   isolation, restart, compaction, auto-compaction bounding the WAL,
   checksum-mismatch recovery, delete/forget + restart + compaction, user
   embeddings, empty DB, error paths, dimension-mismatch, torn-WAL recovery),
+- 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 5 CLI subprocess smoke tests (incl. `compact`, `forget`),
 - 1 doctest.
 
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
 is clean.
 
-`cargo bench -p hippocore` completed. In the final run, `remember` showed no
-statistically significant change, while `recall_hybrid` and `search_vector`
-improved against the local Criterion baseline after avoiding tag work in pure
-vector search and reusing indexed tokens for entity detection.
+`cargo bench -p hippocore` completed. Final run:
+- `remember`: 6.8941-6.9676 ms, improved by 12.282-16.301%.
+- `recall_hybrid`: 732.88-762.00 us, improved by 20.859-27.701%.
+- `search_vector`: 358.37-365.17 us, improved by 57.262-61.086%.
+
+The performance fix avoids normalization/tag work in pure vector search and
+removes a set allocation from query tag detection.
 
 ## Current architectural decisions
 
@@ -106,4 +116,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Retrieval evaluation harness v0.1** — see docs/NEXT_FEATURE.md.
+**Benchmark regression guard v0.1** — see docs/NEXT_FEATURE.md.

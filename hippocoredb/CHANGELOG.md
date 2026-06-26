@@ -19,12 +19,20 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 - Regression tests for PostgreSQL, Oracle, mixed Oracle/PostgreSQL, typo
   normalization, Python/PostgreSQL connection ranking, and vector dimension
   mismatch safety.
+- Deterministic retrieval-quality fixture with hit@1, hit@k, and MRR thresholds
+  for Oracle/PostgreSQL RAG scenarios.
 - The TypeScript Ollama RAG example now includes stronger PostgreSQL seed
   memories, richer retrieval debug output, a stricter grounding prompt, and
   cleanup for obsolete demo memory ids during ingestion.
 - Docs now distinguish documents, chunks, memories, indexed entries, and WAL
   entries, including why memory-only examples can show `documents=0` with
   `memories>0`.
+
+### Changed — retrieval performance hygiene
+
+- Pure vector search now skips query normalization and entity/tag detection.
+  Entity detection no longer allocates a set for query tags, keeping the RAG
+  quality layer out of the vector-only hot path.
 
 ### Added — user-provided document embeddings
 
