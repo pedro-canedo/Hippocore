@@ -2,33 +2,33 @@
 
 ## Nome
 
-**Document Chunking Tests v0.1** — testes determinísticos verificando que
-`store_document` produz chunks corretos e que o recall em nível de chunk
-funciona.
+**build_context Smoke Tests v0.1** — testes determinísticos verificando que
+`build_context` monta um bloco de contexto utilizável para LLM.
 
 ## Por que importa
 
-`store_document` divide automaticamente o texto do documento em chunks e
-embedding de cada chunk independentemente. Se o chunker falhar, o índice vetorial
-recebe zero entradas e o recall silenciosamente não retorna nada. Nenhuma suite
-de testes dedicada bloqueia esse caminho.
+`build_context` é o caminho de saída primário para consumidores de IA — ele
+classifica, aparar e serializa itens em uma string pronta para prompt. Não há
+testes dedicados verificando: (a) a string de contexto não é vazia quando itens
+relevantes existem, (b) `max_tokens` é respeitado, (c) itens relacionados
+expandidos pelo grafo aparecem quando `include_related = true`. Uma regressão
+em qualquer desses caminhos degrada silenciosamente as saídas de IA.
 
 ## Comportamento
 
-Sem novo código de produção. A suite de testes verificará:
+Sem novo código de produção. A suite de testes cobrirá:
 
-1. Armazenar um documento com texto longo produz ao menos 1 chunk (via
-   `get_document_chunks`).
-2. Recall com uma query substring retorna o id do documento pai.
-3. Múltiplos documentos armazenados na mesma coleção produzem seus próprios
-   sets de chunks — sem contaminação cruzada.
-4. Chunks sobrevivem `compact()` + reabertura a frio.
-5. Deletar um documento remove seus chunks de `get_document_chunks`.
+1. Uma memory → `build_context` produz uma string `text` não vazia.
+2. A string de contexto contém um snippet reconhecível da memory.
+3. `max_tokens` baixo → menos itens incluídos do que disponíveis.
+4. `include_related = true` com aresta de grafo → item relacionado aparece em
+   `items_included`.
+5. Store vazio → `build_context` retorna `text = ""` (não erro).
 
 ## Arquivos
 
-- `crates/hippocore/tests/document_chunking.rs` — novo arquivo de testes.
-- `docs/en/DOCUMENT_CHUNKING.md` e `docs/pt-br/DOCUMENT_CHUNKING.md`.
+- `crates/hippocore/tests/build_context_smoke.rs` — novo arquivo de testes.
+- `docs/en/BUILD_CONTEXT_SMOKE.md` e `docs/pt-br/BUILD_CONTEXT_SMOKE.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
@@ -41,6 +41,6 @@ Sem novo código de produção. A suite de testes verificará:
 
 ## Fora de escopo
 
-- Configuração customizada do chunker.
+- Mudanças no formato de contexto customizado.
 - Modo server.
 - Mudanças no código de produção.

@@ -2,31 +2,33 @@
 
 ## Feature name
 
-**Document Chunking Tests v0.1** — deterministic tests verifying that
-`store_document` produces correct chunks and that chunk-level recall works.
+**build_context Smoke Tests v0.1** — deterministic tests verifying that
+`build_context` assembles a usable LLM context block.
 
 ## Why it matters
 
-`store_document` auto-chunks the document text and embeds each chunk
-independently. If the chunker breaks, the vector index receives zero entries
-and recall silently returns nothing. No dedicated test suite locks this path.
+`build_context` is the primary output path for AI consumers — it ranks, trims,
+and serialises items into a prompt-ready string. There are no dedicated tests
+verifying: (a) the context string is non-empty when relevant items exist,
+(b) `max_tokens` is respected, (c) graph-expanded related items appear when
+`include_related = true`. A regression in any of these paths silently degrades
+AI outputs.
 
 ## Behaviour
 
-No new production code. The test suite will verify:
+No new production code. The test suite will cover:
 
-1. Storing a document with long text produces at least 1 chunk (via
-   `get_document_chunks`).
-2. Recall with a substring query returns the parent document's id.
-3. Multiple documents stored in the same collection each produce their own
-   chunk set — no cross-contamination.
-4. Chunks survive `compact()` + cold reopen.
-5. Deleting a document removes its chunks from `get_document_chunks`.
+1. Single memory → `build_context` produces a non-empty `text` string.
+2. The context string contains a recognisable snippet from the memory.
+3. `max_tokens` set low → fewer items included than available.
+4. `include_related = true` with a graph edge → related item appears in
+   `items_included`.
+5. Empty store → `build_context` returns `text = ""` (not an error).
 
 ## Files
 
-- `crates/hippocore/tests/document_chunking.rs` — new dedicated test file.
-- `docs/en/DOCUMENT_CHUNKING.md` and `docs/pt-br/DOCUMENT_CHUNKING.md`.
+- `crates/hippocore/tests/build_context_smoke.rs` — new dedicated test file.
+- `docs/en/BUILD_CONTEXT_SMOKE.md` and `docs/pt-br/BUILD_CONTEXT_SMOKE.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
@@ -39,6 +41,6 @@ No new production code. The test suite will verify:
 
 ## Out of scope
 
-- Custom chunker configuration.
+- Custom context format changes.
 - Server mode.
 - Production code changes.

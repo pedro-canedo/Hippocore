@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Document Chunking Tests v0.1
+
+- New test file `crates/hippocore/tests/document_chunking.rs` with 5 tests
+  covering: ≥1 chunk produced, parent document_id in recall result (not chunk
+  id), disjoint chunks between two documents, chunks survive compact+reopen,
+  delete removes all chunks. Documents critical API nuance: RecallResult.id is
+  the chunk id; the parent document id lives in RecallResult.document_id. No
+  production code changes. 190 tests total.
+
 ### Added — Graph Edge Lifecycle Tests v0.1
 
 - New test file `crates/hippocore/tests/graph_edge_lifecycle.rs` with 5 tests:

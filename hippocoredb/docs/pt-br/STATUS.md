@@ -4,7 +4,21 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Graph Edge Lifecycle Tests v0.1**:
+**Document Chunking Tests v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/document_chunking.rs` com 5
+  testes.
+- API documentada: `RecallResult.id` é o **id do chunk**; o id do documento
+  pai está em `RecallResult.document_id`.
+- Cobre: ≥1 chunk produzido, `document_id` no resultado de recall, chunks
+  disjuntos entre dois documentos, chunks sobrevivem compact + reabrir, delete
+  remove chunks.
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/DOCUMENT_CHUNKING.md` e
+  `docs/pt-br/DOCUMENT_CHUNKING.md`.
+- 5 novos testes. 190 testes no total.
+
+Anterior: **Graph Edge Lifecycle Tests v0.1**:
 
 - Novo arquivo de testes `crates/hippocore/tests/graph_edge_lifecycle.rs` com
   5 testes.
@@ -507,7 +521,7 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Document Chunking Tests v0.1** — testes determinísticos verificando que o
-texto de um documento armazenado é dividido em chunks, cada chunk é indexado
-independentemente e o recall em nível de chunk retorna o document_id pai correto.
+**build_context Smoke Tests v0.1** — testes determinísticos verificando que
+`build_context` produz uma string de contexto não vazia com snippets esperados,
+respeita `max_tokens` e inclui `related_items` quando `include_related = true`.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
