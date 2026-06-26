@@ -146,6 +146,10 @@ pub struct StoreDocumentRequest {
     /// Optional caller-supplied, pre-embedded chunks. When `None`, the document
     /// is auto-chunked and embedded with the built-in embedder.
     pub chunks: Option<Vec<ChunkInput>>,
+    /// Optional validity start (epoch ms). `None` = valid from creation time.
+    pub valid_from: Option<i64>,
+    /// Optional validity end (epoch ms). `None` = never expires.
+    pub valid_until: Option<i64>,
 }
 
 impl StoreDocumentRequest {
@@ -163,6 +167,8 @@ impl StoreDocumentRequest {
             metadata: Metadata::new(),
             source: None,
             chunks: None,
+            valid_from: None,
+            valid_until: None,
         }
     }
 }
@@ -188,6 +194,10 @@ pub struct RememberRequest {
     pub source: Option<Source>,
     /// Optional caller-supplied embedding (else the built-in embedder is used).
     pub embedding: Option<Embedding>,
+    /// Optional validity start (epoch ms). `None` = valid from creation time.
+    pub valid_from: Option<i64>,
+    /// Optional validity end (epoch ms). `None` = never expires.
+    pub valid_until: Option<i64>,
 }
 
 impl RememberRequest {
@@ -208,6 +218,8 @@ impl RememberRequest {
             metadata: Metadata::new(),
             source: None,
             embedding: None,
+            valid_from: None,
+            valid_until: None,
         }
     }
 }
@@ -312,6 +324,9 @@ pub struct RecallRequest {
     pub mode: SearchMode,
     /// Maximum results.
     pub top_k: usize,
+    /// Query as of this epoch ms. `None` = current time (default: excludes
+    /// expired entries). Pass an explicit timestamp to query historical state.
+    pub as_of: Option<i64>,
 }
 
 impl RecallRequest {
@@ -328,6 +343,7 @@ impl RecallRequest {
             metadata: Metadata::new(),
             mode: SearchMode::Hybrid,
             top_k: 10,
+            as_of: None,
         }
     }
 }
@@ -351,18 +367,30 @@ impl Hippocore {
 
     fn rebuild_index(&mut self) {
         self.index = Index::new();
-        // Index document chunks, carrying their parent document's metadata/source.
+        // Index document chunks, carrying their parent document's metadata/source/validity.
         for chunk in &self.state.chunks {
             let parent = self
                 .state
                 .documents
                 .iter()
                 .find(|d| d.id == chunk.document_id);
-            let (metadata, source) = parent
-                .map(|d| (d.metadata.clone(), d.source.clone()))
+            let (metadata, source, valid_from, valid_until) = parent
+                .map(|d| {
+                    (
+                        d.metadata.clone(),
+                        d.source.clone(),
+                        d.valid_from,
+                        d.valid_until,
+                    )
+                })
                 .unwrap_or_default();
-            self.index
-                .insert(IndexEntry::from_chunk(chunk, metadata, source));
+            self.index.insert(IndexEntry::from_chunk(
+                chunk,
+                metadata,
+                source,
+                valid_from,
+                valid_until,
+            ));
         }
         for memory in &self.state.memories {
             self.index.insert(IndexEntry::from_memory(memory));
@@ -442,6 +470,8 @@ impl Hippocore {
             created_at,
             updated_at: now,
             version,
+            valid_from: req.valid_from,
+            valid_until: req.valid_until,
         };
         document.validate()?;
 
@@ -493,6 +523,8 @@ impl Hippocore {
             metadata: req.metadata,
             source: req.source,
             created_at,
+            valid_from: req.valid_from,
+            valid_until: req.valid_until,
         };
         mem.validate()?;
         self.commit(Operation::PutMemory(mem.clone()))?;
@@ -610,6 +642,8 @@ impl Hippocore {
             created_at,
             updated_at: now,
             version,
+            valid_from: None,
+            valid_until: None,
         };
         document.validate()?;
         let chunks = self.build_chunks(&document);
@@ -709,6 +743,8 @@ impl Hippocore {
             memory_type: req.memory_type,
             kind: req.kind,
             metadata: req.metadata,
+            // Default as_of = now: expired entries are excluded by default.
+            as_of: Some(req.as_of.unwrap_or_else(now_millis)),
         };
         let query_text = if req.query.trim().is_empty() {
             None
@@ -919,6 +955,8 @@ impl Hippocore {
                         chunk,
                         document.metadata.clone(),
                         document.source.clone(),
+                        document.valid_from,
+                        document.valid_until,
                     ));
                 }
             }
@@ -936,6 +974,8 @@ impl Hippocore {
                         chunk,
                         document.metadata.clone(),
                         document.source.clone(),
+                        document.valid_from,
+                        document.valid_until,
                     ));
                 }
             }

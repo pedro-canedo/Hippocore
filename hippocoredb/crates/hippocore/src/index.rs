@@ -41,6 +41,10 @@ pub struct IndexEntry {
     pub tf: HashMap<String, u32>,
     /// Total token count of `text` (document length for BM25 normalization).
     pub token_count: u32,
+    /// Validity start (epoch ms), inherited from the parent item.
+    pub valid_from: Option<i64>,
+    /// Validity end (epoch ms), inherited from the parent item.
+    pub valid_until: Option<i64>,
 }
 
 impl IndexEntry {
@@ -58,7 +62,13 @@ impl IndexEntry {
     }
 
     /// Build an entry from a document chunk plus its parent's metadata/source.
-    pub fn from_chunk(chunk: &Chunk, metadata: Metadata, source: Option<Source>) -> Self {
+    pub fn from_chunk(
+        chunk: &Chunk,
+        metadata: Metadata,
+        source: Option<Source>,
+        valid_from: Option<i64>,
+        valid_until: Option<i64>,
+    ) -> Self {
         let tf = term_frequencies(&chunk.text);
         let token_count = tf.values().sum();
         Self {
@@ -76,6 +86,8 @@ impl IndexEntry {
             source,
             tf,
             token_count,
+            valid_from,
+            valid_until,
         }
     }
 
@@ -98,6 +110,8 @@ impl IndexEntry {
             source: memory.source.clone(),
             tf,
             token_count,
+            valid_from: memory.valid_from,
+            valid_until: memory.valid_until,
         }
     }
 
@@ -120,6 +134,8 @@ impl IndexEntry {
             source: record.source.clone(),
             tf,
             token_count,
+            valid_from: None,
+            valid_until: None,
         }
     }
 }
@@ -356,6 +372,8 @@ mod tests {
             metadata: HashMap::new(),
             source: None,
             created_at: 0,
+            valid_from: None,
+            valid_until: None,
         };
         IndexEntry::from_memory(&m)
     }

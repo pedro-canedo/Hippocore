@@ -4,7 +4,27 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**eval-quality CLI**:
+**Temporal Truth Layer v0.1**:
+
+- Adicionados `valid_from: Option<i64>` e `valid_until: Option<i64>` em `Memory`
+  e `Document` (epoch ms; `None` = sem restrição). Campos com `#[serde(default)]`
+  para que entradas existentes sejam recuperadas como sempre-válidas.
+- `RememberRequest` e `StoreDocumentRequest` ganham os mesmos campos.
+- `RecallRequest` ganha `as_of: Option<i64>`. Padrão (`None`) resolve para o
+  instante atual na query, excluindo entradas expiradas por padrão.
+- Flags de CLI: `recall --as-of <ms>`, `remember --valid-from / --valid-until`,
+  `put-document --valid-from / --valid-until`.
+- Filtro temporal em `Filter::matches`; chunks de documentos herdam a janela de
+  validade do documento pai.
+- Compatibilidade retroativa: entradas legadas sem campos temporais decodificam
+  com `None/None` (sempre válidas) via serde default — nenhuma migração necessária.
+- 5 novos testes de integração: filtro future-valid, expiração, query as-of
+  passado, compatibilidade retroativa de entradas legadas, herança de validade
+  por chunks.
+- Sem novas dependências de crate.
+- 76 testes no total.
+
+Incremento anterior: **eval-quality CLI**:
 
 - Adicionado subcomando `eval-quality`: lê um arquivo JSON de fixture de
   retrieval, alimenta memórias em um banco temporário (ou indicado via `--db`),
@@ -116,16 +136,14 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 71 testes:
+`cargo test --workspace` passa com 76 testes:
 
 - 18 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL);
-- 39 integração da biblioteca;
+- 44 integração da biblioteca (incl. 5 novos testes de temporal truth);
 - 1 fixture de qualidade de retrieval;
-- 12 smoke tests de CLI (incl. `compact`, `forget`, `put-record`, `import-file`,
-  comandos admin `list-*` e `show-*` com `--json`, e `eval-quality` caminho de
-  sucesso + falha deliberada);
+- 12 smoke tests de CLI;
 - 1 doctest.
 
 ## Próxima feature
 
-**Temporal Truth Layer v0.1** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**Benchmark regression guard** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

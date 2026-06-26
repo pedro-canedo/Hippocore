@@ -46,6 +46,8 @@ pub struct Filter {
     pub kind: Option<ItemKind>,
     /// Require all of these exact metadata key/value pairs.
     pub metadata: Metadata,
+    /// Return only entries valid at this epoch ms. `None` = no temporal filter.
+    pub as_of: Option<i64>,
 }
 
 impl Filter {
@@ -84,6 +86,18 @@ impl Filter {
         for (k, v) in &self.metadata {
             if e.metadata.get(k).map(|got| got == v) != Some(true) {
                 return false;
+            }
+        }
+        if let Some(t) = self.as_of {
+            if let Some(vf) = e.valid_from {
+                if vf > t {
+                    return false; // not yet valid
+                }
+            }
+            if let Some(vu) = e.valid_until {
+                if vu <= t {
+                    return false; // expired
+                }
             }
         }
         true

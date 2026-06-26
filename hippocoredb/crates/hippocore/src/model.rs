@@ -97,6 +97,12 @@ pub struct Document {
     pub updated_at: i64,
     /// Version; starts at 0 and increments on overwrite.
     pub version: u64,
+    /// Validity start (epoch ms). `None` = valid from whenever first stored.
+    #[serde(default)]
+    pub valid_from: Option<i64>,
+    /// Validity end (epoch ms). `None` = never expires.
+    #[serde(default)]
+    pub valid_until: Option<i64>,
 }
 
 impl Document {
@@ -194,6 +200,12 @@ pub struct Memory {
     pub source: Option<Source>,
     /// Creation time (epoch milliseconds).
     pub created_at: i64,
+    /// Validity start (epoch ms). `None` = valid from whenever first stored.
+    #[serde(default)]
+    pub valid_from: Option<i64>,
+    /// Validity end (epoch ms). `None` = never expires.
+    #[serde(default)]
+    pub valid_until: Option<i64>,
 }
 
 impl Memory {

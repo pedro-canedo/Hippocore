@@ -2,89 +2,57 @@
 
 ## Nome
 
-**Temporal Truth Layer v0.1** — adicionar campos `valid_from` / `valid_until`
-em memórias e documentos, e suportar queries "o que era verdade no instante T?".
+**Benchmark regression guard** — tornar regressões de latência no recall
+visíveis e acionáveis, completando a Fase 5 do roadmap.
 
 ## Por que importa
 
-Agentes de IA lidam frequentemente com fatos que mudam ao longo do tempo. Sem
-metadados temporais, o Hippocore só consegue responder "o que está armazenado
-agora?" — não "o que era conhecido em uma data específica?" Isso faz com que
-fatos desatualizados contaminem silenciosamente os resultados de retrieval e
-impossibilita auditar o que o agente acreditava em um dado momento.
-
-Os campos `valid_from` / `valid_until` permitem ao chamador:
-- Marcar fatos como vigentes (`valid_until = None`) ou expirados
-  (`valid_until = Some(epoch_ms)`).
-- Consultar memórias e documentos como estavam em um ponto no tempo via `as_of`.
-- Substituir um fato antigo de forma limpa criando um novo com `valid_from`
-  atualizado, sem deletar o antigo (auditabilidade preservada).
+O Hippocore DB já tem um gate de *qualidade* de retrieval (hit@1/hit@k/MRR).
+Ainda não tem um gate de *performance* de retrieval. À medida que o codebase
+evolui — novos modos de retrieval, filtro temporal, lógica de scoring mais
+rica — é fácil introduzir regressões O(n) que só aparecem em produção. Um
+baseline de benchmark comprometido com comparação por execução dá feedback
+imediato aos contribuidores quando uma mudança piora a latência de recall além
+de um threshold configurável.
 
 ## Comportamento esperado
 
-### Mudanças no modelo
+Um novo target de `cargo bench` mede a latência de recall com um tamanho padrão
+de fixture (ex: 500 memórias). O benchmark salva resultados em um arquivo de
+baseline (`benches/baseline.json`). Um comando auxiliar lê o baseline, executa
+o benchmark novamente e falha se qualquer medição exceder o baseline por mais
+que um threshold (ex: 20%).
 
-`Memory` e `Document` ganham dois campos opcionais:
-```
-valid_from:  Option<i64>   // epoch ms; None = válido desde a criação
-valid_until: Option<i64>   // epoch ms; None = ainda válido
-```
+O baseline é commitado no repositório, para que CI detecte regressões.
+O baseline pode ser atualizado explicitamente (`cargo xtask update-baseline`).
 
-### Mudanças na API
+### Decisões de design
 
-`RememberRequest` e `StoreDocumentRequest` ganham:
-```
-valid_from:  Option<i64>
-valid_until: Option<i64>
-```
-
-`RecallRequest` / `SearchRequest` ganham:
-```
-as_of: Option<i64>  // epoch ms; None = agora
-```
-
-Quando `as_of` está definido, o retrieval filtra qualquer entrada onde:
-- `valid_from > as_of` (ainda não válida), ou
-- `valid_until <= as_of` (já expirada).
-
-### Mudanças na CLI
-
-- `remember` ganha `--valid-from <ms>` e `--valid-until <ms>`.
-- `recall` ganha `--as-of <ms>`.
-- `put-document` ganha `--valid-from <ms>` e `--valid-until <ms>`.
-
-### Persistência
-
-`valid_from` e `valid_until` são armazenados no WAL/snapshot como parte do
-modelo JSON existente; entradas legadas sem esses campos são tratadas como
-`valid_from = created_at`, `valid_until = None` (sempre válido).
+- Baseline armazenado como JSON: `{benchmark_name, mean_ns, std_ns, timestamp}`.
+- Threshold configurável via variável de ambiente `HIPPO_BENCH_THRESHOLD`
+  (padrão 0.20 = 20% mais lento é falha).
+- O check é um binário/script separado para não complicar o `cargo test`.
+- Usa o setup existente de `criterion`; nenhum novo framework de benchmark.
 
 ## Critérios de aceite
 
-- `valid_from` / `valid_until` armazenados e recuperados via WAL/snapshot.
-- `recall --as-of <ms>` filtra entradas corretamente (passado válido, presente e
-  futuro).
-- Entradas expiradas não aparecem no recall padrão (`as_of = now` por padrão).
-- Entradas legadas sem campos temporais se recuperam com semântica sempre-válido.
-- Flags de CLI funcionam (`--valid-from`, `--valid-until`, `--as-of`).
-- Novos testes unitários e de integração: sem filtro, as-of-passado,
-  as-of-futuro, entradas expiradas, recuperação de entradas legadas.
-- Todos os 71+ testes passam.
+- `cargo bench -p hippocore` grava dados de timing atualizados.
+- Arquivo de baseline commitado em `benches/baseline.json`.
+- Script ou xtask de verificação de regressão lê o baseline e sai com código
+  não-zero se qualquer benchmark de recall regredir além do threshold.
+- Latência de recall medida com fixture realista (≥ 200 memórias).
+- Todos os 76+ testes passam.
 - `cargo fmt`, `cargo clippy -D warnings` limpos.
 
 ## Fora de escopo
 
-- Relações `supersedes` / `contradicts` (especificação completa da Fase 7 —
-  adiado).
-- Resolução de conflitos entre fatos temporalmente sobrepostos.
-- Otimização de índice para queries de intervalo temporal (brute force aceitável
-  nesta escala).
+- Medição de P95/P99 (média e stddev suficientes para um guard).
+- Mudanças na infraestrutura de CI.
+- Profiling ou flame-graph.
 - Server mode.
 
 ## Follow-up
 
-Após o Temporal Truth Layer v0.1, o próximo passo pode ser:
-- Completar o item restante da Fase 5: **benchmark regression guard** para
-  evitar regressões silenciosas de latência no recall.
-- Ou itens da Fase 6: Studio local para navegar e editar dados de contexto
-  (adiado até que a Fase 6 seja agendada).
+Após o benchmark guard, a Fase 5 estará completa. O próximo passo é a
+**Fase 7 — Temporal Truth Layer spec completa**: relações `supersedes` /
+`contradicts`, resolução de conflitos e semântica temporal mais rica.

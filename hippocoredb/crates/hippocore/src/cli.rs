@@ -132,6 +132,12 @@ struct PutDocumentArgs {
     meta: Vec<String>,
     #[arg(long)]
     source: Option<String>,
+    /// Validity start (epoch ms). Omit to make the document always valid.
+    #[arg(long)]
+    valid_from: Option<i64>,
+    /// Validity end (epoch ms). Omit to make the document never expire.
+    #[arg(long)]
+    valid_until: Option<i64>,
 }
 
 #[derive(Args)]
@@ -159,6 +165,12 @@ struct RememberArgs {
     /// `allow_hyphen_values` lets negative components (e.g. -0.34) through.
     #[arg(long, allow_hyphen_values = true)]
     embedding: Option<String>,
+    /// Validity start (epoch ms). Omit to make the memory always valid.
+    #[arg(long)]
+    valid_from: Option<i64>,
+    /// Validity end (epoch ms). Omit to make the memory never expire.
+    #[arg(long)]
+    valid_until: Option<i64>,
 }
 
 #[derive(Args)]
@@ -235,6 +247,10 @@ struct RecallArgs {
     /// Emit results as JSON (for programmatic consumers).
     #[arg(long)]
     json: bool,
+    /// Query as of this epoch ms. Defaults to current time; expired entries
+    /// (valid_until <= now) are excluded by default.
+    #[arg(long)]
+    as_of: Option<i64>,
 }
 
 #[derive(Args)]
@@ -438,6 +454,8 @@ fn cmd_put_document(a: PutDocumentArgs) -> Result<(), String> {
     req.id = a.id;
     req.metadata = metadata;
     req.source = a.source.map(Source::label);
+    req.valid_from = a.valid_from;
+    req.valid_until = a.valid_until;
     let doc = db.store_document(req).map_err(|e| format!("{e}"))?;
     db.close().map_err(|e| format!("close failed: {e}"))?;
     println!(
@@ -466,6 +484,8 @@ fn cmd_remember(a: RememberArgs) -> Result<(), String> {
     req.metadata = metadata;
     req.source = a.source.map(Source::label);
     req.embedding = embedding;
+    req.valid_from = a.valid_from;
+    req.valid_until = a.valid_until;
     let mem = db.remember(req).map_err(|e| format!("{e}"))?;
     db.close().map_err(|e| format!("close failed: {e}"))?;
     println!(
@@ -565,6 +585,7 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     req.metadata = metadata;
     req.mode = mode;
     req.top_k = a.top_k;
+    req.as_of = a.as_of;
 
     let results = db.search(req).map_err(|e| format!("{e}"))?;
 

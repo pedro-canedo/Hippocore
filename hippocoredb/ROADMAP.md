@@ -62,8 +62,9 @@ not a dated commitment.
 ## Phase 7 — Temporal Truth Layer
 
 - `valid_from`, `valid_until`, `supersedes`, `contradicts`.
+- `valid_from`/`valid_until` on memories and documents with `as_of` queries. ✅
 - Source and confidence-aware resolution of conflicting facts.
-- "What was true at time T?" queries.
+- "What was true at time T?" queries. ✅ (basic `as_of` filter)
 
 ## Phase 8 — Context Compiler
 

@@ -2,89 +2,58 @@
 
 ## Feature name
 
-**Temporal Truth Layer v0.1** — add `valid_from` / `valid_until` fields to
-memories and documents, and support "what was true at time T?" queries.
+**Benchmark regression guard** — make latency regressions in recall visible and
+actionable, completing Phase 5 of the roadmap.
 
 ## Why it matters
 
-AI agents frequently deal with facts that change over time. Without temporal
-metadata, Hippocore can only answer "what is currently stored?" — not "what was
-known on a given date?" This means outdated facts silently pollute retrieval
-results, and there is no way to audit what the agent believed at a specific
-moment.
-
-`valid_from` / `valid_until` allow callers to:
-- Mark facts as current (open-ended `valid_until = None`) or expired
-  (`valid_until = Some(epoch_ms)`).
-- Query memories and documents as of a specific point in time via `as_of`.
-- Supersede an old fact cleanly by writing a new one with an updated
-  `valid_from`, without deleting the old one (so the old state is auditable).
+Hippocore DB already has a retrieval *quality* gate (hit@1/hit@k/MRR). It does
+not yet have a retrieval *performance* gate. As the codebase evolves — new
+retrieval modes, temporal filtering, richer scoring logic — it is easy to
+introduce O(n) regressions that only show up in production. A committed
+benchmark baseline with per-run comparison gives contributors immediate feedback
+when a change regresses recall latency beyond a configurable threshold.
 
 ## Expected behavior
 
-### Model changes
+A new `cargo bench` target (`recall_regression` or extending `basic_bench`)
+measures recall latency with a standard fixture size (e.g. 500 memories). The
+benchmark saves results to a baseline file (`benches/baseline.json`). A
+companion check command (`cargo xtask bench-check` or an integration test) reads
+the baseline, runs the benchmark again, and fails if any measurement exceeds the
+baseline by more than a threshold (e.g. 20%).
 
-`Memory` and `Document` gain two optional fields:
-```
-valid_from:  Option<i64>   // epoch ms; None means "always valid from creation"
-valid_until: Option<i64>   // epoch ms; None means "still valid"
-```
+The baseline is committed to the repo, so CI will catch regressions. The
+baseline can be updated explicitly (`cargo xtask update-baseline`).
 
-### API changes
+### Key design choices
 
-`RememberRequest` and `StoreDocumentRequest` gain:
-```
-valid_from:  Option<i64>
-valid_until: Option<i64>
-```
-
-`RecallRequest` / `SearchRequest` gain:
-```
-as_of: Option<i64>  // epoch ms; None = now
-```
-
-When `as_of` is set, retrieval filters out any entry where:
-- `valid_from > as_of` (not yet valid), or
-- `valid_until <= as_of` (already expired).
-
-### CLI changes
-
-- `remember` gains `--valid-from <ms>` and `--valid-until <ms>` flags.
-- `recall` gains `--as-of <ms>`.
-- `put-document` gains `--valid-from <ms>` and `--valid-until <ms>`.
-
-### Persistence
-
-`valid_from` and `valid_until` are stored in the WAL/snapshot as part of the
-existing JSON model; legacy entries without these fields are treated as
-`valid_from = created_at`, `valid_until = None` (always valid).
+- Baseline stored as JSON with `{benchmark_name, mean_ns, std_ns, timestamp}`.
+- Threshold configurable via env var `HIPPO_BENCH_THRESHOLD` (default 0.20 =
+  20% slower is a failure).
+- The check is a separate binary/script so it does not add build complexity to
+  normal `cargo test`.
+- Use the existing `criterion` setup; no new bench frameworks.
 
 ## Acceptance criteria
 
-- `valid_from` / `valid_until` stored and recovered through WAL/snapshot.
-- `recall --as-of <ms>` filters entries correctly (past-valid, current, and
-  future-valid scenarios).
-- Expired entries do not appear in default recall (default `as_of = now`).
-- Legacy entries without temporal fields recover correctly with always-valid
-  semantics.
-- CLI flags work (`--valid-from`, `--valid-until`, `--as-of`).
-- New unit + integration tests covering: default no-filter, as-of-past,
-  as-of-future, expired entries, legacy-entry recovery.
-- All 71+ tests still pass.
+- `cargo bench -p hippocore` writes updated timing data.
+- A baseline file is committed at `benches/baseline.json`.
+- A regression check script (or xtask) reads the baseline and exits non-zero
+  if any recall benchmark regresses beyond the threshold.
+- Recall latency is measured at a realistic fixture size (≥ 200 memories).
+- All 76+ tests still pass.
 - `cargo fmt`, `cargo clippy -D warnings` clean.
 
 ## Non-goals
 
-- `supersedes` / `contradicts` relations (Phase 7 full spec — deferred).
-- Conflict resolution between overlapping temporal facts.
-- Index optimization for time-range queries (brute force acceptable at this
-  scale).
+- Measuring P95/P99 latency (mean and stddev sufficient for a guard).
+- CI infrastructure changes (the user's CI will call the existing `cargo bench`).
+- Profiling or flame-graph integration.
 - Server mode.
 
 ## Follow-up
 
-After Temporal Truth Layer v0.1, the next step could be:
-- Filling in the remaining Phase 5 item: **benchmark regression guard** to
-  prevent silent performance regressions in recall latency.
-- Or Phase 6 admin surface items: local Studio for browsing and editing context
-  data (deferred until Phase 6 is scheduled).
+After the benchmark guard, Phase 5 is complete. The next major phase is
+**Phase 7 — Temporal Truth Layer full spec**: `supersedes` / `contradicts`
+relations, conflict resolution, and richer temporal query semantics.

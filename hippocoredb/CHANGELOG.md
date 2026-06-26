@@ -5,6 +5,26 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Temporal Truth Layer v0.1
+
+- Added `valid_from: Option<i64>` and `valid_until: Option<i64>` to `Memory`
+  and `Document`. Both fields are `#[serde(default)]` so existing serialized
+  records decode as always-valid without any migration.
+- `RememberRequest` and `StoreDocumentRequest` expose matching fields so callers
+  can set temporal constraints at write time.
+- `RecallRequest` gains `as_of: Option<i64>`. When `None` (the default),
+  `run_query` resolves it to the current time before executing the query,
+  meaning expired entries are excluded from all default recall operations.
+- `Filter` gains `as_of: Option<i64>`; `Filter::matches` rejects entries where
+  `valid_from > as_of` (not yet valid) or `valid_until <= as_of` (expired).
+- `IndexEntry` carries `valid_from`/`valid_until`; document chunks inherit them
+  from their parent document's temporal window.
+- CLI: `remember` and `put-document` gain `--valid-from <ms>` and
+  `--valid-until <ms>`; `recall` gains `--as-of <ms>`.
+- 5 new integration tests: future-valid filtering, expired-memory exclusion,
+  as-of point-in-time query, legacy-entry always-valid backwards compatibility,
+  and document-chunk validity inheritance.
+
 ### Added — eval-quality CLI command
 
 - Added `eval-quality --fixture <file> [--db <path>] [--top-k N] [--json]`

@@ -4,7 +4,28 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**eval-quality CLI**:
+**Temporal Truth Layer v0.1**:
+
+- Added `valid_from: Option<i64>` and `valid_until: Option<i64>` to `Memory`
+  and `Document` (epoch milliseconds; `None` = no constraint). Fields are
+  `#[serde(default)]` so all existing serialized records recover as always-valid.
+- `RememberRequest` and `StoreDocumentRequest` gain matching fields.
+- `RecallRequest` gains `as_of: Option<i64>`. Default (`None`) resolves to the
+  current time at query time, so expired entries are excluded by default.
+- `recall --as-of <ms>` CLI flag for historical point-in-time queries.
+- `remember --valid-from / --valid-until` and `put-document --valid-from /
+  --valid-until` CLI flags.
+- Temporal filtering lives in `Filter::matches`; it applies after all other
+  filters and respects the per-entry `valid_from`/`valid_until` from `IndexEntry`.
+- Document chunks inherit their parent document's temporal validity window.
+- No schema migration needed: legacy WAL entries decode with `None/None`
+  (always valid) via serde default.
+- 5 new integration tests: future-valid filtering, expired-memory exclusion,
+  as-of past-state query, legacy-entry backwards compat, chunk validity inheritance.
+- No new crate dependencies.
+- 76 tests total.
+
+Previous: **eval-quality CLI**:
 
 - Added `eval-quality` subcommand: reads a retrieval fixture JSON file, seeds
   memories into a temp (or specified) database, runs each scenario, and reports
@@ -162,15 +183,15 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 71 tests:
+**All green.** `cargo test --workspace` passes 76 tests:
 - 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode),
-- 39 library integration (store/recall, chunking, retrieval quality layer,
+- 44 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
-  error paths, dimension-mismatch, torn-WAL recovery),
+  error paths, dimension-mismatch, torn-WAL recovery, temporal filtering),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`, and
@@ -197,4 +218,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Temporal Truth Layer v0.1** — see NEXT_FEATURE.md.
+**Benchmark regression guard** — see NEXT_FEATURE.md.

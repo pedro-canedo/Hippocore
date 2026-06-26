@@ -946,3 +946,198 @@ fn trailing_corrupt_wal_line_recovers() {
     let hits = db.recall(RecallRequest::new("acme", "oracle")).unwrap();
     assert_eq!(hits.len(), 1);
 }
+
+#[test]
+fn temporal_valid_from_filters_future_memories() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    // Memory valid from far in the future should not appear in a default recall.
+    let far_future = i64::MAX;
+    let mut future_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "future fact about unicorns",
+    );
+    future_req.id = Some("future".into());
+    future_req.valid_from = Some(far_future);
+    db.remember(future_req).unwrap();
+
+    // Memory with no temporal constraints — always available.
+    let mut now_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "present fact about unicorns",
+    );
+    now_req.id = Some("present".into());
+    db.remember(now_req).unwrap();
+
+    let hits = db.recall(RecallRequest::new("acme", "unicorns")).unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(ids.contains(&"present"), "present should appear: {ids:?}");
+    assert!(
+        !ids.contains(&"future"),
+        "future-valid memory should not appear: {ids:?}"
+    );
+}
+
+#[test]
+fn temporal_valid_until_expires_memory() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    // Already-expired memory (valid_until set to the past).
+    let past = 1_000_000_i64; // epoch 1000s, Jan 1 1970 + 1000s
+    let mut expired_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "ancient fact about dragons",
+    );
+    expired_req.id = Some("expired".into());
+    expired_req.valid_until = Some(past);
+    db.remember(expired_req).unwrap();
+
+    // Non-expired memory.
+    let mut current_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "current fact about dragons",
+    );
+    current_req.id = Some("current".into());
+    db.remember(current_req).unwrap();
+
+    let hits = db.recall(RecallRequest::new("acme", "dragons")).unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(ids.contains(&"current"), "current should appear: {ids:?}");
+    assert!(
+        !ids.contains(&"expired"),
+        "expired memory should not appear: {ids:?}"
+    );
+}
+
+#[test]
+fn temporal_as_of_queries_past_state() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let t_past = 1_000_000_i64; // somewhere in the past
+    let t_future = i64::MAX / 2; // well in the future
+
+    // A memory valid only in a narrow window in the past.
+    let mut past_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "historical truth about robots",
+    );
+    past_req.id = Some("historical".into());
+    past_req.valid_from = Some(t_past - 1000);
+    past_req.valid_until = Some(t_past + 1000);
+    db.remember(past_req).unwrap();
+
+    // A memory valid only in the future.
+    let mut future_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "future truth about robots",
+    );
+    future_req.id = Some("future-robots".into());
+    future_req.valid_from = Some(t_future);
+    db.remember(future_req).unwrap();
+
+    // Query at t_past: only the historical memory should appear.
+    let mut req = RecallRequest::new("acme", "robots");
+    req.as_of = Some(t_past);
+    let hits = db.recall(req).unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(
+        ids.contains(&"historical"),
+        "historical should appear at t_past: {ids:?}"
+    );
+    assert!(
+        !ids.contains(&"future-robots"),
+        "future-robots should not appear at t_past: {ids:?}"
+    );
+
+    // Default recall (as_of = now): neither should appear (historical expired, future not yet valid).
+    let hits_now = db.recall(RecallRequest::new("acme", "robots")).unwrap();
+    let ids_now: Vec<&str> = hits_now.iter().map(|h| h.id.as_str()).collect();
+    assert!(
+        !ids_now.contains(&"historical"),
+        "historical should not appear at now: {ids_now:?}"
+    );
+    assert!(
+        !ids_now.contains(&"future-robots"),
+        "future-robots should not appear at now: {ids_now:?}"
+    );
+}
+
+#[test]
+fn temporal_legacy_entries_always_valid() {
+    // Entries deserialized from storage without valid_from/valid_until
+    // should behave as always-valid (None/None).
+    let dir = TempDir::new().unwrap();
+    {
+        let mut db = seeded(&dir);
+        // Store a memory with no temporal fields.
+        let req = RememberRequest::new(
+            "acme",
+            "support",
+            MemoryType::Semantic,
+            "durable legacy fact about servers",
+        );
+        db.remember(req).unwrap();
+        db.close().unwrap();
+    }
+    // Reopen (simulates legacy WAL recovery) and verify it still appears.
+    let db = open(&dir);
+    let hits = db.recall(RecallRequest::new("acme", "servers")).unwrap();
+    assert!(
+        !hits.is_empty(),
+        "legacy memories must still appear after reopen"
+    );
+    assert!(
+        hits.iter().any(|h| h.text.contains("legacy fact")),
+        "legacy memory text should appear: {hits:?}"
+    );
+}
+
+#[test]
+fn temporal_document_chunks_inherit_validity() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    // Document valid only in the past.
+    let past = 1_000_000_i64;
+    let mut doc_req =
+        StoreDocumentRequest::new("acme", "support", "expired document about satellites");
+    doc_req.id = Some("sat-doc".into());
+    doc_req.valid_until = Some(past);
+    db.store_document(doc_req).unwrap();
+
+    // Default recall (now) should not return expired document's chunks.
+    let hits = db.recall(RecallRequest::new("acme", "satellites")).unwrap();
+    assert!(
+        hits.is_empty()
+            || !hits
+                .iter()
+                .any(|h| h.document_id.as_deref() == Some("sat-doc")),
+        "expired document chunks should not appear: {hits:?}"
+    );
+
+    // Query at t_past should return the document's chunks.
+    let mut req = RecallRequest::new("acme", "satellites");
+    req.as_of = Some(past - 1); // just before expiry
+    let hits_past = db.recall(req).unwrap();
+    assert!(
+        hits_past
+            .iter()
+            .any(|h| h.document_id.as_deref() == Some("sat-doc")),
+        "document chunks should appear before expiry: {hits_past:?}"
+    );
+}
