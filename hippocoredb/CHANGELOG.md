@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Benchmark regression guard
+
+- Added `examples/bench_regression.rs`: standalone latency guard for hybrid,
+  vector, and text recall over 500 memories (5 warmup + 50 measured iterations).
+- Committed `benches/baseline.json` with mean latencies at time of authoring
+  (~430–470 µs on the development machine at release profile).
+- `HIPPO_BENCH_UPDATE=1 cargo run --release --example bench_regression` rewrites
+  the baseline. Without that env var, the command compares current latency to the
+  baseline and exits non-zero if any benchmark exceeds `HIPPO_BENCH_THRESHOLD`
+  (default 0.20 = 20% regression threshold).
+- Added `[[example]] bench_regression` entry to `crates/hippocore/Cargo.toml`.
+- No new crate dependencies.
+
 ### Added — Temporal Truth Layer v0.1
 
 - Added `valid_from: Option<i64>` and `valid_until: Option<i64>` to `Memory`

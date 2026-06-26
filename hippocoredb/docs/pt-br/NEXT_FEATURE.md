@@ -2,57 +2,79 @@
 
 ## Nome
 
-**Benchmark regression guard** — tornar regressões de latência no recall
-visíveis e acionáveis, completando a Fase 5 do roadmap.
+**Temporal Truth Layer spec completa** — relações `supersedes` e `contradicts`
+entre memórias, detecção de conflitos no recall e resolução com confiança.
 
 ## Por que importa
 
-O Hippocore DB já tem um gate de *qualidade* de retrieval (hit@1/hit@k/MRR).
-Ainda não tem um gate de *performance* de retrieval. À medida que o codebase
-evolui — novos modos de retrieval, filtro temporal, lógica de scoring mais
-rica — é fácil introduzir regressões O(n) que só aparecem em produção. Um
-baseline de benchmark comprometido com comparação por execução dá feedback
-imediato aos contribuidores quando uma mudança piora a latência de recall além
-de um threshold configurável.
+A Fase 7 v0.1 adicionou `valid_from`/`valid_until` e filtro `as_of` básico.
+A spec completa do Temporal Truth Layer adiciona a camada semântica: agentes de
+IA frequentemente armazenam fatos que se contradizem ou se atualizam, e sem
+metadados explícitos de `supersedes`/`contradicts` o Hippocore não consegue
+surfaçar ou resolver esses conflitos. Sem isso, um conjunto de resultados de
+recall pode conter tanto uma crença antiga quanto um fato mais novo que a
+contradiz, deixando para o agente resolver — ou pior, usando informação obsoleta
+silenciosamente.
+
+Relações explícitas de supersedura/contradição permitem:
+- Marcar uma nova memória como substituindo uma mais antiga.
+- Sinalizar duas memórias como conflitantes (revisão necessária por humano ou
+  agente).
+- Excluir memórias supersedidas dos resultados padrão de recall.
+- Retornar avisos de contradição junto aos resultados de recall.
 
 ## Comportamento esperado
 
-Um novo target de `cargo bench` mede a latência de recall com um tamanho padrão
-de fixture (ex: 500 memórias). O benchmark salva resultados em um arquivo de
-baseline (`benches/baseline.json`). Um comando auxiliar lê o baseline, executa
-o benchmark novamente e falha se qualquer medição exceder o baseline por mais
-que um threshold (ex: 20%).
+### Mudanças no modelo
 
-O baseline é commitado no repositório, para que CI detecte regressões.
-O baseline pode ser atualizado explicitamente (`cargo xtask update-baseline`).
+`Memory` ganha dois campos opcionais:
+```
+supersedes:   Vec<String>  // ids de memórias que esta substitui
+contradicts:  Vec<String>  // ids de memórias que esta contradiz
+```
 
-### Decisões de design
+### Comportamento na escrita
 
-- Baseline armazenado como JSON: `{benchmark_name, mean_ns, std_ns, timestamp}`.
-- Threshold configurável via variável de ambiente `HIPPO_BENCH_THRESHOLD`
-  (padrão 0.20 = 20% mais lento é falha).
-- O check é um binário/script separado para não complicar o `cargo test`.
-- Usa o setup existente de `criterion`; nenhum novo framework de benchmark.
+`remember` valida que qualquer id listado em `supersedes`/`contradicts` existe
+no mesmo tenant. Se uma memória é supersedida, ela recebe `superseded_by = <id>`
+(armazenado na memória antiga) e é excluída do recall padrão.
+
+### Comportamento na query
+
+- Memórias supersedidas são excluídas do recall padrão (exceto se
+  `include_superseded = true` estiver no request).
+- Quando uma memória recall tem `contradicts` não vazio, o `RecallResult`
+  carrega um campo `contradictions: Vec<String>` informativo.
+
+### Mudanças na CLI
+
+- `remember` ganha `--supersedes <id>` (repetível) e `--contradicts <id>`
+  (repetível).
+- `recall` ganha `--include-superseded` para surfaçar o histórico completo.
 
 ## Critérios de aceite
 
-- `cargo bench -p hippocore` grava dados de timing atualizados.
-- Arquivo de baseline commitado em `benches/baseline.json`.
-- Script ou xtask de verificação de regressão lê o baseline e sai com código
-  não-zero se qualquer benchmark de recall regredir além do threshold.
-- Latência de recall medida com fixture realista (≥ 200 memórias).
+- `supersedes` e `contradicts` armazenados e recuperados via WAL/snapshot.
+- Memórias supersedidas excluídas do recall padrão; surfaçadas via
+  `--include-superseded`.
+- Ids de contradição aparecem no `RecallResult` quando presentes.
+- Novos testes de integração: exclusão por supersedura, surfacing de
+  contradições, override com include-superseded, validação de ids desconhecidos.
 - Todos os 76+ testes passam.
 - `cargo fmt`, `cargo clippy -D warnings` limpos.
+- Sem novas dependências externas.
 
 ## Fora de escopo
 
-- Medição de P95/P99 (média e stddev suficientes para um guard).
-- Mudanças na infraestrutura de CI.
-- Profiling ou flame-graph.
+- Resolução automática de conflitos (responsabilidade do loop humano/agente,
+  não do engine).
+- Grafos de proveniência ou traversal de grafo de conhecimento (Fase 10 —
+  Graph Memory).
 - Server mode.
 
 ## Follow-up
 
-Após o benchmark guard, a Fase 5 estará completa. O próximo passo é a
-**Fase 7 — Temporal Truth Layer spec completa**: relações `supersedes` /
-`contradicts`, resolução de conflitos e semântica temporal mais rica.
+Após o Temporal Truth Layer completo, a Fase 7 estará concluída. A Fase 8 é o
+**Context Compiler**: `build_context(query, user, max_tokens)` — montagem de
+contexto com budget de tokens para LLMs, a partir de todos os tipos de items
+armazenados.

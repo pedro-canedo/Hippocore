@@ -1,0 +1,19 @@
+{
+  "benchmarks": [
+    {
+      "name": "recall_hybrid",
+      "mean_ns": 471003,
+      "samples": 50
+    },
+    {
+      "name": "recall_vector",
+      "mean_ns": 466342,
+      "samples": 50
+    },
+    {
+      "name": "recall_text",
+      "mean_ns": 451779,
+      "samples": 50
+    }
+  ]
+}

@@ -4,7 +4,20 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Temporal Truth Layer v0.1**:
+**Benchmark regression guard**:
+
+- Adicionado `examples/bench_regression.rs`: guard de latência autônomo para
+  recall híbrido, vetorial e textual com 500 memórias (50 iterações medidas após
+  5 de warmup).
+- `benches/baseline.json` commitado com latências médias atuais (~430–470 µs na
+  máquina de desenvolvimento).
+- `HIPPO_BENCH_UPDATE=1 cargo run --release --example bench_regression` reescreve
+  o baseline; sem essa variável o comando lê o baseline e sai com código não-zero
+  se qualquer benchmark regredir além de `HIPPO_BENCH_THRESHOLD` (padrão 20%).
+- Completa o item final da Fase 5: benchmark regression guard.
+- Sem novas dependências de crate.
+
+Incremento anterior: **Temporal Truth Layer v0.1**:
 
 - Adicionados `valid_from: Option<i64>` e `valid_until: Option<i64>` em `Memory`
   e `Document` (epoch ms; `None` = sem restrição). Campos com `#[serde(default)]`
@@ -146,4 +159,4 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Benchmark regression guard** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**Temporal Truth Layer spec completa** — relações `supersedes` / `contradicts`, resolução de conflitos (Fase 7). Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

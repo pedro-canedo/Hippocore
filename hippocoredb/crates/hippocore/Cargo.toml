@@ -28,6 +28,10 @@ criterion = { workspace = true }
 name = "basic_usage"
 path = "../../examples/basic_usage.rs"
 
+[[example]]
+name = "bench_regression"
+path = "../../examples/bench_regression.rs"
+
 [[bench]]
 name = "basic_bench"
 path = "../../benches/basic_bench.rs"

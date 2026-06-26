@@ -4,7 +4,21 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Temporal Truth Layer v0.1**:
+**Benchmark regression guard**:
+
+- Added `examples/bench_regression.rs`: a standalone latency guard for hybrid,
+  vector, and text recall over 500 memories (50 measured iterations after 5
+  warmup iterations).
+- Committed `benches/baseline.json` with current mean latencies (~430–470 µs
+  on the development machine).
+- `HIPPO_BENCH_UPDATE=1 cargo run --release --example bench_regression` rewrites
+  the baseline; without that env var the command reads the baseline and exits
+  non-zero if any benchmark regresses by more than `HIPPO_BENCH_THRESHOLD`
+  (default 20%).
+- Satisfies Phase 5's final item: benchmark regression guard.
+- No new crate dependencies (uses existing `serde`, `serde_json`, `tempfile`).
+
+Previous: **Temporal Truth Layer v0.1**:
 
 - Added `valid_from: Option<i64>` and `valid_until: Option<i64>` to `Memory`
   and `Document` (epoch milliseconds; `None` = no constraint). Fields are
@@ -218,4 +232,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Benchmark regression guard** — see NEXT_FEATURE.md.
+**Temporal Truth Layer full spec** — `supersedes` / `contradicts` relations, conflict resolution (Phase 7). See NEXT_FEATURE.md.
