@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Phase 4: Pluggable VectorIndex trait + HNSW from scratch
+
+- `VectorIndex` trait: `insert(key, embedding)`, `remove(key)`, `knn(query, k, ef)`.
+- `BruteForceVectorIndex`: exact cosine scan, O(n) per query.
+- `HnswVectorIndex`: wraps `HnswIndex` for sub-linear ANN search.
+- `HnswIndex` (pure Rust, zero external deps): multi-layer graph, two-heap beam search
+  (W = min-heap, C = max-heap), soft deletes, geometric level sampling, bidirectional
+  connections with neighbour pruning.
+- `Index::with_vector_backend(kind)` factory; insert/remove propagate to the backend.
+- `Index::knn(query, k, ef)` delegate to the active backend.
+- `Config::vector_index: VectorIndexKind` (default `BruteForce`).
+- `query::execute` uses `index.knn()` with `KNN_OVER_FETCH=8` over-retrieval for
+  post-filter correctness in vector/hybrid modes.
+- `VectorIndexKind` re-exported from the crate root.
+- 4 new HNSW unit tests; 3 new integration tests (store+recall, restart, BF vs HNSW).
+
 ### Added — Phase 7: Confidence-aware resolution
 
 - `confidence: Option<f32>` on `Memory`, `RecallResult`, `ContextItem`, and

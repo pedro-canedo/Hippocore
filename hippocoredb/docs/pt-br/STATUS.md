@@ -4,7 +4,7 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Fase 7 — Resolução por confiança** e **Fase 2 — Group-commit / batch writes**:
+**Fase 4 — Trait `VectorIndex` plugável + HNSW**, **Fase 7 — Resolução por confiança** e **Fase 2 — Group-commit / batch writes**:
 
 ### Fase 7: Resolução ciente de fonte e confiança
 
@@ -17,13 +17,27 @@ _Última atualização: 2026-06-26._
 - CLI: `remember --confidence <f32>` e novo subcomando `rate-memory --tenant --collection --id --confidence`.
 - 6 novos testes de integração: armazenamento+recall de confiança, rejeição fora de range, persistência de `rate_memory`, avaliação inválida, erro not-found, ordenação por conflito no `build_context`.
 
+### Fase 4: Trait VectorIndex plugável + HNSW do zero
+
+- Trait `VectorIndex` em `index.rs`: `insert(key, embedding)`, `remove(key)`, `knn(query, k, ef) -> Vec<EntryId>`.
+- `BruteForceVectorIndex`: scan cosine exato O(n); backend padrão para corretude.
+- `HnswVectorIndex`: encapsula `HnswIndex` do novo módulo `hnsw.rs`; busca ANN sub-linear.
+- `HnswIndex` (Rust puro, sem dependências externas): grafo multi-camada, busca por beam com dois heaps (W = min-heap, C = max-heap), soft deletes, amostragem de nível geométrica `level = floor(-ln(U) × mL)`, conexões bidirecionais com poda.
+- `Index` ganha fábrica `with_vector_backend(kind: VectorIndexKind)`; inserts/removes propagam para o backend vetorial automaticamente.
+- `Index::knn(query, k, ef)` delega para o backend ativo.
+- `Config::vector_index: VectorIndexKind` (padrão `BruteForce`) — chamadores selecionam o backend na abertura.
+- `query::execute` usa `index.knn()` com `KNN_OVER_FETCH=8×` para corretude de pós-filtro.
+- `VectorIndexKind` re-exportado da raiz do crate.
+- 4 novos testes unitários HNSW + 3 novos testes de integração.
+- Sem novas dependências de crate. 104 testes no total.
+
 ### Fase 2: Group-commit / batch writes
 
 - `Storage::append_many(ops: &[Operation])` — serializa todas as ops em um único buffer, um único `write_all`, um único `sync_all` condicional. Um fsync para N ops.
 - `Hippocore::remember_many(reqs: Vec<RememberRequest>)` — valida todos os requests primeiro, constrói o vetor de ops, chama `append_many`, aplica estado e índice em loop. Compactação automática no fim.
 - `Hippocore::store_documents(reqs: Vec<StoreDocumentRequest>)` — mesmo padrão de group-commit para documentos.
 - 3 novos testes de integração: batch de memórias, batch de documentos, durabilidade após restart.
-- Sem novas dependências de crate. 94 testes no total.
+- Sem novas dependências de crate.
 
 Incremento anterior: **Context Compiler** — `build_context(query, user, max_tokens)`:
 
@@ -212,11 +226,11 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 94 testes:
+`cargo test --workspace` passa com 104 testes:
 
-- 18 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL);
-- 61 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
-  batch writes, resolução por confiança);
+- 22 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL, 4 novos testes HNSW);
+- 64 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
+  batch writes, resolução por confiança, HNSW backend);
 - 1 fixture de qualidade de retrieval;
 - 12 smoke tests de CLI;
 - 1 doctest (lib.rs quickstart);
@@ -224,6 +238,6 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Fase 4 — Trait `VectorIndex` plugável + HNSW** — definir o trait em `index.rs`,
-refatorar `Index` para usar `Box<dyn VectorIndex>`, implementar brute-force e HNSW.
+**Fase 6 — TUI interativo com ratatui** — subcomando `hippocore studio` com painéis
+para tenants, coleções, memórias, busca e estatísticas.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use crate::index::VectorIndexKind;
+
 /// Default embedding dimensionality used by the built-in deterministic embedder.
 pub const DEFAULT_EMBEDDING_DIM: usize = 64;
 
@@ -34,6 +36,10 @@ pub struct Config {
     pub auto_compact_after_ops: usize,
     /// Auto-compact once the WAL reaches this many bytes (`0` disables).
     pub auto_compact_after_bytes: u64,
+    /// Vector index backend. Default is brute-force (exact, O(n) per query).
+    /// Set to `VectorIndexKind::Hnsw` for approximate sub-linear search over
+    /// large collections (trades a small recall penalty for speed).
+    pub vector_index: VectorIndexKind,
 }
 
 impl Config {
@@ -56,6 +62,7 @@ impl Default for Config {
             sync_writes: true,
             auto_compact_after_ops: DEFAULT_AUTO_COMPACT_OPS,
             auto_compact_after_bytes: DEFAULT_AUTO_COMPACT_BYTES,
+            vector_index: VectorIndexKind::BruteForce,
         }
     }
 }

@@ -1,11 +1,103 @@
-//! In-memory retrieval indexes: an exact vector store and an inverted text
+//! In-memory retrieval indexes: a pluggable vector index and an inverted text
 //! index, both rebuilt from the persisted [`crate::storage::State`] on open and
 //! updated incrementally on each write.
+//!
+//! The vector backend is selected via [`VectorIndexKind`]: either the exact
+//! brute-force implementation or the HNSW approximate index.
 
 use std::collections::{HashMap, HashSet};
 
+use crate::hnsw::{HnswIndex, HNSW_EF_CONSTRUCTION, HNSW_EF_SEARCH, HNSW_M};
 use crate::memory::tokenize;
 use crate::model::{Chunk, ItemKind, Memory, MemoryType, Metadata, Record, Source};
+
+// ── VectorIndex trait ────────────────────────────────────────────────────────
+
+/// Which ANN backend to use when opening or building an [`Index`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum VectorIndexKind {
+    /// Exact brute-force cosine scan (O(n)). Default; correct for any workload size.
+    #[default]
+    BruteForce,
+    /// HNSW approximate nearest-neighbour index. Sub-linear query time; slightly
+    /// lower recall than brute force at very small n.
+    Hnsw,
+}
+
+/// Pluggable vector backend used by [`Index`].
+///
+/// Implementors maintain their own map from [`EntryId`] to embedding vectors and
+/// answer approximate (or exact) k-nearest-neighbour queries. The [`Index`]
+/// drives insertions, removals and queries through this trait.
+pub trait VectorIndex: std::fmt::Debug + Send + Sync {
+    /// Insert or update an entry. No-op when `embedding` is empty.
+    fn insert(&mut self, key: EntryId, embedding: Vec<f32>);
+    /// Remove an entry by key. No-op if the key is absent.
+    fn remove(&mut self, key: &EntryId);
+    /// Return up to `k` nearest neighbour keys for `query`, using the given
+    /// `ef` (beam size). For brute force `ef` is ignored.
+    fn knn(&self, query: &[f32], k: usize, ef: usize) -> Vec<EntryId>;
+}
+
+// ── Brute-force backend ──────────────────────────────────────────────────────
+
+/// Exact cosine brute-force vector backend. O(n) per query; precise.
+#[derive(Debug, Default)]
+pub struct BruteForceVectorIndex {
+    entries: HashMap<EntryId, Vec<f32>>,
+}
+
+impl VectorIndex for BruteForceVectorIndex {
+    fn insert(&mut self, key: EntryId, embedding: Vec<f32>) {
+        if !embedding.is_empty() {
+            self.entries.insert(key, embedding);
+        }
+    }
+
+    fn remove(&mut self, key: &EntryId) {
+        self.entries.remove(key);
+    }
+
+    fn knn(&self, query: &[f32], k: usize, _ef: usize) -> Vec<EntryId> {
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let mut scored: Vec<(f32, &EntryId)> = self
+            .entries
+            .iter()
+            .filter_map(|(key, emb)| cosine_similarity(query, emb).map(|s| (s, key)))
+            .collect();
+        // Descending by similarity.
+        scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+        scored.into_iter().take(k).map(|(_, k)| k.clone()).collect()
+    }
+}
+
+// ── HNSW backend ─────────────────────────────────────────────────────────────
+
+/// HNSW approximate nearest-neighbour backend. Sub-linear query time.
+#[derive(Debug)]
+pub struct HnswVectorIndex(HnswIndex);
+
+impl Default for HnswVectorIndex {
+    fn default() -> Self {
+        Self(HnswIndex::new(HNSW_M, HNSW_EF_CONSTRUCTION))
+    }
+}
+
+impl VectorIndex for HnswVectorIndex {
+    fn insert(&mut self, key: EntryId, embedding: Vec<f32>) {
+        self.0.insert(key, embedding);
+    }
+
+    fn remove(&mut self, key: &EntryId) {
+        self.0.remove(key);
+    }
+
+    fn knn(&self, query: &[f32], k: usize, ef: usize) -> Vec<EntryId> {
+        self.0.search(query, k, ef.max(HNSW_EF_SEARCH))
+    }
+}
 
 /// Stable identity of an indexed entry (kind disambiguates id collisions).
 pub type EntryId = (ItemKind, String);
@@ -162,19 +254,50 @@ pub const BM25_K1: f32 = 1.2;
 pub const BM25_B: f32 = 0.75;
 
 /// The in-memory index over all searchable entries.
-#[derive(Debug, Default)]
+///
+/// The text (BM25 inverted) index is always exact. The vector backend is
+/// pluggable via [`VectorIndexKind`] — pass it to [`Index::with_vector_backend`]
+/// when opening the database; the default is brute-force.
+#[derive(Debug)]
 pub struct Index {
     entries: HashMap<EntryId, IndexEntry>,
     /// token -> set of entry ids containing it (inverted index).
     postings: HashMap<String, HashSet<EntryId>>,
     /// Sum of all entries' token counts (for the BM25 average document length).
     total_tokens: u64,
+    /// Pluggable vector backend.
+    vector: Box<dyn VectorIndex>,
+}
+
+impl Default for Index {
+    fn default() -> Self {
+        Self {
+            entries: HashMap::new(),
+            postings: HashMap::new(),
+            total_tokens: 0,
+            vector: Box::new(BruteForceVectorIndex::default()),
+        }
+    }
 }
 
 impl Index {
-    /// Create an empty index.
+    /// Create an empty index with the brute-force vector backend (default).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Create an empty index using the specified vector backend.
+    pub fn with_vector_backend(kind: VectorIndexKind) -> Self {
+        let vector: Box<dyn VectorIndex> = match kind {
+            VectorIndexKind::BruteForce => Box::new(BruteForceVectorIndex::default()),
+            VectorIndexKind::Hnsw => Box::new(HnswVectorIndex::default()),
+        };
+        Self {
+            entries: HashMap::new(),
+            postings: HashMap::new(),
+            total_tokens: 0,
+            vector,
+        }
     }
 
     /// Insert or replace an entry, maintaining the inverted index and the
@@ -189,10 +312,12 @@ impl Index {
                 .insert(key.clone());
         }
         self.total_tokens += entry.token_count as u64;
+        self.vector.insert(key.clone(), entry.embedding.clone());
         self.entries.insert(key, entry);
     }
 
-    /// Remove an entry by key, cleaning up its postings and token total.
+    /// Remove an entry by key, cleaning up its postings, token total, and
+    /// vector backend entry.
     pub fn remove(&mut self, key: &EntryId) {
         if let Some(old) = self.entries.remove(key) {
             self.total_tokens = self.total_tokens.saturating_sub(old.token_count as u64);
@@ -205,6 +330,7 @@ impl Index {
                 }
             }
         }
+        self.vector.remove(key);
     }
 
     /// Remove every chunk entry belonging to `document_id`.
@@ -266,6 +392,15 @@ impl Index {
             }
         }
         out
+    }
+
+    /// Return up to `k` nearest-neighbour entry ids for `query`, using the
+    /// configured vector backend (brute-force or HNSW).
+    ///
+    /// The caller is responsible for applying post-filters (tenant, temporal,
+    /// supersedure) against the returned ids via [`Index::get`].
+    pub fn knn(&self, query: &[f32], k: usize, ef: usize) -> Vec<EntryId> {
+        self.vector.knn(query, k, ef)
     }
 
     /// Document frequency: how many entries contain `token`.

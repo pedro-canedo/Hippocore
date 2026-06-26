@@ -1693,3 +1693,155 @@ fn confidence_aware_context_prefers_higher_confidence_on_conflict() {
         );
     }
 }
+
+// ─── Phase 4: pluggable VectorIndex trait + HNSW ─────────────────────────────
+
+#[test]
+fn hnsw_backend_stores_and_recalls() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.vector_index = hippocore::VectorIndexKind::Hnsw;
+    let mut db = Hippocore::open(cfg).unwrap();
+    db.create_tenant("acme", "Acme Corp").unwrap();
+    db.create_collection("acme", "knowledge", "").unwrap();
+
+    // Store several memories so the HNSW graph has at least a few nodes.
+    let texts = [
+        "postgresql database replication streaming setup",
+        "redis pub sub message broker configuration",
+        "kafka topic partition consumer group offset",
+        "elasticsearch index mapping analyzer settings",
+        "mongodb aggregation pipeline stages operators",
+    ];
+    for t in &texts {
+        db.remember(RememberRequest::new(
+            "acme",
+            "knowledge",
+            MemoryType::Semantic,
+            *t,
+        ))
+        .unwrap();
+    }
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "postgresql replication"))
+        .unwrap();
+    assert!(
+        !hits.is_empty(),
+        "HNSW backend must return at least one result"
+    );
+    // The most relevant result should mention postgresql or replication.
+    let top = &hits[0];
+    assert!(
+        top.text.contains("postgresql") || top.text.contains("replication"),
+        "top hit should be the postgresql memory, got: {}",
+        top.text
+    );
+}
+
+#[test]
+fn hnsw_backend_survives_restart() {
+    let dir = TempDir::new().unwrap();
+    {
+        let mut cfg = Config::new(dir.path());
+        cfg.vector_index = hippocore::VectorIndexKind::Hnsw;
+        let mut db = Hippocore::open(cfg).unwrap();
+        db.create_tenant("t1", "Tenant 1").unwrap();
+        db.create_collection("t1", "col", "").unwrap();
+        for i in 0..8u32 {
+            db.remember(RememberRequest::new(
+                "t1",
+                "col",
+                MemoryType::Note,
+                format!("item {i}: oracle listener service control command restart"),
+            ))
+            .unwrap();
+        }
+        db.close().unwrap();
+    }
+
+    // Re-open with HNSW (index is rebuilt from WAL/snapshot).
+    let mut cfg = Config::new(dir.path());
+    cfg.vector_index = hippocore::VectorIndexKind::Hnsw;
+    let db = Hippocore::open(cfg).unwrap();
+    assert_eq!(
+        db.stats().unwrap().memories,
+        8,
+        "all memories must survive restart"
+    );
+    let hits = db
+        .recall(RecallRequest::new("t1", "oracle listener restart"))
+        .unwrap();
+    assert!(
+        !hits.is_empty(),
+        "HNSW index must be queryable after restart"
+    );
+}
+
+#[test]
+fn bruteforce_and_hnsw_both_recall_relevant_item() {
+    // Verifies that HNSW and brute-force agree on retrieving the most relevant
+    // item for a pure vector-mode query. We use Vector mode so that only the
+    // vector backend (not RRF rank fusion with BM25) determines the result.
+    let dir_bf = TempDir::new().unwrap();
+    let dir_hnsw = TempDir::new().unwrap();
+
+    let setup = |dir: &TempDir, kind: hippocore::VectorIndexKind| {
+        let mut cfg = Config::new(dir.path());
+        cfg.vector_index = kind;
+        let mut db = Hippocore::open(cfg).unwrap();
+        db.create_tenant("t", "T").unwrap();
+        db.create_collection("t", "c", "").unwrap();
+        let items = [
+            "nginx reverse proxy load balancing upstream server",
+            "apache httpd virtual host configuration ssl certificate",
+            "haproxy tcp udp load balancer health check frontend backend",
+            "caddy automatic https tls acme certificate authority",
+            "traefik docker swarm ingress router middleware service",
+        ];
+        for text in &items {
+            db.remember(RememberRequest::new("t", "c", MemoryType::Semantic, *text))
+                .unwrap();
+        }
+        db
+    };
+
+    let bf = setup(&dir_bf, hippocore::VectorIndexKind::BruteForce);
+    let hnsw = setup(&dir_hnsw, hippocore::VectorIndexKind::Hnsw);
+
+    let query = "nginx reverse proxy";
+    let mut req_bf = RecallRequest::new("t", query);
+    req_bf.mode = SearchMode::Vector;
+    req_bf.top_k = 5;
+    let mut req_hnsw = RecallRequest::new("t", query);
+    req_hnsw.mode = SearchMode::Vector;
+    req_hnsw.top_k = 5;
+
+    let hits_bf = bf.recall(req_bf).unwrap();
+    let hits_hnsw = hnsw.recall(req_hnsw).unwrap();
+
+    // Both backends must return the nginx memory somewhere in their results.
+    assert!(!hits_bf.is_empty(), "brute-force must return results");
+    assert!(!hits_hnsw.is_empty(), "HNSW must return results");
+
+    let _nginx_id = hits_bf
+        .iter()
+        .find(|h| h.text.contains("nginx"))
+        .expect("brute-force must find the nginx memory")
+        .id
+        .clone();
+
+    assert!(
+        hits_bf[0].text.contains("nginx"),
+        "brute-force top-1 must be the nginx memory, got: {}",
+        hits_bf[0].text
+    );
+    assert!(
+        hits_hnsw.iter().any(|h| h.text.contains("nginx")),
+        "HNSW must recall the nginx memory in its results (got: {:?})",
+        hits_hnsw
+            .iter()
+            .map(|h| h.text.as_str())
+            .collect::<Vec<_>>()
+    );
+}

@@ -4,7 +4,7 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 7 — Confidence-aware resolution** and **Phase 2 — Group-commit / batch writes**:
+**Phase 4 — Pluggable `VectorIndex` trait + HNSW**, **Phase 7 — Confidence-aware resolution**, and **Phase 2 — Group-commit / batch writes**:
 
 ### Phase 7: Source and confidence-aware resolution
 
@@ -16,6 +16,20 @@ _Last updated: 2026-06-26._
 - `ContextItem` gains `confidence: Option<f32>` for caller introspection.
 - CLI: `remember --confidence <f32>` and new `rate-memory --tenant --collection --id --confidence` subcommand.
 - 6 new integration tests: store+recall confidence, out-of-range rejection, `rate_memory` persistence, invalid rate, not-found error, conflict-ordering in `build_context`.
+
+### Phase 4: Pluggable VectorIndex trait + HNSW from scratch
+
+- `VectorIndex` trait in `index.rs`: `insert(key, embedding)`, `remove(key)`, `knn(query, k, ef) -> Vec<EntryId>`.
+- `BruteForceVectorIndex`: exact O(n) cosine scan; the default backend for correctness.
+- `HnswVectorIndex`: wraps `HnswIndex` from the new `hnsw.rs` module; sub-linear ANN.
+- `HnswIndex` (pure Rust, no external deps): multi-layer graph, proper two-heap beam search (W = min-heap, C = max-heap), soft deletes, geometric level sampling `level = floor(-ln(U) × mL)`, bidirectional connections with pruning.
+- `Index` gains `with_vector_backend(kind: VectorIndexKind)` factory; inserts/removes propagate to the vector backend automatically.
+- `Index::knn(query, k, ef)` delegates to the active backend.
+- `Config::vector_index: VectorIndexKind` (default `BruteForce`) — callers select the backend at open time.
+- `query::execute` uses `index.knn()` with `KNN_OVER_FETCH=8× over-retrieval` for post-filter correctness in hybrid/vector modes.
+- `VectorIndexKind` re-exported from the crate root.
+- 4 new HNSW unit tests + 3 new integration tests (store+recall, restart, brute-force vs HNSW agreement).
+- No new crate dependencies. 104 tests total.
 
 ### Phase 2: Group-commit / batch writes
 
@@ -259,17 +273,17 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 94 tests:
-- 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
-  line decode),
-- 61 library integration (store/recall, chunking, retrieval quality layer,
+**All green.** `cargo test --workspace` passes 104 tests:
+- 22 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
+  line decode, 4 new HNSW unit tests),
+- 64 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
   error paths, dimension-mismatch, torn-WAL recovery, temporal filtering,
   supersedure/contradictions, context compiler, batch writes, confidence-aware
-  resolution),
+  resolution, HNSW backend store+recall+restart+brute-force comparison),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`, and
@@ -297,4 +311,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Phase 4 — Pluggable `VectorIndex` trait + HNSW** — define the trait in `index.rs`, refactor `Index` to hold a `Box<dyn VectorIndex>`, implement brute-force and HNSW structs. See NEXT_FEATURE.md.
+**Phase 6 — Interactive TUI with ratatui** — `hippocore studio` subcommand with panels for tenants, collections, memories, search and stats. See NEXT_FEATURE.md.

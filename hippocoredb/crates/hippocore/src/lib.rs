@@ -29,6 +29,7 @@
 
 pub mod config;
 pub mod errors;
+pub mod hnsw;
 pub mod index;
 pub mod memory;
 pub mod model;
@@ -44,6 +45,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub use config::Config;
 pub use errors::{HippocoreError, Result};
+pub use index::VectorIndexKind;
 pub use model::{
     Chunk, Collection, Document, Embedding, FileObject, ItemKind, Memory, MemoryType, Metadata,
     RecallResult, Record, Source, Tenant,
@@ -436,19 +438,20 @@ impl Hippocore {
     pub fn open(config: Config) -> Result<Self> {
         let (storage, state) = Storage::open(&config.data_dir, config.sync_writes)?;
         let embedder = memory::Embedder::new(config.embedding_dim);
+        let index = Index::with_vector_backend(config.vector_index);
         let mut db = Self {
             config,
             embedder,
             storage,
             state,
-            index: Index::new(),
+            index,
         };
         db.rebuild_index();
         Ok(db)
     }
 
     fn rebuild_index(&mut self) {
-        self.index = Index::new();
+        self.index = Index::with_vector_backend(self.config.vector_index);
         // Index document chunks, carrying their parent document's metadata/source/validity.
         for chunk in &self.state.chunks {
             let parent = self

@@ -40,8 +40,8 @@ not a dated commitment.
 
 ## Phase 4 — HNSW or pluggable ANN vector index
 
-- Approximate nearest-neighbour index for sub-linear search.
-- Pluggable index trait so brute force and ANN coexist.
+- Approximate nearest-neighbour index for sub-linear search. ✅
+- Pluggable index trait so brute force and ANN coexist. ✅
 
 ## Phase 5 — Hybrid search refinement
 

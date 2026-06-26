@@ -8,6 +8,14 @@ use crate::index::{cosine_similarity, text_score, Index, IndexEntry};
 use crate::memory::tokenize;
 use crate::model::{ItemKind, MemoryType, Metadata, RecallResult};
 
+/// Over-retrieval multiplier for ANN post-filtering.
+///
+/// When the vector backend is HNSW, we request `top_k × KNN_OVER_FETCH` candidates
+/// from the ANN index so that, after post-filtering (tenant, temporal, supersedure),
+/// enough results survive for the final top-k. A value of 8 balances recall vs
+/// latency for typical filter selectivities; increase if recall degrades.
+const KNN_OVER_FETCH: usize = 8;
+
 /// Which signals to use when ranking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SearchMode {
@@ -165,10 +173,81 @@ pub fn execute(
             .or_else(|| (!normalized_query.trim().is_empty()).then(|| embed(&normalized_query))),
     };
 
-    // Build the candidate set, then score every candidate.
-    let scored: Vec<Scored> = index
-        .entries()
-        .filter(|e| request.filter.matches(e))
+    // Build the candidate set from the appropriate source(s), then score.
+    //
+    // Vector candidates: from index.knn() with over-retrieval for post-filtering.
+    // Text candidates: from index.text_candidates() (inverted-index lookup).
+    // Hybrid: union of both sets.
+    //
+    // After candidate collection, all filters (tenant, temporal, supersedure,
+    // metadata, etc.) are applied through Filter::matches.
+
+    // Collect candidate entry keys based on mode.
+    let candidate_entries: Vec<&IndexEntry> = match request.mode {
+        SearchMode::Vector => {
+            if let Some(q) = &query_embedding {
+                let fetch_k = request
+                    .top_k
+                    .saturating_mul(KNN_OVER_FETCH)
+                    .max(request.top_k + 10);
+                let keys = index.knn(q, fetch_k, fetch_k);
+                keys.iter()
+                    .filter_map(|k| index.get(k))
+                    .filter(|e| request.filter.matches(e))
+                    .collect()
+            } else {
+                Vec::new()
+            }
+        }
+        SearchMode::Text => {
+            if query_tokens.is_empty() {
+                Vec::new()
+            } else {
+                let cands = index.text_candidates(&query_tokens);
+                cands
+                    .iter()
+                    .filter_map(|k| index.get(k))
+                    .filter(|e| request.filter.matches(e))
+                    .collect()
+            }
+        }
+        SearchMode::Hybrid => {
+            // Union of vector ANN candidates and text inverted-index candidates.
+            let mut seen = std::collections::HashSet::new();
+            let mut entries: Vec<&IndexEntry> = Vec::new();
+
+            if let Some(q) = &query_embedding {
+                let fetch_k = request
+                    .top_k
+                    .saturating_mul(KNN_OVER_FETCH)
+                    .max(request.top_k + 10);
+                for key in index.knn(q, fetch_k, fetch_k) {
+                    if seen.insert(key.clone()) {
+                        if let Some(e) = index.get(&key) {
+                            if request.filter.matches(e) {
+                                entries.push(e);
+                            }
+                        }
+                    }
+                }
+            }
+            if !query_tokens.is_empty() {
+                for key in index.text_candidates(&query_tokens) {
+                    if seen.insert(key.clone()) {
+                        if let Some(e) = index.get(&key) {
+                            if request.filter.matches(e) {
+                                entries.push(e);
+                            }
+                        }
+                    }
+                }
+            }
+            entries
+        }
+    };
+
+    let scored: Vec<Scored> = candidate_entries
+        .into_iter()
         .map(|e| {
             let raw_vec = query_embedding
                 .as_ref()
