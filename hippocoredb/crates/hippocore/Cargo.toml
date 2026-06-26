@@ -1,0 +1,34 @@
+[package]
+name = "hippocore"
+description = "Local-first, embedded AI-native memory and context database for AI agents and RAG."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+readme = "../../README.md"
+keywords = ["database", "vector", "embedding", "rag", "ai"]
+categories = ["database-implementations"]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+clap = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+criterion = { workspace = true }
+
+[[example]]
+name = "basic_usage"
+path = "../../examples/basic_usage.rs"
+
+[[bench]]
+name = "basic_bench"
+path = "../../benches/basic_bench.rs"
+harness = false

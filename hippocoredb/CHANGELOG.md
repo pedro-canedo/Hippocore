@@ -1,0 +1,80 @@
+# Changelog
+
+All notable changes to Hippocore DB are documented here. This project adheres to
+[Semantic Versioning](https://semver.org/) (pre-1.0: minor versions may break).
+
+## [Unreleased]
+
+### Added — user-provided document embeddings
+
+- `StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>` (+ public `ChunkInput`):
+  store a document with caller-supplied, pre-embedded chunks instead of the
+  built-in auto chunk/embed path. Each chunk's text and embedding are validated.
+  `None` keeps the previous auto behavior. Makes documents first-class for RAG
+  with real embedding models.
+
+### Added — delete / forget
+
+- `Hippocore::forget(tenant, collection, id)` removes a memory;
+  `Hippocore::delete_document(tenant, collection, id)` removes a document and all
+  its chunks. Both write a durable tombstone (`Operation::DeleteMemory` /
+  `DeleteDocument`), update the index, and are replayed on recovery. Deleting a
+  missing id is a safe no-op. Compaction drops tombstones and dead records.
+- CLI: `hippocore forget` and `hippocore delete-document`.
+
+### Added — WAL durability hardening + automatic compaction
+
+- **Per-line CRC32 checksums** in the WAL (`<crc32-hex>\t<json>`, format v2,
+  dependency-free CRC32). Recovery verifies every line and stops safely on a
+  checksum mismatch, so on-disk corruption is detected and never silently
+  loaded. Legacy v1 (unchecksummed) lines are still read.
+- **Automatic compaction policy**: `Config.auto_compact_after_ops` (default
+  1000) and `Config.auto_compact_after_bytes` (default 8 MiB); `0` disables.
+  The engine compacts transparently once a threshold is crossed, keeping the
+  WAL and recovery time bounded without manual `compact`.
+
+### Added — AI-native memory database
+
+- **Multi-tenant model**: `Tenant`, `Collection`, `Document`, `Chunk`, `Memory`,
+  `Source`, `MemoryType`, `ItemKind`, `RecallResult`.
+- **Memories** (`remember`) and **auto-chunked documents** (`store_document`).
+- **Retrieval**: exact vector (cosine), text (TF-IDF inverted index), and
+  **hybrid** recall, with filters by tenant, collection, user, memory type, item
+  kind, and metadata. Every result reports `score`, `vector_score`,
+  `text_score`, and a human-readable `reason`.
+- **Deterministic, offline embedder** (signed feature hashing); user-provided
+  embeddings accepted for memories and queries.
+- **Persistence**: JSON-lines write-ahead log + atomic snapshot, startup
+  recovery, and `compact()`. Torn trailing WAL lines recover safely.
+- **Tenant isolation** enforced in the query layer.
+- **Public API**: `open`, `create_tenant`, `create_collection`,
+  `store_document`, `remember`, `recall`, `search`, `stats`, `compact`, `close`.
+- **CLI**: `init`, `put-document`, `remember`, `recall`, `stats`, `inspect`,
+  `compact`. `recall` also accepts `--embedding` (caller-supplied query vector)
+  and `--json` (machine-readable output) to enable external integrations;
+  `--embedding` allows negative components. `compact` folds the WAL into a fresh
+  snapshot and truncates the log (bounds disk/recovery growth).
+- **Integration example**: `examples/ts-ollama-rag/` — a TypeScript RAG demo
+  using local Ollama (embeddings + generation) on top of Hippocore via the CLI.
+- **Docs**: `PLAN.md`, `docs/ARCHITECTURE.md`, `docs/MVP_SCOPE.md`,
+  `docs/STATUS.md`, `docs/NEXT_FEATURE.md`, `docs/DECISIONS.md`.
+- Deterministic test suite (30 tests), example, and baseline benchmarks.
+
+### Changed
+
+- Reorganized the crate into `config`, `errors`, `model`, `storage`, `index`,
+  `memory`, `query`, `cli` modules with the engine in `lib.rs`.
+- Replaced the v0.1 document-only binary log with the tenant-aware WAL +
+  snapshot engine.
+- CLI is now driven by `hippocore::cli::run()`; the binary crate is a thin
+  wrapper.
+
+### Removed
+
+- `crc32fast` dependency (binary record framing retired in favor of JSON-lines
+  WAL; per-line checksums are tracked as a follow-up in `docs/NEXT_FEATURE.md`).
+
+## [0.1.0]
+
+- Initial embedded document store: append-only binary log, in-memory index,
+  brute-force cosine search, metadata filtering, recovery, and CLI.

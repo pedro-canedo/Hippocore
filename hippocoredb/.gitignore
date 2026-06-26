@@ -1,0 +1,5 @@
+/target
+**/*.rs.bk
+Cargo.lock
+# local database data directories
+/data

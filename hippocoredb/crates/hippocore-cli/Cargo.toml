@@ -1,0 +1,22 @@
+[package]
+name = "hippocore-cli"
+description = "Command-line interface for Hippocore DB."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[[bin]]
+name = "hippocore"
+path = "src/main.rs"
+
+[dependencies]
+hippocore = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
