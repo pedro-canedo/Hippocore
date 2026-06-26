@@ -2,36 +2,36 @@
 
 ## Feature name
 
-**Record CRUD Tests v0.1** — deterministic tests for the Record entity
+**Graph Edge Lifecycle Tests v0.1** — deterministic tests for the graph edge
 lifecycle.
 
 ## Why it matters
 
-`Record` is a first-class entity alongside `Memory` and `Document`, but has no
-dedicated test file. Records support versioning (incrementing version on update),
-deletion, and metadata filtering. These paths are exercised incidentally in
-other tests but not locked as explicit regressions.
+Graph edges are used in `build_context` for the graph-aware ranking feature.
+The edge APIs (`add_graph_edge`, `list_graph_edges`, `remove_graph_edge`) are
+exercised incidentally in `tenant_isolation.rs` and `database.rs`, but no
+dedicated test suite verifies the full lifecycle: add, list, relation types,
+durability through compact + reopen, and tenant isolation.
 
 ## Behaviour
 
 No new production code. The test suite will cover:
 
-1. Store a record and retrieve it by id.
-2. Recall returns the stored record.
-3. Update (re-store same id) increments the version field.
-4. Delete a record; subsequent retrieval returns `None`.
-5. Delete a record; subsequent recall does not return it.
-6. Records from one tenant are not visible to another tenant.
+1. `add_graph_edge` between two memories; `list_graph_edges` returns it.
+2. Adding an edge with a `relation` type string; the relation survives.
+3. `remove_graph_edge` removes the edge from the list.
+4. Edges survive `compact()` + cold reopen.
+5. `list_graph_edges` for one tenant does not return edges from another tenant.
 
 ## Files
 
-- `crates/hippocore/tests/record_crud.rs` — new dedicated test file.
-- `docs/en/RECORD_CRUD.md` and `docs/pt-br/RECORD_CRUD.md`.
+- `crates/hippocore/tests/graph_edge_lifecycle.rs` — new dedicated test file.
+- `docs/en/GRAPH_EDGE_LIFECYCLE.md` and `docs/pt-br/GRAPH_EDGE_LIFECYCLE.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- At least 6 deterministic integration tests using `TempDir`.
+- At least 5 deterministic integration tests using `TempDir`.
 - All quality gates pass:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -39,6 +39,6 @@ No new production code. The test suite will cover:
 
 ## Out of scope
 
-- Record batch operations.
+- Graph traversal algorithms.
 - Server mode.
 - Production code changes.

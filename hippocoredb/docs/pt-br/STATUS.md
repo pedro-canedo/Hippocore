@@ -4,7 +4,18 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Compact + Reopen Invariant Tests v0.1**:
+**Record CRUD Tests v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/record_crud.rs` com 6 testes.
+- Cobre: armazenar + recuperar por id, aparece no recall, versão incrementa na
+  atualização (0 → 1), deleção remove de get e recall, isolamento de tenant em
+  lookup por id e recall.
+- Invariantes confirmados: versão inicial é 0; `delete_record` é durável.
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/RECORD_CRUD.md` e `docs/pt-br/RECORD_CRUD.md`.
+- 6 novos testes. 180 testes no total.
+
+Anterior: **Compact + Reopen Invariant Tests v0.1**:
 
 - Novo arquivo de testes `crates/hippocore/tests/compact_reopen.rs` com 5 testes.
 - Cobre: WAL zerado após compact, coleções / memórias / documentos sobrevivem
@@ -482,7 +493,7 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Record CRUD Tests v0.1** — testes determinísticos para o ciclo de vida da
-entidade Record: armazenar, recuperar por id, recall, atualizar (nova versão),
-deletar e isolamento entre tenants.
+**Graph Edge Lifecycle Tests v0.1** — testes determinísticos para o ciclo de
+vida de arestas de grafo: adicionar aresta, listar, tipo de relação, sobrevivem
+compact + reabrir, isolamento de tenant em `list_graph_edges`.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

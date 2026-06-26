@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Record CRUD Tests v0.1
+
+- New test file `crates/hippocore/tests/record_crud.rs` with 6 tests covering
+  the full Record entity lifecycle: store + get by id, recall, version
+  increment on update (0 → 1), delete removes from get + recall, tenant
+  isolation on both lookup and recall. No production code changes. 180 tests
+  total.
+
 ### Added — Compact + Reopen Invariant Tests v0.1
 
 - New test file `crates/hippocore/tests/compact_reopen.rs` with 5 tests: WAL

@@ -2,37 +2,38 @@
 
 ## Nome
 
-**Record CRUD Tests v0.1** — testes determinísticos para o ciclo de vida da
-entidade Record.
+**Graph Edge Lifecycle Tests v0.1** — testes determinísticos para o ciclo de
+vida de arestas de grafo.
 
 ## Por que importa
 
-`Record` é uma entidade de primeira classe ao lado de `Memory` e `Document`,
-mas não tem arquivo de testes dedicado. Records suportam versionamento
-(incremento de versão na atualização), deleção e filtro por metadados. Esses
-caminhos são exercidos incidentalmente em outros testes mas não estão bloqueados
-como regressões explícitas.
+As arestas de grafo são usadas em `build_context` para o recurso de ranking
+graph-aware. As APIs de aresta (`add_graph_edge`, `list_graph_edges`,
+`remove_graph_edge`) são exercidas incidentalmente em `tenant_isolation.rs` e
+`database.rs`, mas nenhuma suite dedicada verifica o ciclo de vida completo:
+adicionar, listar, tipos de relação, durabilidade após compact + reabrir e
+isolamento de tenant.
 
 ## Comportamento
 
 Sem novo código de produção. A suite de testes cobrirá:
 
-1. Armazenar um record e recuperar por id.
-2. Recall retorna o record armazenado.
-3. Atualizar (re-armazenar mesmo id) incrementa o campo version.
-4. Deletar um record; recuperação subsequente retorna `None`.
-5. Deletar um record; recall subsequente não o retorna.
-6. Records de um tenant não são visíveis para outro tenant.
+1. `add_graph_edge` entre duas memórias; `list_graph_edges` a retorna.
+2. Adição de aresta com string de `relation` type; a relação persiste.
+3. `remove_graph_edge` remove a aresta da lista.
+4. Arestas sobrevivem `compact()` + reabertura a frio.
+5. `list_graph_edges` de um tenant não retorna arestas de outro tenant.
 
 ## Arquivos
 
-- `crates/hippocore/tests/record_crud.rs` — novo arquivo de testes dedicado.
-- `docs/en/RECORD_CRUD.md` e `docs/pt-br/RECORD_CRUD.md`.
+- `crates/hippocore/tests/graph_edge_lifecycle.rs` — novo arquivo de testes
+  dedicado.
+- `docs/en/GRAPH_EDGE_LIFECYCLE.md` e `docs/pt-br/GRAPH_EDGE_LIFECYCLE.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- Mínimo de 6 testes de integração determinísticos usando `TempDir`.
+- Mínimo de 5 testes de integração determinísticos usando `TempDir`.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -40,6 +41,6 @@ Sem novo código de produção. A suite de testes cobrirá:
 
 ## Fora de escopo
 
-- Operações em lote para records.
+- Algoritmos de travessia de grafo.
 - Modo server.
 - Mudanças no código de produção.
