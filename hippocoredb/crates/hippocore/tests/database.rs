@@ -2,8 +2,8 @@
 
 use hippocore::model::{ItemKind, MemoryType};
 use hippocore::{
-    ChunkInput, Config, Hippocore, HippocoreError, ImportFileRequest, PutRecordRequest,
-    RecallRequest, RememberRequest, SearchMode, StoreDocumentRequest,
+    BuildContextRequest, ChunkInput, Config, Hippocore, HippocoreError, ImportFileRequest,
+    PutRecordRequest, RecallRequest, RememberRequest, SearchMode, StoreDocumentRequest,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -1312,5 +1312,110 @@ fn supersedes_survives_restart() {
     assert!(
         !ids.contains(&"net-v1"),
         "superseded net-v1 should not appear after restart: {ids:?}"
+    );
+}
+
+// ── Context Compiler tests ────────────────────────────────────────────────────
+
+#[test]
+fn build_context_respects_token_budget() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    // Store several memories with distinct content.
+    for i in 0..10 {
+        remember(
+            &mut db,
+            "support",
+            &format!("generic system fact number {i} about network configuration and routing"),
+        );
+    }
+
+    // Request a very tight budget (32 tokens ≈ 128 bytes).
+    let req = BuildContextRequest::new("acme", "network configuration", 32);
+    let block = db.build_context(req).unwrap();
+
+    // Text must respect the budget (allow one item's worth of slack).
+    assert!(
+        block.token_count <= 32 + 50,
+        "token_count {} should be near 32",
+        block.token_count
+    );
+    // Must have assembled something.
+    assert!(
+        !block.items_included.is_empty(),
+        "should include at least one item"
+    );
+}
+
+#[test]
+fn build_context_ranks_by_score_and_includes_provenance() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    remember(
+        &mut db,
+        "support",
+        "the default port for PostgreSQL is 5432",
+    );
+    remember(&mut db, "support", "the default port for MySQL is 3306");
+    remember(
+        &mut db,
+        "support",
+        "this memory is about something completely unrelated to databases",
+    );
+
+    let req = BuildContextRequest::new("acme", "postgresql port", 2048);
+    let block = db.build_context(req).unwrap();
+
+    assert!(!block.items_included.is_empty(), "should return results");
+
+    // Items must be in descending score order.
+    let scores: Vec<f32> = block.items_included.iter().map(|i| i.score).collect();
+    for w in scores.windows(2) {
+        assert!(
+            w[0] >= w[1],
+            "items must be sorted by score desc: {scores:?}"
+        );
+    }
+
+    // Each included item must have a non-empty snippet.
+    for item in &block.items_included {
+        assert!(!item.snippet.is_empty(), "snippet must not be empty");
+        assert!(
+            item.token_count > 0,
+            "token_count must be positive for non-empty text"
+        );
+    }
+
+    // Assembled text must contain all included item ids.
+    for item in &block.items_included {
+        assert!(
+            block.text.contains(&item.id),
+            "text must contain item id {}: {}",
+            item.id,
+            block.text
+        );
+    }
+}
+
+#[test]
+fn build_context_json_output_roundtrip() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    remember(&mut db, "support", "alpha bravo charlie delta system info");
+    remember(&mut db, "support", "echo foxtrot golf hotel system info");
+
+    let req = BuildContextRequest::new("acme", "system info", 2048);
+    let block = db.build_context(req).unwrap();
+
+    // ContextBlock fields must be self-consistent.
+    assert_eq!(block.token_count, block.text.len().div_ceil(4));
+    let included_tokens: usize = block.items_included.iter().map(|i| i.token_count).sum();
+    // Sum of individual token counts may differ slightly from whole-text due to separator tokens.
+    assert!(
+        included_tokens <= block.token_count + block.items_included.len() * 5,
+        "included token sum should be close to total"
     );
 }

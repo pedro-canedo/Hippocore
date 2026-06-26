@@ -358,6 +358,73 @@ impl RecallRequest {
     }
 }
 
+/// Request to compile a token-budget-aware context block for an LLM prompt.
+#[derive(Debug, Clone)]
+pub struct BuildContextRequest {
+    /// Tenant to recall from (mandatory).
+    pub tenant_id: String,
+    /// Natural-language query driving the recall.
+    pub query: String,
+    /// Restrict recall to an owning user.
+    pub user_id: Option<String>,
+    /// Hard token ceiling for the assembled context string.
+    pub max_tokens: usize,
+    /// How many candidates to recall before budget trimming (default 20).
+    pub top_k_candidates: usize,
+    /// Recall mode (default `Hybrid`).
+    pub mode: SearchMode,
+    /// Restrict recall to a collection.
+    pub collection: Option<String>,
+    /// Require these exact metadata pairs on recalled items.
+    pub metadata_filter: Metadata,
+}
+
+impl BuildContextRequest {
+    /// Build a minimal request with sensible defaults.
+    pub fn new(tenant_id: impl Into<String>, query: impl Into<String>, max_tokens: usize) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            query: query.into(),
+            user_id: None,
+            max_tokens,
+            top_k_candidates: 20,
+            mode: SearchMode::Hybrid,
+            collection: None,
+            metadata_filter: Metadata::new(),
+        }
+    }
+}
+
+/// A single item that was included in a [`ContextBlock`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContextItem {
+    /// Id of the underlying memory, chunk, or record.
+    pub id: String,
+    /// Whether this is a document chunk, memory, or record.
+    pub kind: ItemKind,
+    /// Recall score used for ranking.
+    pub score: f32,
+    /// Approximate token count for this item's text (1 token ≈ 4 bytes).
+    pub token_count: usize,
+    /// First 120 characters of the item's text.
+    pub snippet: String,
+}
+
+/// The assembled context string and provenance returned by
+/// [`Hippocore::build_context`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContextBlock {
+    /// LLM-ready context string. Format: `[<kind>:<id>]\n<text>` per item,
+    /// separated by `\n\n`.
+    pub text: String,
+    /// Approximate token count of `text` (1 token ≈ 4 bytes).
+    pub token_count: usize,
+    /// Items that were included (highest score first).
+    pub items_included: Vec<ContextItem>,
+    /// Number of recalled items that did not fit within `max_tokens`.
+    pub items_dropped: usize,
+}
+
 impl Hippocore {
     /// Open (creating if needed) a database at `config.data_dir`, recovering any
     /// previously persisted state.
@@ -782,6 +849,78 @@ impl Hippocore {
     /// Search within a tenant using the request's [`SearchMode`].
     pub fn search(&self, req: RecallRequest) -> Result<Vec<RecallResult>> {
         self.run_query(req)
+    }
+
+    /// Recall the best items for `req.query` and assemble them into a
+    /// token-budget-aware context block ready for an LLM prompt.
+    ///
+    /// Items are ranked by recall score (highest first). Each item is added
+    /// greedily until the next item would exceed `max_tokens`. The token budget
+    /// uses the approximation 1 token ≈ 4 UTF-8 bytes.
+    pub fn build_context(&self, req: BuildContextRequest) -> Result<ContextBlock> {
+        let mut recall_req = RecallRequest::new(req.tenant_id, req.query);
+        recall_req.user_id = req.user_id;
+        recall_req.top_k = req.top_k_candidates;
+        recall_req.mode = req.mode;
+        recall_req.collection = req.collection;
+        recall_req.metadata = req.metadata_filter;
+
+        let hits = self.run_query(recall_req)?;
+
+        let mut included: Vec<ContextItem> = Vec::new();
+        let mut dropped: usize = 0;
+        let mut budget_used: usize = 0;
+
+        for hit in &hits {
+            let kind_label = match hit.kind {
+                ItemKind::Memory => "memory",
+                ItemKind::DocumentChunk => "chunk",
+                ItemKind::Record => "record",
+            };
+            let header = format!("[{kind_label}:{}]", hit.id);
+            let block = format!("{header}\n{}", hit.text);
+            let item_tokens = approx_tokens(&block);
+
+            if budget_used + item_tokens > req.max_tokens {
+                dropped += 1;
+                continue;
+            }
+
+            let snippet: String = hit.text.chars().take(120).collect();
+            included.push(ContextItem {
+                id: hit.id.clone(),
+                kind: hit.kind,
+                score: hit.score,
+                token_count: item_tokens,
+                snippet,
+            });
+            budget_used += item_tokens;
+        }
+
+        let text = included
+            .iter()
+            .map(|item| {
+                let kind_label = match item.kind {
+                    ItemKind::Memory => "memory",
+                    ItemKind::DocumentChunk => "chunk",
+                    ItemKind::Record => "record",
+                };
+                let hit_text = hits
+                    .iter()
+                    .find(|h| h.id == item.id && h.kind == item.kind)
+                    .map(|h| h.text.as_str())
+                    .unwrap_or("");
+                format!("[{kind_label}:{}]\n{hit_text}", item.id)
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        Ok(ContextBlock {
+            token_count: approx_tokens(&text),
+            text,
+            items_included: included,
+            items_dropped: dropped,
+        })
     }
 
     fn run_query(&self, req: RecallRequest) -> Result<Vec<RecallResult>> {
@@ -1227,6 +1366,11 @@ fn append_json_projection(parts: &mut Vec<String>, value: &serde_json::Value) {
             }
         }
     }
+}
+
+/// Approximate token count: 1 token ≈ 4 UTF-8 bytes (fast, no tokenizer dep).
+fn approx_tokens(text: &str) -> usize {
+    text.len().div_ceil(4)
 }
 
 fn now_millis() -> i64 {

@@ -4,7 +4,28 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Temporal Truth Layer full spec** — supersedes / contradicts relations:
+**Context Compiler** — `build_context(query, user, max_tokens)`:
+
+- New `BuildContextRequest` type: tenant, query, `max_tokens` (default 2048),
+  `top_k_candidates` (default 20), `mode` (default `Hybrid`), optional
+  `collection` and `metadata_filter`.
+- New `ContextBlock` return type: `text` (LLM-ready string), `token_count`
+  (1 token ≈ 4 bytes), `items_included: Vec<ContextItem>`, `items_dropped`.
+- `ContextItem` carries `id`, `kind`, `score`, `token_count`, and a 120-char
+  `snippet`.
+- `Hippocore::build_context(req)` recalls up to `top_k_candidates` items,
+  sorts by score descending, then greedily fills the token budget — items that
+  would exceed `max_tokens` are counted in `items_dropped`, not silently lost.
+- Each included item formatted as `[<kind>:<id>]\n<text>`, blocks separated
+  by `\n\n`.
+- CLI: `build-context --tenant <t> --query "..." [--max-tokens 2048]
+  [--top-k 20] [--mode hybrid] [--collection c] [--json]`.
+- `--json` output: `{text, token_count, items_included, items_dropped}`.
+- 3 new integration tests: budget enforcement, score-ordering + provenance,
+  `token_count` self-consistency.
+- No new crate dependencies. 85 tests total.
+
+Previous: **Temporal Truth Layer full spec** — supersedes / contradicts relations:
 
 - `Memory` gains `supersedes: Vec<String>`, `contradicts: Vec<String>`, and
   `superseded_by: Option<String>` (all `#[serde(default)]` for WAL compatibility).
@@ -217,16 +238,16 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 82 tests:
+**All green.** `cargo test --workspace` passes 85 tests:
 - 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode),
-- 49 library integration (store/recall, chunking, retrieval quality layer,
+- 52 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
   error paths, dimension-mismatch, torn-WAL recovery, temporal filtering,
-  supersedure/contradictions),
+  supersedure/contradictions, context compiler),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`, and
@@ -254,4 +275,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Context Compiler** — `build_context(query, user, max_tokens)` that selects and trims recalled items into a prompt-ready string (Phase 8). See NEXT_FEATURE.md.
+**RAG Audit Engine** — provenance tracking, per-item confidence scores, and a query-time audit log (Phase 9). See NEXT_FEATURE.md.

@@ -5,6 +5,26 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Context Compiler (`build_context`)
+
+- New `BuildContextRequest` type with `tenant_id`, `query`, `max_tokens`
+  (default 2048), `top_k_candidates` (default 20), `mode` (default `Hybrid`),
+  optional `collection` and `metadata_filter`.
+- New `ContextBlock` return type with `text` (LLM-ready string), `token_count`
+  (1 token ≈ 4 UTF-8 bytes via `usize::div_ceil(4)`), `items_included:
+  Vec<ContextItem>`, and `items_dropped`.
+- `ContextItem` carries `id`, `kind`, `score`, `token_count`, and a 120-char
+  `snippet`.
+- `Hippocore::build_context(req)`: recalls up to `top_k_candidates` items,
+  ranks by score descending, greedily fills the budget — items exceeding the
+  ceiling are counted in `items_dropped` (not silently lost).
+- Format: `[<kind>:<id>]\n<text>`, blocks separated by `\n\n`.
+- CLI `build-context`: `--tenant`, `--query`, `--max-tokens`, `--top-k`,
+  `--mode`, `--collection`, `--meta`, `--json`.
+- 3 new integration tests: budget enforcement, score ordering + provenance,
+  `token_count` self-consistency.
+- No new crate dependencies.
+
 ### Added — Temporal Truth Layer full spec (supersedes / contradicts)
 
 - `Memory` gains `supersedes: Vec<String>`, `contradicts: Vec<String>`, and

@@ -4,7 +4,27 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Temporal Truth Layer spec completa** — relações supersedes / contradicts:
+**Context Compiler** — `build_context(query, user, max_tokens)`:
+
+- Novo tipo `BuildContextRequest`: tenant, query, `max_tokens` (padrão 2048),
+  `top_k_candidates` (padrão 20), `mode` (padrão `Hybrid`), `collection` e
+  `metadata_filter` opcionais.
+- Novo tipo de retorno `ContextBlock`: `text` (string pronta para LLM),
+  `token_count` (1 token ≈ 4 bytes), `items_included: Vec<ContextItem>`,
+  `items_dropped`.
+- `ContextItem` carrega `id`, `kind`, `score`, `token_count` e um `snippet`
+  de 120 chars.
+- `Hippocore::build_context(req)` recorda até `top_k_candidates` itens,
+  ordena por score decrescente, então preenche o budget de tokens greedily —
+  itens que excederiam `max_tokens` são contados em `items_dropped`.
+- Cada item formatado como `[<kind>:<id>]\n<text>`, blocos separados por `\n\n`.
+- CLI: `build-context --tenant <t> --query "..." [--max-tokens 2048]
+  [--top-k 20] [--mode hybrid] [--collection c] [--json]`.
+- 3 novos testes de integração: enforcement de budget, ordenação por score +
+  proveniência, consistência de `token_count`.
+- Sem novas dependências de crate. 85 testes no total.
+
+Incremento anterior: **Temporal Truth Layer spec completa** — relações supersedes / contradicts:
 
 - `Memory` ganha `supersedes: Vec<String>`, `contradicts: Vec<String>` e
   `superseded_by: Option<String>` (todos com `#[serde(default)]` para compatibilidade
@@ -171,10 +191,10 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 82 testes:
+`cargo test --workspace` passa com 85 testes:
 
 - 18 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL);
-- 49 integração da biblioteca (incl. 5 temporal truth v0.1 + 5 supersedure/contradictions);
+- 52 integração da biblioteca (incl. temporal truth, supersedure, context compiler);
 - 1 fixture de qualidade de retrieval;
 - 12 smoke tests de CLI;
 - 1 doctest (lib.rs quickstart);
@@ -182,5 +202,5 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Context Compiler** — `build_context(query, user, max_tokens)` que seleciona e ajusta
-itens recuperados em uma string pronta para prompt (Fase 8). Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**RAG Audit Engine** — rastreamento de proveniência, scores de confiança por item
+e log de auditoria no momento da query (Fase 9). Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

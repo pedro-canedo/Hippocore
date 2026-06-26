@@ -71,8 +71,10 @@ not a dated commitment.
 
 ## Phase 8 — Context Compiler
 
-- `build_context(query, user, max_tokens)`.
-- Token-budget-aware assembly of the best context for an LLM.
+- `build_context(query, user, max_tokens)`. ✅
+- Token-budget-aware assembly of the best context for an LLM. ✅
+- `ContextBlock` with assembled text, token count, item provenance, and drop count. ✅
+- CLI `build-context` subcommand with `--json` output. ✅
 
 ## Phase 9 — RAG Audit Engine
 

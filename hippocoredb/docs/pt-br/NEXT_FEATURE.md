@@ -2,99 +2,49 @@
 
 ## Nome
 
-**Context Compiler** — `build_context(query, user, max_tokens)`
+**RAG Audit Engine** — scoring de confiança por item e log de auditoria no
+momento da query.
 
 ## Por que importa
 
-Após armazenar memórias, documentos e registros, o caso de uso mais comum de
-agentes de IA é montar uma string de contexto pronta para prompt: pegar os
-top-k resultados de recall de todos os tipos de itens, ranqueá-los, cortar para
-um budget de tokens e formatá-los para que um LLM possa raciocinar sobre eles.
-Hoje cada aplicação precisa fazer isso manualmente — escolher quais itens incluir,
-quantos tokens cada um ocupa e em que ordem devem aparecer.
+O Context Compiler (Fase 8) monta contexto pronto para LLM, mas depois que uma
+resposta é gerada não há forma integrada de rastreá-la até os itens de origem,
+pontuar sua confiabilidade ou registrar o que foi recuperado e quando. Em
+sistemas RAG de produção isso é uma lacuna crítica: engenheiros de suporte
+precisam saber *por que* o agente disse X, e equipes de confiabilidade precisam
+detectar drift ou baixa qualidade de retrieval antes de gerar incidentes.
 
-Um Context Compiler integrado remove esse código repetitivo e fornece:
-- Um seletor com budget de tokens que preenche o budget greedy por score.
-- Uma chamada de API única que substitui o loop recall + format na maioria dos agentes.
-- Um valor `ContextBlock` com a string montada e metadados de proveniência (itens
-  incluídos, tokens usados, itens descartados).
-
-## Comportamento esperado
-
-### Nova API
-
-```rust
-pub struct BuildContextRequest {
-    pub tenant_id: String,
-    pub query: String,
-    pub user_id: Option<String>,
-    pub max_tokens: usize,           // teto rígido; padrão 2048
-    pub top_k_candidates: usize,     // recall de até este número; padrão 20
-    pub mode: SearchMode,            // padrão Hybrid
-    pub collection: Option<String>,
-    pub metadata_filter: Metadata,
-}
-
-pub struct ContextBlock {
-    pub text: String,                // contexto montado, pronto para LLM
-    pub token_count: usize,
-    pub items_included: Vec<ContextItem>,
-    pub items_dropped: usize,
-}
-
-pub struct ContextItem {
-    pub id: String,
-    pub kind: ItemKind,
-    pub score: f32,
-    pub token_count: usize,
-    pub snippet: String,             // primeiros 120 chars do conteúdo
-}
-```
-
-### Algoritmo
-
-1. Executa recall (híbrido por padrão) para até `top_k_candidates` itens.
-2. Ordena por score decrescente.
-3. Adiciona itens greedily (maior score primeiro) até que `max_tokens` seria
-   excedido.
-4. Formata: cada item incluído vira `[<kind>:<id>] <text>` separado por `\n\n`.
-5. Retorna `ContextBlock` com texto montado, proveniência e contagem de
-   descartados.
-
-### Contagem de tokens
-
-Aproximação integrada: 1 token ≈ 4 bytes UTF-8. Quem precisar de tokenização
-exata pode pós-processar; a aproximação é suficiente para enforcement de budget
-sem dependência de tokenizador.
-
-### CLI
-
-```
-hippocore build-context --tenant <t> --query "..." [--max-tokens 2048]
-  [--top-k 20] [--mode hybrid] [--collection c] [--json]
-```
+O RAG Audit Engine adiciona:
+- Campo `confidence: Option<f32>` em `Memory` e `RecallResult` para que fatos
+  carreguem um sinal explícito de confiabilidade.
+- Log de auditoria append-only (`<data_dir>/audit.log`) onde cada chamada
+  `build_context` é registrada: timestamp, query, tenant, itens recuperados,
+  scores, tokens.
+- API `query_audit(from_ms, to_ms, tenant_id)` para reproduzir o que foi
+  recuperado em uma janela de tempo.
+- API `rate_memory(id, confidence)` para feedback humano-no-loop.
+- CLI: `audit --from <ms> --to <ms> --tenant <t> [--json]` e
+  `rate-memory --id <id> --confidence <0.0-1.0>`.
 
 ## Critérios de aceite
 
-- `Hippocore::build_context(req)` retorna `ContextBlock`.
-- Budget de tokens respeitado (texto nunca excede `max_tokens * 4` bytes além
-  do tamanho do último item incluído).
-- Itens ranqueados por score de recall (maior primeiro).
-- `ContextBlock.items_included` lista cada item com id, kind, score, token
-  count e snippet.
-- `ContextBlock.items_dropped` conta itens buscados mas que não couberam.
-- Subcomando CLI `build-context` funciona; saída `--json` é parseável.
-- Mínimo 3 testes de integração: enforcement de budget, montagem multi-item,
-  round-trip de saída JSON.
-- Todos os 82+ testes passam; sem novas dependências externas.
+- `Memory` e `RecallResult` ganham `confidence: Option<f32>` com serde default
+  compatível (`None`).
+- Cada chamada `build_context` escreve um registro JSON-lines de auditoria
+  atomicamente.
+- `query_audit(from_ms, to_ms, tenant_id)` retorna `Vec<AuditRecord>`.
+- `rate_memory` valida que confiança está em `[0.0, 1.0]` e armazena durável.
+- Comandos CLI `audit` e `rate-memory` funcionam; saída `--json` é parseável.
+- Mínimo 4 testes de integração.
+- Todos os 85+ testes passam; sem novas dependências externas.
 
 ## Fora de escopo
 
-- Integração com tokenizador externo (tiktoken etc.) — usar aproximação por bytes.
-- Templating de prompt ou injeção de few-shot.
+- Calibração automática de confiança (humano/agente define; engine registra).
+- Grafo completo de proveniência (Fase 10 — Graph Memory).
 - Server/HTTP mode.
 
 ## Follow-up
 
-Fase 8 concluída → Fase 9: **RAG Audit Engine** — rastreamento de proveniência,
-scores de confiança por item e log de auditoria no momento da query.
+Fase 9 concluída → Fase 10: **Graph Memory** — arestas de relacionamento entre
+itens e recall com consciência de grafo.

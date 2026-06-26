@@ -15,8 +15,8 @@ use clap::{Args, Parser, Subcommand};
 use crate::model::{ItemKind, MemoryType, Source};
 use crate::query::SearchMode;
 use crate::{
-    Config, Hippocore, ImportFileRequest, PutRecordRequest, RecallRequest, RememberRequest,
-    StoreDocumentRequest,
+    BuildContextRequest, Config, Hippocore, ImportFileRequest, PutRecordRequest, RecallRequest,
+    RememberRequest, StoreDocumentRequest,
 };
 
 /// Hippocore DB command-line interface.
@@ -81,6 +81,8 @@ enum Command {
     ShowFile(ShowIdArgs),
     /// Run a retrieval quality fixture evaluation and report metrics.
     EvalQuality(EvalQualityArgs),
+    /// Assemble a token-budget-aware context block for an LLM prompt.
+    BuildContext(BuildContextArgs),
 }
 
 #[derive(Args)]
@@ -377,6 +379,34 @@ struct EvalQualityArgs {
     json: bool,
 }
 
+#[derive(Args)]
+struct BuildContextArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    /// Natural-language query for recall.
+    #[arg(long)]
+    query: String,
+    /// Hard token ceiling for the assembled context string.
+    #[arg(long = "max-tokens", default_value_t = 2048)]
+    max_tokens: usize,
+    /// How many candidates to recall before budget trimming.
+    #[arg(long = "top-k", default_value_t = 20)]
+    top_k: usize,
+    /// Ranking mode: hybrid | vector | text.
+    #[arg(long, default_value = "hybrid")]
+    mode: String,
+    /// Restrict recall to a collection.
+    #[arg(long)]
+    collection: Option<String>,
+    #[arg(long = "meta", value_name = "KEY=VALUE")]
+    meta: Vec<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 /// Parse arguments from the process and run, returning a process exit code.
 pub fn run() -> ExitCode {
     match dispatch(Cli::parse()) {
@@ -414,6 +444,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ShowRecord(a) => cmd_show_record(a),
         Command::ShowFile(a) => cmd_show_file(a),
         Command::EvalQuality(a) => cmd_eval_quality(a),
+        Command::BuildContext(a) => cmd_build_context(a),
     }
 }
 
@@ -1304,4 +1335,56 @@ fn cmd_eval_quality(a: EvalQualityArgs) -> Result<(), String> {
     } else {
         Err("retrieval quality thresholds not met".into())
     }
+}
+
+fn cmd_build_context(a: BuildContextArgs) -> Result<(), String> {
+    let metadata = parse_meta(&a.meta)?;
+    let mode = SearchMode::parse(&a.mode)
+        .ok_or_else(|| format!("unknown mode {:?} (expected hybrid|vector|text)", a.mode))?;
+
+    let db = open(&a.db)?;
+
+    let mut req = BuildContextRequest::new(&a.tenant, &a.query, a.max_tokens);
+    req.top_k_candidates = a.top_k;
+    req.mode = mode;
+    req.collection = a.collection;
+    req.metadata_filter = metadata;
+
+    let block = db
+        .build_context(req)
+        .map_err(|e| format!("build_context failed: {e}"))?;
+
+    if a.json {
+        let items: Vec<serde_json::Value> = block
+            .items_included
+            .iter()
+            .map(|item| {
+                serde_json::json!({
+                    "id": item.id,
+                    "kind": format!("{:?}", item.kind).to_lowercase(),
+                    "score": item.score,
+                    "token_count": item.token_count,
+                    "snippet": item.snippet,
+                })
+            })
+            .collect();
+        let out = serde_json::json!({
+            "text": block.text,
+            "token_count": block.token_count,
+            "items_included": items,
+            "items_dropped": block.items_dropped,
+        });
+        println!("{}", serde_json::to_string_pretty(&out).unwrap());
+    } else {
+        println!("{}", block.text);
+        println!();
+        println!(
+            "--- {} items included, {} dropped, ~{} tokens ---",
+            block.items_included.len(),
+            block.items_dropped,
+            block.token_count
+        );
+    }
+
+    Ok(())
 }
