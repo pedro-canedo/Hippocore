@@ -6,12 +6,12 @@ use serde_json::{json, Value};
 use tempfile::TempDir;
 use tower::ServiceExt;
 
-use hippocore::{Config, Hippocore};
+use hippocore::{Config, Hippocore, PutRecordRequest};
 use hippocore_server::{build_router, AppState};
 
 fn test_app(dir: &TempDir) -> axum::Router {
     let db = Hippocore::open(Config::new(dir.path())).unwrap();
-    let state = AppState::new(db, "test-key");
+    let state = AppState::with_admin_credentials(db, "test-key", "admin", "secret");
     build_router(state)
 }
 
@@ -26,6 +26,34 @@ fn json_request(method: &str, uri: &str, body: Value, api_key: Option<&str>) -> 
     builder
         .body(Body::from(serde_json::to_vec(&body).unwrap()))
         .unwrap()
+}
+
+fn admin_json_request(method: &str, uri: &str, body: Value, session: &str) -> Request<Body> {
+    Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("content-type", "application/json")
+        .header("x-admin-session", session)
+        .body(Body::from(serde_json::to_vec(&body).unwrap()))
+        .unwrap()
+}
+
+async fn login(app: axum::Router) -> String {
+    let resp = app
+        .oneshot(json_request(
+            "POST",
+            "/admin/login",
+            json!({"username": "admin", "password": "secret"}),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let val: Value = serde_json::from_slice(&body).unwrap();
+    val["session"].as_str().unwrap().to_string()
 }
 
 // --- health ---
@@ -56,7 +84,35 @@ async fn admin_page_is_public() {
         .await
         .unwrap();
     let html = String::from_utf8(body.to_vec()).unwrap();
-    assert!(html.contains("Hippocore Studio"));
+    assert!(html.contains("Hippocore Control Plane"));
+    assert!(html.contains("/admin/app.js"));
+}
+
+#[tokio::test]
+async fn admin_assets_are_public() {
+    let dir = TempDir::new().unwrap();
+    let app = test_app(&dir);
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin/styles.css")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/admin/app.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
 // --- auth ---
@@ -99,6 +155,23 @@ async fn admin_bootstrap_requires_auth() {
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn admin_login_session_can_bootstrap() {
+    let dir = TempDir::new().unwrap();
+    let app = test_app(&dir);
+    let session = login(app.clone()).await;
+    let resp = app
+        .oneshot(admin_json_request(
+            "GET",
+            "/admin/bootstrap",
+            json!({}),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
 }
 
 #[tokio::test]
@@ -336,4 +409,93 @@ async fn build_context_returns_text() {
     let ctx: Value = serde_json::from_slice(&body).unwrap();
     assert!(ctx.get("text").is_some());
     assert!(ctx["token_count"].as_u64().unwrap() > 0);
+}
+
+#[tokio::test]
+async fn admin_restricted_records_query_returns_tenant_scoped_records() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Hippocore::open(Config::new(dir.path())).unwrap();
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "data", "").unwrap();
+    let mut req = PutRecordRequest::new(
+        "acme",
+        "data",
+        "systems",
+        json!({"engine": "postgresql", "language": "python"}),
+    );
+    req.id = Some("pg-python".to_string());
+    db.put_record(req).unwrap();
+
+    let state = AppState::with_admin_credentials(db, "test-key", "admin", "secret");
+    let app = build_router(state);
+    let session = login(app.clone()).await;
+
+    let resp = app
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/query-records",
+            json!({
+                "tenant_id": "acme",
+                "sql": "select * from records where payload.engine = 'postgresql' limit 5"
+            }),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let rows: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(rows.as_array().unwrap().len(), 1);
+    assert_eq!(rows[0]["id"], "pg-python");
+}
+
+#[tokio::test]
+async fn admin_llm_provider_registry_masks_secret() {
+    let dir = TempDir::new().unwrap();
+    let app = test_app(&dir);
+    let session = login(app.clone()).await;
+
+    let resp = app
+        .clone()
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/llm-providers",
+            json!({
+                "id": "openrouter",
+                "kind": "openrouter",
+                "base_url": "https://openrouter.ai/api/v1",
+                "model": "openai/gpt-4.1-mini",
+                "api_key": "secret-provider-key",
+                "is_default": true
+            }),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let provider: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(provider["api_key_set"], true);
+    assert!(provider.get("api_key").is_none());
+
+    let resp = app
+        .oneshot(admin_json_request(
+            "GET",
+            "/admin/llm-providers",
+            json!({}),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let providers: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(providers[0]["id"], "openrouter");
+    assert!(providers[0].get("api_key").is_none());
 }

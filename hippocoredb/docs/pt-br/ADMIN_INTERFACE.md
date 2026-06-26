@@ -42,7 +42,7 @@ hippocore eval-retrieval
 
 A CLI deve permitir debug local e exemplos sem exigir um servidor.
 
-### 3. Hippocore Studio
+### 3. Hippocore Control Plane
 
 A futura UI administrativa deve ser local-first, parecida em espírito com
 pgAdmin ou DBeaver, mas desenhada para memória/contexto em vez de SQL.
@@ -50,7 +50,7 @@ pgAdmin ou DBeaver, mas desenhada para memória/contexto em vez de SQL.
 Nome de trabalho:
 
 ```txt
-Hippocore Studio
+Hippocore Control Plane
 ```
 
 Capacidades esperadas:
@@ -102,13 +102,26 @@ administração estarem estáveis.
 O servidor agora expõe um console web local em `/admin` quando você executa
 `hippocore serve`. Ele é simples e local-first:
 
-- login com uma API key armazenada no navegador;
+- login humano com credenciais bootstrap de `HIPPOCORE_ADMIN_USER` e
+  `HIPPOCORE_ADMIN_PASSWORD`;
+- no Docker Compose, o usuário padrão é `admin`; quando
+  `HIPPOCORE_ADMIN_PASSWORD` não está definido, o entrypoint gera uma senha para
+  o volume de dados, imprime nos logs de inicialização e salva em
+  `/data/admin-password`;
+- autenticação separada por API key para CLI, clientes API e integrações
+  máquina-a-máquina;
+- assets estáticos (`index.html`, `styles.css`, `app.js`) embutidos no binário
+  do servidor para facilitar deploy local/Docker;
+- cópia de UI em português, espanhol e inglês;
 - navegação de tenants e collections;
 - criação de tenants e collections;
 - armazenamento de memórias e documentos;
 - execução de queries de recall e contexto;
+- execução de consulta restrita read-only de records
+  (`select * from records ...`);
+- configuração de provedores LLM locais para Ollama, OpenRouter e endpoints
+  compatíveis;
 - rotação da API key ativa;
-- cópia de snippets de integração com Ollama para setups locais em compose.
 
 O console administrativo complementa a CLI; não a substitui.
 

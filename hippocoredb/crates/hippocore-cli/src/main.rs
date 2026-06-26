@@ -32,9 +32,21 @@ fn run_serve(args: &[String]) -> ExitCode {
     let api_key = parse_flag_str(args, "--api-key")
         .or_else(|| std::env::var("HIPPOCORE_API_KEY").ok())
         .unwrap_or_default();
+    let admin_username = parse_flag_str(args, "--admin-user")
+        .or_else(|| std::env::var("HIPPOCORE_ADMIN_USER").ok())
+        .unwrap_or_else(|| "admin".to_string());
+    let admin_password = parse_flag_str(args, "--admin-password")
+        .or_else(|| std::env::var("HIPPOCORE_ADMIN_PASSWORD").ok())
+        .unwrap_or_default();
 
     if api_key.is_empty() {
         eprintln!("error: API key required. Use --api-key <key> or set HIPPOCORE_API_KEY.");
+        return ExitCode::FAILURE;
+    }
+    if admin_password.is_empty() {
+        eprintln!(
+            "error: admin password required. Use --admin-password <password> or set HIPPOCORE_ADMIN_PASSWORD."
+        );
         return ExitCode::FAILURE;
     }
 
@@ -42,6 +54,8 @@ fn run_serve(args: &[String]) -> ExitCode {
         data_dir,
         port,
         api_key,
+        admin_username,
+        admin_password,
     };
 
     let rt = tokio::runtime::Builder::new_multi_thread()

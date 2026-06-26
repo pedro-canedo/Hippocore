@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hippocore Control Plane</title>
+  <link rel="stylesheet" href="/admin/styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div>
+      <h1>Hippocore Control Plane</h1>
+        <p data-i18n="tagline">Data catalog, ingestion, restricted records query, LLM providers, and service keys.</p>
+      </div>
+    </div>
+    <form id="loginForm" class="login" aria-label="Admin login">
+      <label class="sr-only" for="language">Language</label>
+      <select id="language" aria-label="Language">
+        <option value="en">EN</option>
+        <option value="pt">PT</option>
+        <option value="es">ES</option>
+      </select>
+      <input id="adminUser" autocomplete="username" data-i18n-placeholder="adminUser" placeholder="admin user" />
+      <input id="adminPass" autocomplete="current-password" data-i18n-placeholder="adminPass" placeholder="admin password" type="password" />
+      <button class="primary" type="submit" data-i18n="login">Log in</button>
+    </form>
+  </header>
+
+  <main>
+    <section class="span-2">
+      <h2 data-i18n="operationalStatus">Operational Status</h2>
+      <div class="metrics">
+        <div><span data-i18n="session">Session</span><strong id="sessionStatus">signed out</strong></div>
+        <div><span data-i18n="dataDir">Data dir</span><strong id="dataDir">-</strong></div>
+        <div><span data-i18n="tenants">Tenants</span><strong id="tenantCount">-</strong></div>
+        <div><span data-i18n="objects">Objects</span><strong id="objectCounts">-</strong></div>
+      </div>
+      <div class="actions">
+        <button id="refresh" type="button" data-i18n="refresh">Refresh</button>
+        <button id="rotateKey" type="button" data-i18n="rotateKey">Rotate service API key</button>
+      </div>
+      <pre id="statusOutput" aria-live="polite">Log in to load server state.</pre>
+    </section>
+
+    <section>
+      <h2 data-i18n="catalog">Catalog</h2>
+      <div class="stack">
+        <label data-i18n="tenants">Tenants</label>
+        <div id="tenants" class="list"></div>
+        <label data-i18n="collections">Collections</label>
+        <div id="collections" class="chips"></div>
+        <label data-i18n="objects">Objects</label>
+        <div class="segmented">
+          <button data-kind="memories" data-i18n="memories" type="button">Memories</button>
+          <button data-kind="documents" data-i18n="documents" type="button">Documents</button>
+          <button data-kind="records" data-i18n="records" type="button">Records</button>
+          <button data-kind="files" data-i18n="files" type="button">Files</button>
+        </div>
+        <pre id="objectsOutput" aria-live="polite">Select a tenant and object type.</pre>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="ingestionRecall">Ingestion & Recall</h2>
+      <div class="grid">
+        <label><span data-i18n="tenantId">Tenant id</span><input id="tenantId" placeholder="acme" /></label>
+        <label><span data-i18n="collection">Collection</span><input id="collection" placeholder="support" /></label>
+        <label><span data-i18n="tenantName">New tenant name</span><input id="tenantName" placeholder="Acme Corp" /></label>
+        <label><span data-i18n="collectionDescription">Collection description</span><input id="collectionDescription" placeholder="support knowledge" /></label>
+      </div>
+      <div class="actions">
+        <button id="createTenant" type="button" data-i18n="createTenant">Create tenant</button>
+        <button id="createCollection" type="button" data-i18n="createCollection">Create collection</button>
+      </div>
+      <label><span data-i18n="memoryText">Memory text</span><textarea id="memoryText" placeholder="PostgreSQL Python connections use psycopg..."></textarea></label>
+      <button id="storeMemory" class="primary" type="button" data-i18n="storeMemory">Store memory</button>
+      <label><span data-i18n="documentText">Document text</span><textarea id="documentText" data-i18n-placeholder="documentPlaceholder" placeholder="Paste source document text"></textarea></label>
+      <button id="storeDocument" class="primary" type="button" data-i18n="storeDocument">Store document</button>
+      <label><span data-i18n="recallQuery">Recall query</span><input id="recallQuery" placeholder="python postgresql connection" /></label>
+      <div class="actions">
+        <button id="runRecall" type="button" data-i18n="runRecall">Run recall</button>
+        <button id="buildContext" type="button" data-i18n="buildContext">Build context</button>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="restrictedSql">Restricted SQL</h2>
+      <label><span data-i18n="recordsQuery">Records query</span><textarea id="recordSql">select * from records where table = 'systems' limit 20</textarea></label>
+      <button id="runRecordSql" class="primary" type="button" data-i18n="runRecordsQuery">Run records query</button>
+    </section>
+
+    <section>
+      <h2 data-i18n="llmProviders">LLM Providers</h2>
+      <div class="grid">
+        <label><span data-i18n="providerId">Provider id</span><input id="providerId" placeholder="ollama" /></label>
+        <label><span data-i18n="kind">Kind</span><input id="providerKind" data-i18n-placeholder="kindPlaceholder" placeholder="ollama or openrouter" /></label>
+        <label><span data-i18n="baseUrl">Base URL</span><input id="providerUrl" placeholder="http://localhost:11434" /></label>
+        <label><span data-i18n="model">Model</span><input id="providerModel" placeholder="llama3.2" /></label>
+      </div>
+      <label><span data-i18n="apiKey">API key</span><input id="providerKey" data-i18n-placeholder="optional" placeholder="optional" type="password" /></label>
+      <div class="actions">
+        <button id="saveProvider" type="button" data-i18n="saveProvider">Save provider</button>
+        <button id="validateProvider" type="button" data-i18n="validate">Validate</button>
+      </div>
+      <pre id="providerOutput" aria-live="polite">Providers are loaded after login.</pre>
+    </section>
+
+    <section>
+      <h2 data-i18n="result">Result</h2>
+      <pre id="resultOutput" aria-live="polite">Ready.</pre>
+    </section>
+  </main>
+
+  <script src="/admin/app.js"></script>
+</body>
+</html>

@@ -128,9 +128,20 @@ For the local-first container setup:
 docker compose up --build
 ```
 
-Then open `http://localhost:8080/admin`, log in with the API key from your
-environment or `.env`, and rotate it from the UI if needed. The compose file
-also includes an optional `ollama` profile for local model integration.
+Then open `http://localhost:8080/admin`. The default admin user is `admin`. If
+`HIPPOCORE_ADMIN_PASSWORD` is not set, the container generates one password for
+that data volume, prints it in the first startup logs, and saves it at
+`./hippocore-data/admin-password`.
+
+```bash
+docker compose logs --no-color hippocore
+cat ./hippocore-data/admin-password
+```
+
+`HIPPOCORE_API_KEY` remains the service credential for CLI/API automation and
+can be rotated from the UI. The compose file also includes an optional `ollama`
+profile and local LLM provider registry support for Ollama, OpenRouter, and
+compatible endpoints.
 
 ## Quickstart (Rust)
 

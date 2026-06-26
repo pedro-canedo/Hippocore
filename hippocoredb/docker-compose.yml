@@ -7,6 +7,12 @@ services:
       - "8080:8080"
     environment:
       HIPPOCORE_API_KEY: ${HIPPOCORE_API_KEY:-change-me}
+      HIPPOCORE_ADMIN_USER: ${HIPPOCORE_ADMIN_USER:-admin}
+      HIPPOCORE_ADMIN_PASSWORD: ${HIPPOCORE_ADMIN_PASSWORD:-}
+      HIPPOCORE_OLLAMA_URL: ${HIPPOCORE_OLLAMA_URL:-http://ollama:11434}
+      HIPPOCORE_OLLAMA_MODEL: ${HIPPOCORE_OLLAMA_MODEL:-llama3.2}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4.1-mini}
     volumes:
       - ./hippocore-data:/data
     restart: unless-stopped

@@ -69,6 +69,8 @@ enum Command {
     ListMemories(ListObjectsArgs),
     /// List structured records in a tenant.
     ListRecords(ListRecordsArgs),
+    /// Run a restricted read-only query over records.
+    QueryRecords(QueryRecordsArgs),
     /// List imported files in a tenant.
     ListFiles(ListObjectsArgs),
     /// Add a durable graph edge between context items.
@@ -345,6 +347,20 @@ struct ListRecordsArgs {
 }
 
 #[derive(Args)]
+struct QueryRecordsArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    /// Restricted SQL: select * from records where ... limit ...
+    #[arg(long)]
+    sql: String,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
 struct AddEdgeArgs {
     #[arg(long)]
     db: PathBuf,
@@ -558,6 +574,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ListDocuments(a) => cmd_list_documents(a),
         Command::ListMemories(a) => cmd_list_memories(a),
         Command::ListRecords(a) => cmd_list_records(a),
+        Command::QueryRecords(a) => cmd_query_records(a),
         Command::ListFiles(a) => cmd_list_files(a),
         Command::AddEdge(a) => cmd_add_edge(a),
         Command::ListEdges(a) => cmd_list_edges(a),
@@ -994,6 +1011,32 @@ fn cmd_list_memories(a: ListObjectsArgs) -> Result<(), String> {
 fn cmd_list_records(a: ListRecordsArgs) -> Result<(), String> {
     let db = open(&a.db)?;
     let recs = db.list_records(&a.tenant, a.collection.as_deref(), a.table.as_deref());
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&recs)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if recs.is_empty() {
+        println!("no records");
+        return Ok(());
+    }
+    for r in &recs {
+        println!(
+            "{}/{}/{}/{}\tv{}",
+            r.tenant_id, r.collection, r.table, r.id, r.version
+        );
+    }
+    Ok(())
+}
+
+fn cmd_query_records(a: QueryRecordsArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let recs = db
+        .query_records_restricted(&a.tenant, &a.sql)
+        .map_err(|e| format!("{e}"))?;
     if a.json {
         println!(
             "{}",

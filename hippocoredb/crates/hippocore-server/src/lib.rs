@@ -15,6 +15,8 @@
 //!         data_dir: "./hippocore-data".into(),
 //!         port: 8080,
 //!         api_key: "secret".into(),
+//!         admin_username: "admin".into(),
+//!         admin_password: "change-me".into(),
 //!     };
 //!     hippocore_server::serve(cfg).await.unwrap();
 //! }
@@ -25,6 +27,7 @@ mod auth;
 mod handlers;
 mod types;
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -48,6 +51,10 @@ pub struct ServerConfig {
     pub port: u16,
     /// API key required in the `X-Api-Key` request header.
     pub api_key: String,
+    /// Bootstrap username for human admin login.
+    pub admin_username: String,
+    /// Bootstrap password for human admin login.
+    pub admin_password: String,
 }
 
 /// Shared application state across all request handlers.
@@ -55,14 +62,33 @@ pub struct ServerConfig {
 pub struct AppState {
     pub(crate) db: Arc<Mutex<Hippocore>>,
     pub(crate) api_key: Arc<Mutex<String>>,
+    pub(crate) admin_username: Arc<String>,
+    pub(crate) admin_password: Arc<String>,
+    pub(crate) admin_sessions: Arc<Mutex<HashSet<String>>>,
+    pub(crate) llm_providers: Arc<Mutex<Vec<admin::LlmProviderConfig>>>,
 }
 
 impl AppState {
     /// Create a new shared state from an open database and API key.
     pub fn new(db: Hippocore, api_key: impl Into<String>) -> Self {
+        Self::with_admin_credentials(db, api_key, "admin", "admin")
+    }
+
+    /// Create shared state with explicit bootstrap admin credentials.
+    pub fn with_admin_credentials(
+        db: Hippocore,
+        api_key: impl Into<String>,
+        admin_username: impl Into<String>,
+        admin_password: impl Into<String>,
+    ) -> Self {
+        let providers = admin::load_llm_providers(db.config().data_dir.as_path());
         Self {
             db: Arc::new(Mutex::new(db)),
             api_key: Arc::new(Mutex::new(api_key.into())),
+            admin_username: Arc::new(admin_username.into()),
+            admin_password: Arc::new(admin_password.into()),
+            admin_sessions: Arc::new(Mutex::new(HashSet::new())),
+            llm_providers: Arc::new(Mutex::new(providers)),
         }
     }
 }
@@ -70,9 +96,14 @@ impl AppState {
 /// Open the database and run the HTTP server until a shutdown signal.
 pub async fn serve(cfg: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     let db = Hippocore::open(Config::new(&cfg.data_dir))?;
+    let providers = admin::load_llm_providers(&cfg.data_dir);
     let state = AppState {
         db: Arc::new(Mutex::new(db)),
         api_key: Arc::new(Mutex::new(cfg.api_key.clone())),
+        admin_username: Arc::new(cfg.admin_username),
+        admin_password: Arc::new(cfg.admin_password),
+        admin_sessions: Arc::new(Mutex::new(HashSet::new())),
+        llm_providers: Arc::new(Mutex::new(providers)),
     };
 
     let app = build_router(state);
@@ -85,10 +116,14 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), Box<dyn std::error::Error>> 
 pub fn build_router(state: AppState) -> Router {
     let public = Router::new()
         .route("/admin", get(admin::page))
+        .route("/admin/styles.css", get(admin::styles))
+        .route("/admin/app.js", get(admin::app_js))
+        .route("/admin/login", post(admin::login))
         .route("/", get(admin::root));
 
-    // Routes that require authentication.
-    let protected = Router::new()
+    // Human admin routes require an admin session. The service API key is also
+    // accepted here so existing automation can still inspect admin endpoints.
+    let admin_protected = Router::new()
         .route("/admin/bootstrap", get(admin::bootstrap))
         .route("/admin/config", get(admin::config))
         .route("/admin/api-key/rotate", post(admin::rotate_api_key))
@@ -99,6 +134,41 @@ pub fn build_router(state: AppState) -> Router {
         .route("/admin/records", get(admin::records))
         .route("/admin/files", get(admin::files))
         .route("/admin/graph-edges", get(admin::graph_edges))
+        .route("/admin/query-records", post(admin::query_records))
+        .route("/admin/llm-providers", get(admin::llm_providers))
+        .route("/admin/llm-providers", post(admin::upsert_llm_provider))
+        .route(
+            "/admin/llm-providers/validate",
+            post(admin::validate_llm_provider),
+        )
+        .route("/admin/tenants", post(handlers::tenants::create_tenant))
+        .route(
+            "/admin/tenants/{tid}/collections",
+            post(handlers::collections::create_collection),
+        )
+        .route(
+            "/admin/tenants/{tid}/memories",
+            post(handlers::memories::remember),
+        )
+        .route(
+            "/admin/tenants/{tid}/documents",
+            post(handlers::documents::store_document),
+        )
+        .route(
+            "/admin/tenants/{tid}/recall",
+            post(handlers::recall::recall),
+        )
+        .route(
+            "/admin/tenants/{tid}/context",
+            post(handlers::context::build_context),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::require_admin_session,
+        ));
+
+    // Service API routes require the machine-to-machine API key.
+    let protected = Router::new()
         .route("/stats", get(handlers::stats::get_stats))
         .route("/tenants", post(handlers::tenants::create_tenant))
         .route(
@@ -134,6 +204,7 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(public)
         .route("/health", get(health))
+        .merge(admin_protected)
         .merge(protected)
         .with_state(state)
 }

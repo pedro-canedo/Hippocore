@@ -35,6 +35,7 @@ pub mod ingest;
 pub mod memory;
 pub mod model;
 pub mod query;
+pub mod sql;
 pub mod storage;
 
 pub mod cli;
@@ -55,6 +56,7 @@ pub use model::{
     GraphEdge, ItemKind, Memory, MemoryType, Metadata, RecallResult, Record, Source, Tenant,
 };
 pub use query::SearchMode;
+pub use sql::{RestrictedRecordQuery, SqlCommand, SqlResult};
 
 use index::{Index, IndexEntry};
 use query::{Filter, QueryRequest};
@@ -2099,6 +2101,41 @@ impl Hippocore {
             })
             .cloned()
             .collect()
+    }
+
+    /// Execute a restricted read-only records query for one tenant.
+    pub fn query_records_restricted(&self, tenant_id: &str, sql: &str) -> Result<Vec<Record>> {
+        let query = sql::parse_restricted_record_query(sql)?;
+        let mut rows = self.list_records(
+            tenant_id,
+            query.collection.as_deref(),
+            query.table.as_deref(),
+        );
+        rows.retain(|record| sql::record_matches_restricted_query(record, &query));
+        rows.truncate(query.limit);
+        Ok(rows)
+    }
+
+    /// Execute the MVP SQL-like command layer for one tenant.
+    ///
+    /// Currently supported:
+    /// `SELECT * FROM <table> [WHERE <field> = <value> [AND ...]] [LIMIT n]`.
+    /// Bare fields map to top-level record payload keys. Explicit `metadata.*`,
+    /// `payload.*`, `id`, `collection`, and `table` filters are also accepted.
+    pub fn execute_sql(&self, tenant_id: &str, sql: &str) -> Result<SqlResult> {
+        let command = sql::parse_sql(sql)?;
+        match command {
+            SqlCommand::SelectRecords(query) => {
+                let mut rows = self.list_records(
+                    tenant_id,
+                    query.collection.as_deref(),
+                    query.table.as_deref(),
+                );
+                rows.retain(|record| sql::record_matches_restricted_query(record, &query));
+                rows.truncate(query.limit);
+                Ok(SqlResult::records(rows))
+            }
+        }
     }
 
     /// List files within a tenant, optionally scoped to a collection.

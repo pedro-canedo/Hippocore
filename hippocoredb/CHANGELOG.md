@@ -8,9 +8,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 ### Added — Web Admin Console v0.1
 
 - Browser-based admin console at `/admin` served by `hippocore serve`.
-- API-key login stored client-side in the browser and API key rotation from the UI.
+- Human admin login with `HIPPOCORE_ADMIN_USER` /
+  `HIPPOCORE_ADMIN_PASSWORD`; service API key auth remains available for
+  automation.
+- API key rotation from the UI.
 - Browser browsing for tenants, collections, memories, documents, records,
-  files, graph edges, recall, and context queries.
+  files, graph edges, recall, context queries, and restricted read-only record
+  queries.
+- Embedded static assets for the admin frontend.
+- Local LLM provider registry for Ollama, OpenRouter, and compatible endpoints.
 - Dockerfile and `docker-compose.yml` for a local-first container workflow.
 - README and server/admin docs updated with usage and integration notes.
 
@@ -38,7 +44,8 @@ All notable changes to Hippocore DB are documented here. This project adheres to
   `Arc<Mutex<Hippocore>>`.
 - `build_router(state)` — returns `axum::Router` (usable in tests without a port).
 - `serve(ServerConfig)` — binds a TCP port and serves until process exit.
-- `ServerConfig { data_dir, port, api_key }` — server configuration type.
+- `ServerConfig { data_dir, port, api_key, admin_username, admin_password }` —
+  server configuration type.
 - 10 REST endpoints: `/health`, `/stats`, tenant/collection/memory/recall/
   context/document/graph management.
 - `X-Api-Key` header authentication middleware (401 on mismatch).

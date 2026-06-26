@@ -179,3 +179,91 @@ fn records_are_tenant_isolated() {
         "beta's recall must not surface alpha's record"
     );
 }
+
+#[test]
+fn restricted_record_query_filters_payload_metadata_and_limit() {
+    let dir = TempDir::new().unwrap();
+    let mut db = open(&dir);
+    seed(&mut db);
+
+    let mut pg = PutRecordRequest::new(
+        "acme",
+        "data",
+        "systems",
+        json!({"engine": "postgresql", "env": "prod"}),
+    );
+    pg.id = Some("pg-main".to_string());
+    pg.metadata
+        .insert("tier".to_string(), "database".to_string());
+    db.put_record(pg).unwrap();
+
+    let mut oracle = PutRecordRequest::new(
+        "acme",
+        "data",
+        "systems",
+        json!({"engine": "oracle", "env": "prod"}),
+    );
+    oracle.id = Some("ora-main".to_string());
+    oracle
+        .metadata
+        .insert("tier".to_string(), "database".to_string());
+    db.put_record(oracle).unwrap();
+
+    let rows = db
+        .query_records_restricted(
+            "acme",
+            "select * from records where table = 'systems' and metadata.tier = 'database' and payload.engine = 'postgresql' limit 1",
+        )
+        .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].id, "pg-main");
+}
+
+#[test]
+fn restricted_record_query_is_tenant_scoped() {
+    let dir = TempDir::new().unwrap();
+    let mut db = open(&dir);
+    db.create_tenant("alpha", "Alpha").unwrap();
+    db.create_tenant("beta", "Beta").unwrap();
+    db.create_collection("alpha", "data", "").unwrap();
+    db.create_collection("beta", "data", "").unwrap();
+
+    db.put_record(PutRecordRequest::new(
+        "alpha",
+        "data",
+        "systems",
+        json!({"engine": "postgresql"}),
+    ))
+    .unwrap();
+    db.put_record(PutRecordRequest::new(
+        "beta",
+        "data",
+        "systems",
+        json!({"engine": "postgresql"}),
+    ))
+    .unwrap();
+
+    let rows = db
+        .query_records_restricted(
+            "alpha",
+            "select * from records where payload.engine = 'postgresql'",
+        )
+        .unwrap();
+
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].tenant_id, "alpha");
+}
+
+#[test]
+fn restricted_record_query_rejects_unsupported_sql() {
+    let dir = TempDir::new().unwrap();
+    let mut db = open(&dir);
+    seed(&mut db);
+
+    let err = db
+        .query_records_restricted("acme", "delete from records where id = 'x'")
+        .unwrap_err();
+
+    assert!(err.to_string().contains("select * from records"));
+}

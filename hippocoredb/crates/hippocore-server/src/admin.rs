@@ -1,9 +1,10 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::{Html, Json, Redirect},
+    http::{header, StatusCode},
+    response::{Html, IntoResponse, Json, Redirect},
 };
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 use crate::{types::ServerError, AppState};
 
@@ -15,11 +16,29 @@ pub async fn page() -> Html<&'static str> {
     Html(ADMIN_HTML)
 }
 
+pub async fn styles() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        ADMIN_CSS,
+    )
+}
+
+pub async fn app_js() -> impl IntoResponse {
+    (
+        [(
+            header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        ADMIN_JS,
+    )
+}
+
 #[derive(Serialize)]
 pub struct AdminConfigResponse {
     pub api_key_set: bool,
     pub api_key_length: usize,
     pub data_dir: String,
+    pub admin_user_set: bool,
 }
 
 #[derive(Serialize)]
@@ -32,6 +51,18 @@ pub struct AdminBootstrapResponse {
 #[derive(Serialize)]
 pub struct RotatedKeyResponse {
     pub api_key: String,
+}
+
+#[derive(Deserialize)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    pub session: String,
+    pub username: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -52,6 +83,59 @@ pub struct RotateKeyRequest {
     pub length: Option<usize>,
 }
 
+#[derive(Deserialize)]
+pub struct QueryRecordsRequest {
+    pub tenant_id: String,
+    pub sql: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub(crate) struct LlmProviderConfig {
+    pub id: String,
+    pub kind: String,
+    pub base_url: String,
+    pub model: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub is_default: bool,
+}
+
+#[derive(Serialize)]
+pub struct LlmProviderView {
+    pub id: String,
+    pub kind: String,
+    pub base_url: String,
+    pub model: String,
+    pub api_key_set: bool,
+    pub is_default: bool,
+}
+
+#[derive(Serialize)]
+pub struct ProviderValidationResponse {
+    pub ok: bool,
+    pub message: String,
+    pub snippet: String,
+}
+
+pub async fn login(
+    State(state): State<AppState>,
+    Json(body): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, ServerError> {
+    if body.username != *state.admin_username || body.password != *state.admin_password {
+        return Err(ServerError(
+            StatusCode::UNAUTHORIZED,
+            "invalid admin credentials".into(),
+        ));
+    }
+    let session = generate_api_key(32)?;
+    state.admin_sessions.lock().unwrap().insert(session.clone());
+    Ok(Json(LoginResponse {
+        session,
+        username: body.username,
+    }))
+}
+
 pub async fn config(
     State(state): State<AppState>,
 ) -> Result<Json<AdminConfigResponse>, ServerError> {
@@ -62,6 +146,7 @@ pub async fn config(
         api_key_set: !key.is_empty(),
         api_key_length: key.len(),
         data_dir,
+        admin_user_set: !state.admin_username.is_empty() && !state.admin_password.is_empty(),
     }))
 }
 
@@ -75,6 +160,7 @@ pub async fn bootstrap(
             api_key_set: !key.is_empty(),
             api_key_length: key.len(),
             data_dir: db.config().data_dir.to_string_lossy().to_string(),
+            admin_user_set: !state.admin_username.is_empty() && !state.admin_password.is_empty(),
         }
     };
     let (stats, tenants) = {
@@ -197,6 +283,99 @@ pub async fn graph_edges(
     ))
 }
 
+pub async fn query_records(
+    State(state): State<AppState>,
+    Json(body): Json<QueryRecordsRequest>,
+) -> Result<Json<Vec<hippocore::Record>>, ServerError> {
+    let db = state.db.lock().unwrap();
+    Ok(Json(
+        db.query_records_restricted(&body.tenant_id, &body.sql)?,
+    ))
+}
+
+pub async fn llm_providers(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<LlmProviderView>>, ServerError> {
+    let providers = state.llm_providers.lock().unwrap();
+    Ok(Json(providers.iter().map(provider_view).collect()))
+}
+
+pub async fn upsert_llm_provider(
+    State(state): State<AppState>,
+    Json(mut body): Json<LlmProviderConfig>,
+) -> Result<Json<LlmProviderView>, ServerError> {
+    validate_provider_config(&body)?;
+    if body.api_key.as_deref() == Some("") {
+        body.api_key = None;
+    }
+
+    let data_dir = {
+        let db = state.db.lock().unwrap();
+        db.config().data_dir.clone()
+    };
+    let mut providers = state.llm_providers.lock().unwrap();
+    if body.is_default {
+        for provider in providers.iter_mut() {
+            provider.is_default = false;
+        }
+    }
+    if let Some(existing) = providers.iter_mut().find(|provider| provider.id == body.id) {
+        *existing = body.clone();
+    } else {
+        providers.push(body.clone());
+    }
+    save_llm_providers(&data_dir, &providers)?;
+    Ok(Json(provider_view(&body)))
+}
+
+pub async fn validate_llm_provider(
+    Json(body): Json<LlmProviderConfig>,
+) -> Result<Json<ProviderValidationResponse>, ServerError> {
+    validate_provider_config(&body)?;
+    Ok(Json(ProviderValidationResponse {
+        ok: true,
+        message: "provider configuration is valid locally".to_string(),
+        snippet: provider_snippet(&body),
+    }))
+}
+
+pub(crate) fn load_llm_providers(data_dir: &Path) -> Vec<LlmProviderConfig> {
+    let path = llm_providers_path(data_dir);
+    if let Ok(bytes) = std::fs::read(&path) {
+        if let Ok(providers) = serde_json::from_slice::<Vec<LlmProviderConfig>>(&bytes) {
+            return providers;
+        }
+    }
+
+    let mut providers = Vec::new();
+    let ollama_url = std::env::var("HIPPOCORE_OLLAMA_URL").or_else(|_| std::env::var("OLLAMA_URL"));
+    if let Ok(base_url) = ollama_url {
+        providers.push(LlmProviderConfig {
+            id: "ollama".to_string(),
+            kind: "ollama".to_string(),
+            base_url,
+            model: std::env::var("HIPPOCORE_OLLAMA_MODEL")
+                .or_else(|_| std::env::var("CHAT_MODEL"))
+                .unwrap_or_else(|_| "llama3.2".to_string()),
+            api_key: None,
+            is_default: true,
+        });
+    }
+    if let Ok(api_key) = std::env::var("OPENROUTER_API_KEY") {
+        providers.push(LlmProviderConfig {
+            id: "openrouter".to_string(),
+            kind: "openrouter".to_string(),
+            base_url: std::env::var("OPENROUTER_BASE_URL")
+                .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string()),
+            model: std::env::var("OPENROUTER_MODEL")
+                .unwrap_or_else(|_| "openai/gpt-4.1-mini".to_string()),
+            api_key: Some(api_key),
+            is_default: providers.is_empty(),
+        });
+    }
+    providers
+}
+
 fn generate_api_key(len: usize) -> Result<String, ServerError> {
     let byte_len = len.max(16);
     let mut bytes = vec![0u8; byte_len];
@@ -209,332 +388,79 @@ fn generate_api_key(len: usize) -> Result<String, ServerError> {
     Ok(bytes.into_iter().map(|b| format!("{:02x}", b)).collect())
 }
 
-const ADMIN_HTML: &str = r#"<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hippocore Studio</title>
-  <style>
-    :root { color-scheme: dark; --bg: #0c1116; --panel: #121923; --line: #233042; --text: #e8eef6; --muted: #9ba8b7; --accent: #7dd3fc; --good: #4ade80; --warn: #f59e0b; }
-    body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: linear-gradient(180deg, #091018, #0c1116); color: var(--text); }
-    header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-    main { padding: 24px; display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr; }
-    section { background: rgba(18,25,35,.92); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-    h1,h2,h3 { margin: 0 0 12px; font-weight: 650; }
-    h1 { font-size: 20px; }
-    h2 { font-size: 15px; }
-    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
-    input, textarea, button { width: 100%; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--line); background: #0b121a; color: var(--text); padding: 10px 12px; }
-    textarea { min-height: 88px; resize: vertical; }
-    button { cursor: pointer; background: #132033; }
-    button.primary { background: #1c3348; border-color: #2c5879; }
-    .grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .muted { color: var(--muted); }
-    .row { display: flex; gap: 8px; align-items: center; }
-    .row > * { flex: 1; }
-    pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #091018; border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; }
-    .span-2 { grid-column: span 2; }
-    .small { font-size: 12px; }
-    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #132033; border: 1px solid var(--line); margin-right: 6px; margin-bottom: 6px; }
-    .stack { display: grid; gap: 10px; }
-  </style>
-</head>
-<body>
-  <header>
-    <div>
-      <h1>Hippocore Studio</h1>
-      <div class="muted">Local-first admin console for core data, recall, context, and API key rotation.</div>
-    </div>
-    <div class="row" style="max-width: 360px;">
-      <input id="apiKey" placeholder="API key" />
-      <button id="saveKey" class="primary">Use key</button>
-    </div>
-  </header>
-  <main>
-    <section class="span-2">
-      <h2>Status</h2>
-      <div class="grid">
-        <div><div class="muted small">API key</div><div id="apiKeyStatus">not loaded</div></div>
-        <div><div class="muted small">Data dir</div><div id="dataDir">-</div></div>
-        <div><div class="muted small">Tenants</div><div id="tenantCount">-</div></div>
-        <div><div class="muted small">Documents / memories / records</div><div id="counts">-</div></div>
-      </div>
-      <pre id="stats">Connect with an API key to load status.</pre>
-    </section>
+fn provider_view(provider: &LlmProviderConfig) -> LlmProviderView {
+    LlmProviderView {
+        id: provider.id.clone(),
+        kind: provider.kind.clone(),
+        base_url: provider.base_url.clone(),
+        model: provider.model.clone(),
+        api_key_set: provider.api_key.as_ref().is_some_and(|key| !key.is_empty()),
+        is_default: provider.is_default,
+    }
+}
 
-    <section>
-      <h2>Browse</h2>
-      <div class="stack">
-        <div class="row">
-          <button id="refresh">Refresh</button>
-          <button id="rotate">Rotate key</button>
-        </div>
-        <div>
-          <label>Tenants</label>
-          <div id="tenants" class="stack"></div>
-        </div>
-        <div>
-          <label>Collections</label>
-          <div id="collections" class="stack"></div>
-        </div>
-        <div>
-          <label>Objects</label>
-          <div class="row">
-            <button data-kind="memories">Memories</button>
-            <button data-kind="documents">Documents</button>
-            <button data-kind="records">Records</button>
-            <button data-kind="files">Files</button>
-          </div>
-          <pre id="objects">Select a tenant, then a kind.</pre>
-        </div>
-      </div>
-    </section>
+fn validate_provider_config(provider: &LlmProviderConfig) -> Result<(), ServerError> {
+    for (label, value) in [
+        ("provider id", &provider.id),
+        ("provider kind", &provider.kind),
+        ("base url", &provider.base_url),
+        ("model", &provider.model),
+    ] {
+        if value.trim().is_empty() {
+            return Err(ServerError(
+                StatusCode::BAD_REQUEST,
+                format!("{label} is required"),
+            ));
+        }
+    }
+    if !(provider.base_url.starts_with("http://") || provider.base_url.starts_with("https://")) {
+        return Err(ServerError(
+            StatusCode::BAD_REQUEST,
+            "base url must start with http:// or https://".into(),
+        ));
+    }
+    Ok(())
+}
 
-    <section>
-      <h2>Create & Test</h2>
-      <div class="stack">
-        <div class="grid">
-          <div>
-            <label>New tenant id</label>
-            <input id="newTenantId" placeholder="acme" />
-          </div>
-          <div>
-            <label>New tenant name</label>
-            <input id="newTenantName" placeholder="Acme Corp" />
-          </div>
-        </div>
-        <button id="createTenant">Create tenant</button>
-        <div class="grid">
-          <div>
-            <label>New collection name</label>
-            <input id="newCollectionName" placeholder="support" />
-          </div>
-          <div>
-            <label>New collection description</label>
-            <input id="newCollectionDescription" placeholder="support knowledge base" />
-          </div>
-        </div>
-        <button id="createCollection">Create collection</button>
-        <div class="grid">
-          <div>
-            <label>Tenant id</label>
-            <input id="tenantId" placeholder="acme" />
-          </div>
-          <div>
-            <label>Collection</label>
-            <input id="collection" placeholder="support" />
-          </div>
-        </div>
-        <label>Memory text</label>
-        <textarea id="memoryText" placeholder="Oracle ORA-12514 means ..."></textarea>
-        <button id="createMemory" class="primary">Store memory</button>
-        <label>Document text</label>
-        <textarea id="documentText" placeholder="Paste document text here"></textarea>
-        <button id="createDocument" class="primary">Store document</button>
-        <label>Recall query</label>
-        <input id="query" placeholder="oracle connection" />
-        <button id="runRecall">Run recall</button>
-        <button id="runContext">Build context</button>
-        <pre id="result">Ready.</pre>
-      </div>
-    </section>
+fn save_llm_providers(data_dir: &Path, providers: &[LlmProviderConfig]) -> Result<(), ServerError> {
+    std::fs::create_dir_all(data_dir).map_err(|e| {
+        ServerError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("failed to create data dir: {e}"),
+        )
+    })?;
+    let bytes = serde_json::to_vec_pretty(providers).map_err(|e| {
+        ServerError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("failed to encode providers: {e}"),
+        )
+    })?;
+    std::fs::write(llm_providers_path(data_dir), bytes).map_err(|e| {
+        ServerError(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("failed to save providers: {e}"),
+        )
+    })
+}
 
-    <section>
-      <h2>Ollama integration helper</h2>
-      <div class="grid">
-        <div>
-          <label>Ollama URL</label>
-          <input id="ollamaUrl" placeholder="http://localhost:11434" />
-        </div>
-        <div>
-          <label>Embed model</label>
-          <input id="embedModel" placeholder="nomic-embed-text" />
-        </div>
-        <div>
-          <label>Chat model</label>
-          <input id="chatModel" placeholder="llama3.2" />
-        </div>
-        <div>
-          <label>API key</label>
-          <input id="ollamaKey" placeholder="optional" />
-        </div>
-        <div class="span-2">
-          <button id="copyEnv">Copy env snippet</button>
-        </div>
-      </div>
-      <pre id="envSnippet">Set the fields above to generate an integration snippet.</pre>
-    </section>
-  </main>
-  <script>
-    const els = {
-      apiKey: document.getElementById('apiKey'),
-      apiKeyStatus: document.getElementById('apiKeyStatus'),
-      dataDir: document.getElementById('dataDir'),
-      tenantCount: document.getElementById('tenantCount'),
-      counts: document.getElementById('counts'),
-      stats: document.getElementById('stats'),
-      tenants: document.getElementById('tenants'),
-      collections: document.getElementById('collections'),
-      objects: document.getElementById('objects'),
-      result: document.getElementById('result'),
-      tenantId: document.getElementById('tenantId'),
-      collection: document.getElementById('collection'),
-      newTenantId: document.getElementById('newTenantId'),
-      newTenantName: document.getElementById('newTenantName'),
-      newCollectionName: document.getElementById('newCollectionName'),
-      newCollectionDescription: document.getElementById('newCollectionDescription'),
-      memoryText: document.getElementById('memoryText'),
-      documentText: document.getElementById('documentText'),
-      query: document.getElementById('query'),
-      ollamaUrl: document.getElementById('ollamaUrl'),
-      embedModel: document.getElementById('embedModel'),
-      chatModel: document.getElementById('chatModel'),
-      ollamaKey: document.getElementById('ollamaKey'),
-      envSnippet: document.getElementById('envSnippet'),
-    };
-    const state = { key: localStorage.getItem('hippocore.apiKey') || '', tenant: '', kind: 'memories' };
-    els.apiKey.value = state.key;
-    els.ollamaUrl.value = localStorage.getItem('hippocore.ollamaUrl') || 'http://localhost:11434';
-    els.embedModel.value = localStorage.getItem('hippocore.embedModel') || 'nomic-embed-text';
-    els.chatModel.value = localStorage.getItem('hippocore.chatModel') || 'llama3.2';
-    els.ollamaKey.value = localStorage.getItem('hippocore.ollamaKey') || '';
+fn llm_providers_path(data_dir: &Path) -> std::path::PathBuf {
+    data_dir.join("llm-providers.json")
+}
 
-    function headers(extra={}) {
-      return Object.assign({'content-type': 'application/json', 'x-api-key': state.key}, extra);
-    }
-    function saveSettings() {
-      localStorage.setItem('hippocore.apiKey', state.key);
-      localStorage.setItem('hippocore.ollamaUrl', els.ollamaUrl.value.trim());
-      localStorage.setItem('hippocore.embedModel', els.embedModel.value.trim());
-      localStorage.setItem('hippocore.chatModel', els.chatModel.value.trim());
-      localStorage.setItem('hippocore.ollamaKey', els.ollamaKey.value.trim());
-    }
-    function show(obj) { els.result.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2); }
-    function envSnippet() {
-      return [
-        `HIPPOCORE_API_KEY=${state.key || '<set-a-key>'}`,
-        `OLLAMA_URL=${els.ollamaUrl.value.trim()}`,
-        `EMBED_MODEL=${els.embedModel.value.trim()}`,
-        `CHAT_MODEL=${els.chatModel.value.trim()}`,
-      ].join('\n');
-    }
-    async function api(path, options = {}) {
-      const res = await fetch(path, Object.assign({ headers: headers() }, options));
-      const text = await res.text();
-      const body = text ? JSON.parse(text) : null;
-      if (!res.ok) throw new Error(body?.error || text || `HTTP ${res.status}`);
-      return body;
-    }
-    async function loadBootstrap() {
-      if (!state.key) {
-        els.apiKeyStatus.textContent = 'enter API key';
-        return;
-      }
-      const data = await api('/admin/bootstrap');
-      els.apiKeyStatus.textContent = data.config.api_key_set ? `loaded (${data.config.api_key_length} chars)` : 'missing';
-      els.dataDir.textContent = data.config.data_dir;
-      els.tenantCount.textContent = data.tenants.length;
-      els.counts.textContent = `${data.stats.documents} docs, ${data.stats.memories} memories, ${data.stats.records} records`;
-      els.stats.textContent = JSON.stringify(data.stats, null, 2);
-      renderTenants(data.tenants);
-      show({ bootstrap: data });
-    }
-    function renderTenants(tenants) {
-      els.tenants.innerHTML = '';
-      tenants.forEach(t => {
-        const b = document.createElement('button');
-        b.textContent = `${t.id} — ${t.name}`;
-        b.onclick = async () => {
-          state.tenant = t.id;
-          els.tenantId.value = t.id;
-          await loadCollections();
-        };
-        els.tenants.appendChild(b);
-      });
-    }
-    async function loadCollections() {
-      if (!state.tenant) return;
-      const items = await api(`/admin/collections?tenant_id=${encodeURIComponent(state.tenant)}`);
-      els.collections.innerHTML = '';
-      items.forEach(c => {
-        const pill = document.createElement('div');
-        pill.className = 'pill';
-        pill.textContent = `${c.name}${c.description ? ' — ' + c.description : ''}`;
-        els.collections.appendChild(pill);
-      });
-    }
-    async function loadObjects(kind) {
-      if (!state.tenant) throw new Error('select a tenant first');
-      const q = new URLSearchParams({ tenant_id: state.tenant });
-      if (els.collection.value.trim()) q.set('collection', els.collection.value.trim());
-      if (kind === 'records' && document.getElementById('table')) q.set('table', document.getElementById('table').value.trim());
-      const items = await api(`/admin/${kind}?${q.toString()}`);
-      els.objects.textContent = JSON.stringify(items, null, 2);
-    }
-    document.getElementById('saveKey').onclick = async () => {
-      state.key = els.apiKey.value.trim();
-      saveSettings();
-      try { await loadBootstrap(); } catch (e) { show(String(e)); }
-    };
-    document.getElementById('refresh').onclick = async () => {
-      saveSettings();
-      try { await loadBootstrap(); } catch (e) { show(String(e)); }
-    };
-    document.getElementById('rotate').onclick = async () => {
-      const data = await api('/admin/api-key/rotate', { method: 'POST', body: JSON.stringify({ length: 32 }) });
-      state.key = data.api_key;
-      els.apiKey.value = data.api_key;
-      saveSettings();
-      await loadBootstrap();
-      show({ rotated: true, api_key: data.api_key });
-    };
-    document.getElementById('createTenant').onclick = async () => {
-      const body = { id: els.newTenantId.value.trim(), name: els.newTenantName.value.trim() };
-      show(await api('/tenants', { method: 'POST', body: JSON.stringify(body) }));
-      await loadBootstrap();
-    };
-    document.getElementById('createCollection').onclick = async () => {
-      const tenant = els.tenantId.value.trim() || els.newTenantId.value.trim();
-      const body = { name: els.newCollectionName.value.trim(), description: els.newCollectionDescription.value.trim() };
-      show(await api(`/tenants/${encodeURIComponent(tenant)}/collections`, { method: 'POST', body: JSON.stringify(body) }));
-      await loadBootstrap();
-    };
-    document.getElementById('createMemory').onclick = async () => {
-      const body = { collection: els.collection.value.trim(), text: els.memoryText.value.trim(), memory_type: 'semantic' };
-      const data = await api(`/tenants/${encodeURIComponent(els.tenantId.value.trim())}/memories`, { method: 'POST', body: JSON.stringify(body) });
-      show(data);
-    };
-    document.getElementById('createDocument').onclick = async () => {
-      const body = { collection: els.collection.value.trim(), text: els.documentText.value.trim() };
-      const data = await api(`/tenants/${encodeURIComponent(els.tenantId.value.trim())}/documents`, { method: 'POST', body: JSON.stringify(body) });
-      show(data);
-    };
-    document.getElementById('runRecall').onclick = async () => {
-      const body = { query: els.query.value.trim(), collection: els.collection.value.trim() || null, top_k: 5 };
-      show(await api(`/tenants/${encodeURIComponent(els.tenantId.value.trim())}/recall`, { method: 'POST', body: JSON.stringify(body) }));
-    };
-    document.getElementById('runContext').onclick = async () => {
-      const body = { query: els.query.value.trim(), max_tokens: 1024, include_related: true };
-      show(await api(`/tenants/${encodeURIComponent(els.tenantId.value.trim())}/context`, { method: 'POST', body: JSON.stringify(body) }));
-    };
-    document.querySelectorAll('button[data-kind]').forEach(btn => {
-      btn.onclick = () => loadObjects(btn.dataset.kind).catch(e => show(String(e)));
-    });
-    document.getElementById('copyEnv').onclick = async () => {
-      const text = envSnippet();
-      await navigator.clipboard.writeText(text);
-      els.envSnippet.textContent = text;
-    };
-    [els.ollamaUrl, els.embedModel, els.chatModel, els.ollamaKey].forEach(el => {
-      el.addEventListener('input', () => {
-        saveSettings();
-        els.envSnippet.textContent = envSnippet();
-      });
-    });
-    els.envSnippet.textContent = envSnippet();
-    if (state.key) loadBootstrap().catch(e => show(String(e)));
-  </script>
-</body>
-</html>
-"#;
+fn provider_snippet(provider: &LlmProviderConfig) -> String {
+    format!(
+        "HIPPOCORE_LLM_PROVIDER={}\nHIPPOCORE_LLM_BASE_URL={}\nHIPPOCORE_LLM_MODEL={}\nHIPPOCORE_LLM_API_KEY={}",
+        provider.id,
+        provider.base_url,
+        provider.model,
+        if provider.api_key.as_ref().is_some_and(|key| !key.is_empty()) {
+            "<stored locally>"
+        } else {
+            "<set-if-required>"
+        }
+    )
+}
+
+const ADMIN_HTML: &str = include_str!("admin/index.html");
+const ADMIN_CSS: &str = include_str!("admin/styles.css");
+const ADMIN_JS: &str = include_str!("admin/app.js");

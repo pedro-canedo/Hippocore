@@ -95,6 +95,8 @@ async fn main() {
         data_dir: "./data".into(),
         port: 8080,
         api_key: "minhachave".into(),
+        admin_username: "admin".into(),
+        admin_password: "troque-esta-senha".into(),
     };
     serve(cfg).await.unwrap();
 }
