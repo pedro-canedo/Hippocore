@@ -566,3 +566,88 @@ async fn admin_llm_provider_registry_masks_secret() {
     assert_eq!(providers[0]["id"], "openrouter");
     assert!(providers[0].get("api_key").is_none());
 }
+
+#[tokio::test]
+async fn admin_put_record_creates_json_record() {
+    let dir = TempDir::new().unwrap();
+    let app = test_app(&dir);
+    let session = login(app.clone()).await;
+
+    // Create tenant and collection first.
+    let resp = app
+        .clone()
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/tenants",
+            json!({"id": "t1", "name": "Test Tenant"}),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let resp = app
+        .clone()
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/tenants/t1/collections",
+            json!({"name": "col1"}),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    // Store a JSON record.
+    let resp = app
+        .clone()
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/tenants/t1/records",
+            json!({
+                "collection": "col1",
+                "table": "systems",
+                "payload": {"engine": "postgresql", "version": 16}
+            }),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let val: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(val["tenant_id"], "t1");
+    assert_eq!(val["collection"], "col1");
+    assert_eq!(val["table"], "systems");
+    assert!(val["id"].as_str().is_some_and(|s| !s.is_empty()));
+}
+
+#[tokio::test]
+async fn admin_put_record_requires_tenant_isolation() {
+    let dir = TempDir::new().unwrap();
+    let app = test_app(&dir);
+    let session = login(app.clone()).await;
+
+    // Record for non-existent tenant must fail with 4xx.
+    let resp = app
+        .clone()
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/tenants/ghost/records",
+            json!({
+                "collection": "col",
+                "table": "data",
+                "payload": {"key": "val"}
+            }),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert!(
+        resp.status().is_client_error(),
+        "expected 4xx for unknown tenant, got {}",
+        resp.status()
+    );
+}

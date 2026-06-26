@@ -138,14 +138,15 @@ screen:
 - Data Explorer with tenant/collection side panel, table view, raw JSON view,
   physical-info view, and detail drawer;
 - dedicated SQL Editor using `POST /admin/sql`;
-- guided ingestion/recall page for memory/document writes plus recall and
-  `build_context`;
+- guided ingestion/recall page for Memory, Document, and Record writes plus
+  recall and `build_context` (record creation uses
+  `POST /admin/tenants/:tid/records`; File import remains Planned);
 - API Reference grouped by domain with Implemented/Planned status;
 - Observability page separating health, stats, WAL, snapshot, audit, chunks, and
   index status;
 - Service Keys page for active API key rotation plus provider registry
   save/validate workflows.
 
-Missing backend flows, such as admin file upload and record insert, are shown as
-Planned rather than simulated. The Control Plane complements the CLI; it does
-not replace embedded/local-first workflows.
+File upload from the browser is Planned and shown explicitly in the UI.
+The Control Plane complements the CLI; it does not replace embedded/local-first
+workflows.

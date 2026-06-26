@@ -125,17 +125,18 @@ de uma tela unica de debug:
 - Data Explorer com painel lateral tenant/collection, tabela, JSON bruto,
   informacao fisica e drawer de detalhe;
 - SQL Editor dedicado usando `POST /admin/sql`;
-- pagina guiada de ingestao/recall para escrita de memory/document, recall e
-  `build_context`;
+- pagina guiada de ingestao/recall para escrita de Memory, Document e Record,
+  recall e `build_context` (criacao de record usa
+  `POST /admin/tenants/:tid/records`; import de File permanece Planned);
 - API Reference agrupada por dominio com status Implemented/Planned;
 - Observability separando health, stats, WAL, snapshot, audit, chunks e status
   de indice;
 - Service Keys para rotacionar API key ativa e salvar/validar registry de
   providers.
 
-Fluxos sem backend nesta fase, como upload de arquivo e insert de record pelo
-admin HTTP, aparecem como Planned em vez de dados simulados. O Control Plane
-complementa a CLI; ele nao substitui os fluxos embedded/local-first.
+Upload de arquivo via browser e Planned e exibido claramente na UI.
+O Control Plane complementa a CLI; ele nao substitui os fluxos
+embedded/local-first.
 
 ## Recomendação de curto prazo
 

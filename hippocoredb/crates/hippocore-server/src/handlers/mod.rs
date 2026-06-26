@@ -4,5 +4,6 @@ pub mod documents;
 pub mod graph;
 pub mod memories;
 pub mod recall;
+pub mod records;
 pub mod stats;
 pub mod tenants;

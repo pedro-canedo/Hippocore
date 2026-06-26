@@ -81,7 +81,9 @@ const I18N = {
     sqlLead: 'Run the supported read-only SQL-like record query layer with tenant isolation enforced by the backend.',
     storeDocument: 'Store document',
     storeMemory: 'Store memory',
+    storeRecord: 'Store record',
     storeType: 'Type',
+    table: 'Table',
     tenant: 'Tenant',
     tenantId: 'Tenant id',
     tenants: 'Tenants',
@@ -142,7 +144,9 @@ const I18N = {
     sqlLead: 'Execute a camada read-only de query estilo SQL com isolamento de tenant aplicado pelo backend.',
     storeDocument: 'Salvar documento',
     storeMemory: 'Salvar memoria',
+    storeRecord: 'Salvar record',
     storeType: 'Tipo',
+    table: 'Tabela',
     tenant: 'Tenant',
     tenantId: 'Tenant id',
     tenants: 'Tenants',
@@ -435,7 +439,8 @@ function ObjectListPage(kind) {
 }
 
 function IngestionRecallPage() {
-  return `${PageHeader('Ingestion & Recall', t('ingestLead'))}<section class="grid cols-2"><div class="panel"><h3>Guided ingestion</h3><div class="radio-grid">${['Memory', 'Document', 'Record', 'File'].map((kind) => `<label class="radio-card"><input type="radio" name="ingestType" value="${kind}" ${kind === 'Memory' ? 'checked' : ''} /><strong>${kind}</strong><span>${kind === 'Record' || kind === 'File' ? 'Planned admin flow' : 'Implemented'}</span></label>`).join('')}</div><div class="form-grid">${FormField(t('tenantId'), 'ingestTenant', state.tenant)}${FormField(t('collection'), 'ingestCollection', state.collection)}${TextAreaField('Content', 'ingestContent', '')}</div><div class="page-actions">${ActionButton(t('storeMemory'), 'store-memory', 'primary')}${ActionButton(t('storeDocument'), 'store-document')}</div></div><div class="panel"><h3>Recall and build_context</h3><div class="form-grid">${FormField(t('tenantId'), 'recallTenant', state.tenant)}${FormField(t('collection'), 'recallCollection', state.collection)}${FormField(t('recallQuery'), 'recallInput', '', 'text', 'class="wide"')}</div><div class="page-actions">${ActionButton(t('recall'), 'run-recall', 'primary')}${ActionButton(t('buildContext'), 'build-context')}</div><div id="recallResult">${JsonViewer(state.lists.recallResult || { status: 'ready' })}</div></div></section>`;
+  const kindStatus = { Memory: 'Implemented', Document: 'Implemented', Record: 'Implemented', File: 'Planned' };
+  return `${PageHeader('Ingestion & Recall', t('ingestLead'))}<section class="grid cols-2"><div class="panel"><h3>Guided ingestion</h3><div class="radio-grid">${['Memory', 'Document', 'Record', 'File'].map((kind) => `<label class="radio-card"><input type="radio" name="ingestType" value="${kind}" ${kind === 'Memory' ? 'checked' : ''} /><strong>${kind}</strong><span>${kindStatus[kind]}</span></label>`).join('')}</div><div class="form-grid">${FormField(t('tenantId'), 'ingestTenant', state.tenant)}${FormField(t('collection'), 'ingestCollection', state.collection)}${FormField(t('table'), 'ingestTable', 'data')}${TextAreaField('Content / JSON payload', 'ingestContent', '')}</div><div class="page-actions">${ActionButton(t('storeMemory'), 'store-memory', 'primary')}${ActionButton(t('storeDocument'), 'store-document')}${ActionButton(t('storeRecord'), 'store-record')}</div></div><div class="panel"><h3>Recall and build_context</h3><div class="form-grid">${FormField(t('tenantId'), 'recallTenant', state.tenant)}${FormField(t('collection'), 'recallCollection', state.collection)}${FormField(t('recallQuery'), 'recallInput', '', 'text', 'class="wide"')}</div><div class="page-actions">${ActionButton(t('recall'), 'run-recall', 'primary')}${ActionButton(t('buildContext'), 'build-context')}</div><div id="recallResult">${JsonViewer(state.lists.recallResult || { status: 'ready' })}</div></div></section>`;
 }
 
 function GraphPage() {
@@ -650,6 +655,29 @@ async function storeDocument() {
   await hydratePage();
 }
 
+async function storeRecord() {
+  const tenant = document.getElementById('ingestTenant')?.value.trim() || state.tenant;
+  const collection = document.getElementById('ingestCollection')?.value.trim() || state.collection;
+  const table = document.getElementById('ingestTable')?.value.trim() || 'data';
+  const raw = document.getElementById('ingestContent')?.value.trim();
+  if (!tenant || !collection || !raw) throw new Error('tenant, collection, and JSON payload required');
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error('Content must be a valid JSON object for records');
+  }
+  if (typeof payload !== 'object' || Array.isArray(payload) || payload === null) {
+    throw new Error('Record payload must be a JSON object');
+  }
+  state.lists.ingestResult = await request(`/admin/tenants/${encodeURIComponent(tenant)}/records`, {
+    method: 'POST',
+    body: JSON.stringify({ collection, table, payload }),
+  });
+  state.lastOperation = 'Stored record.';
+  await hydratePage();
+}
+
 async function runRecall(kind) {
   const tenant = document.getElementById('recallTenant')?.value.trim() || state.tenant;
   const collection = document.getElementById('recallCollection')?.value.trim() || state.collection;
@@ -765,6 +793,7 @@ async function handleAction(target) {
   if (action === 'create-collection') await createCollection();
   if (action === 'store-memory') await storeMemory();
   if (action === 'store-document') await storeDocument();
+  if (action === 'store-record') await storeRecord();
   if (action === 'run-recall') await runRecall('recall');
   if (action === 'build-context') await runRecall('context');
   if (action === 'rotate-key') await rotateKey();

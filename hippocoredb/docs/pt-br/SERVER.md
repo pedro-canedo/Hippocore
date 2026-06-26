@@ -53,6 +53,9 @@ A chave é definida via `--api-key <key>` (flag CLI) ou variável de ambiente
 | `GET` | `/admin/graph-edges` | Listar arestas de grafo |
 | `POST` | `/admin/sql` | Executar query de records estilo SQL MVP (`{"tenant_id":"acme","sql":"select * from systems limit 5"}`) |
 | `POST` | `/admin/query-records` | Resposta legada de query restrita de records |
+| `POST` | `/admin/tenants/:tid/records` | Criar record JSON-first (`{"collection":"col","table":"data","payload":{...}}`) |
+| `POST` | `/admin/tenants/:tid/memories` | Armazenar memória (`{"collection":"col","text":"..."}`) |
+| `POST` | `/admin/tenants/:tid/documents` | Armazenar documento (`{"collection":"col","text":"..."}`) |
 | `GET` | `/stats` | `DatabaseStats` como JSON |
 | `POST` | `/tenants` | Criar tenant (`{"id":"t1","name":"T1"}`) |
 | `POST` | `/tenants/:tid/collections` | Criar collection (`{"name":"col","description":"..."}`) |

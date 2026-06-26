@@ -152,6 +152,10 @@ pub fn build_router(state: AppState) -> Router {
             post(handlers::memories::remember),
         )
         .route(
+            "/admin/tenants/{tid}/records",
+            post(handlers::records::put_record),
+        )
+        .route(
             "/admin/tenants/{tid}/documents",
             post(handlers::documents::store_document),
         )

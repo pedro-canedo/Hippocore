@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Admin Data Actions v0.1
+
+- `POST /admin/tenants/:tid/records` — creates a JSON-first structured record
+  under the admin session auth layer, backed by `put_record`.
+- Ingestion & Recall page in the Control Plane now supports Memory, Document,
+  and Record writes. Record creation validates that the content is a JSON
+  object before posting to the backend.
+- File import via browser remains Planned and labelled explicitly in the UI.
+
 ### Added — Control Plane Foundation v0.1
 
 - Reworked `/admin` from a single-screen console into a Control Plane app shell

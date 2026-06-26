@@ -4,7 +4,15 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Control Plane Foundation v0.1**:
+**Admin Data Actions v0.1**:
+
+- Adicionado handler `POST /admin/tenants/:tid/records` usando `put_record`.
+- Pagina Ingestion & Recall agora suporta criacao de Memory, Document e Record.
+  O tipo Record aceita payload JSON, collection e nome de tabela.
+- Import de arquivo via browser permanece Planned e rotulado na UI.
+- Dois testes de integracao adicionados: caminho feliz e isolamento de tenant.
+
+Anterior: **Control Plane Foundation v0.1**:
 
 - `/admin` foi reestruturado de uma tela unica estilo debug para um Control
   Plane com sidebar fixa, topbar, selector global de tenant, status de sessao,
