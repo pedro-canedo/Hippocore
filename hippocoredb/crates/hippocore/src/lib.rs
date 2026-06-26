@@ -531,6 +531,10 @@ pub struct RecallRequest {
     /// below this value are dropped even if they are within `top_k`. `None`
     /// (default) disables the filter and preserves existing behaviour.
     pub min_score: Option<f32>,
+    /// When `true`, keep only the highest-scoring chunk per parent document.
+    /// Memories, records, and other non-chunk items are always kept.
+    /// Default `false` preserves existing behaviour.
+    pub dedup_chunks: bool,
 }
 
 impl RecallRequest {
@@ -550,6 +554,7 @@ impl RecallRequest {
             as_of: None,
             include_superseded: false,
             min_score: None,
+            dedup_chunks: false,
         }
     }
 }
@@ -1911,6 +1916,7 @@ impl Hippocore {
             hybrid_alpha: self.config.hybrid_alpha,
             top_k: req.top_k,
             min_score: req.min_score,
+            dedup_chunks: req.dedup_chunks,
         };
         Ok(query::execute(
             &self.index,

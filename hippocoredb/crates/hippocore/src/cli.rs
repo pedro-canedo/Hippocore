@@ -292,6 +292,10 @@ struct RecallArgs {
     /// value are dropped even if they are within top-k. Omit to disable.
     #[arg(long)]
     min_score: Option<f32>,
+    /// When set, keep only the best-scoring chunk per parent document.
+    /// Memories and records are always kept regardless of this flag.
+    #[arg(long)]
+    dedup_chunks: bool,
 }
 
 #[derive(Args)]
@@ -866,6 +870,7 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     req.as_of = a.as_of;
     req.include_superseded = a.include_superseded;
     req.min_score = a.min_score;
+    req.dedup_chunks = a.dedup_chunks;
 
     let results = db.search(req).map_err(|e| format!("{e}"))?;
 

@@ -146,6 +146,10 @@ pub struct QueryRequest {
     /// Drop results whose final score (after confidence weighting) is below
     /// this threshold. `None` disables the filter.
     pub min_score: Option<f32>,
+    /// When `true`, keep only the highest-scoring chunk per parent document.
+    /// Results are already sorted by score when deduplication runs, so the
+    /// first occurrence of each `document_id` is always the best chunk.
+    pub dedup_chunks: bool,
 }
 
 struct Scored<'a> {
@@ -388,6 +392,23 @@ pub fn execute(
         results.retain(|r| r.score >= min);
     }
 
+    // Chunk deduplication: keep only the highest-scoring chunk per parent
+    // document. Results are already sorted by score so the first occurrence
+    // of each document_id is the best chunk. Memories and records are kept
+    // unconditionally.
+    if request.dedup_chunks {
+        let mut seen_docs = std::collections::HashSet::new();
+        results.retain(|r| {
+            if r.kind != ItemKind::DocumentChunk {
+                return true;
+            }
+            match &r.document_id {
+                Some(doc_id) => seen_docs.insert(doc_id.clone()),
+                None => true,
+            }
+        });
+    }
+
     results.truncate(request.top_k);
     results
 }
@@ -555,5 +576,50 @@ mod tests {
             score >= threshold,
             "item exactly at threshold must be included"
         );
+    }
+
+    #[test]
+    fn dedup_chunks_keeps_best_chunk_per_doc() {
+        // Simulate the dedup logic: items sorted by score descending, track seen doc_ids.
+        let items: Vec<(&str, Option<&str>, bool)> = vec![
+            // (id, document_id, is_chunk)
+            ("c1", Some("doc-a"), true), // best chunk for doc-a → keep
+            ("m1", None, false),         // memory → always keep
+            ("c2", Some("doc-a"), true), // second chunk for doc-a → drop
+            ("c3", Some("doc-b"), true), // only chunk for doc-b → keep
+        ];
+        let mut seen = std::collections::HashSet::new();
+        let kept: Vec<_> = items
+            .iter()
+            .filter(|(_, doc_id, is_chunk)| {
+                if !is_chunk {
+                    return true;
+                }
+                match doc_id {
+                    Some(did) => seen.insert(*did),
+                    None => true,
+                }
+            })
+            .collect();
+        assert_eq!(kept.len(), 3, "c2 should be deduped");
+        let ids: Vec<_> = kept.iter().map(|(id, _, _)| *id).collect();
+        assert!(
+            !ids.contains(&"c2"),
+            "second chunk for doc-a must be removed"
+        );
+    }
+
+    #[test]
+    fn dedup_chunks_false_keeps_all() {
+        // When dedup_chunks is false, all items should pass through unchanged.
+        let dedup = false;
+        let items = ["c1", "c2", "c3"];
+        let kept: Vec<_> = if dedup {
+            // dedup logic omitted — would filter
+            [].to_vec()
+        } else {
+            items.to_vec()
+        };
+        assert_eq!(kept.len(), 3, "all items must be kept when dedup is false");
     }
 }

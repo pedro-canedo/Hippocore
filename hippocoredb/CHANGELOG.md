@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Document Chunk Deduplication v0.1
+
+- `RecallRequest` gains `dedup_chunks: bool` (default `false`). When `true`,
+  only the highest-scoring chunk per parent document is kept; memories and
+  records are always included. The flag is applied after score filtering and
+  before `top_k` truncation, so results already sorted by score guarantee the
+  first occurrence of each `document_id` is the best chunk.
+- CLI: `--dedup-chunks` flag on `hippocore recall`.
+- HTTP: `{"dedup_chunks": true}` in the recall body.
+
 ### Added — Recall Min-Score Filter v0.1
 
 - `RecallRequest` gains `min_score: Option<f32>` (default `None`). When set,

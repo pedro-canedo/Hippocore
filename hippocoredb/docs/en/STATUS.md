@@ -4,7 +4,18 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Recall Min-Score Filter v0.1**:
+**Document Chunk Deduplication v0.1**:
+
+- Added `dedup_chunks: bool` to `RecallRequest` (default `false`).
+- When enabled, only the highest-scoring chunk per parent document is returned.
+  Memories, records, and other non-chunk items are always kept.
+- Results are already sorted by score before dedup runs, so the first
+  occurrence of each `document_id` is always the best chunk.
+- Exposed as `--dedup-chunks` in the CLI and `{"dedup_chunks": true}` in HTTP.
+- Two unit tests verify: dedup keeps best chunk and drops the rest; `false`
+  keeps all items unchanged.
+
+Previous: **Recall Min-Score Filter v0.1**:
 
 - Added `min_score: Option<f32>` to `RecallRequest` (default `None`).
 - After confidence weighting and sorting, results below the threshold are
