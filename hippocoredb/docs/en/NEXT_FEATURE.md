@@ -2,36 +2,36 @@
 
 ## Feature name
 
-**Compact + Reopen Invariant Tests v0.1** — deterministic tests verifying that
-`compact()` followed by a cold reopen produces exactly the same observable state.
+**Record CRUD Tests v0.1** — deterministic tests for the Record entity
+lifecycle.
 
 ## Why it matters
 
-`compact()` folds all WAL entries into a snapshot and truncates the WAL to zero.
-If this operation introduced any silent loss (e.g. truncating the snapshot before
-the atomic rename completes, or re-indexing from an incomplete state), the
-database would silently degrade without any test catching it. The compact +
-reopen path is exercised incidentally but not explicitly locked.
+`Record` is a first-class entity alongside `Memory` and `Document`, but has no
+dedicated test file. Records support versioning (incrementing version on update),
+deletion, and metadata filtering. These paths are exercised incidentally in
+other tests but not locked as explicit regressions.
 
 ## Behaviour
 
-No new production code. The test suite will verify:
+No new production code. The test suite will cover:
 
-1. After `compact()`, `wal_len()` (or equivalent) reports zero entries.
-2. A cold reopen after `compact()` produces the same `collections()` list.
-3. A cold reopen after `compact()` returns the same memories in `recall()`.
-4. Multiple compact → reopen cycles don't lose data.
-5. Documents stored before `compact()` are retrievable after a cold reopen.
+1. Store a record and retrieve it by id.
+2. Recall returns the stored record.
+3. Update (re-store same id) increments the version field.
+4. Delete a record; subsequent retrieval returns `None`.
+5. Delete a record; subsequent recall does not return it.
+6. Records from one tenant are not visible to another tenant.
 
 ## Files
 
-- `crates/hippocore/tests/compact_reopen.rs` — new dedicated test file.
-- `docs/en/COMPACT_REOPEN.md` and `docs/pt-br/COMPACT_REOPEN.md`.
+- `crates/hippocore/tests/record_crud.rs` — new dedicated test file.
+- `docs/en/RECORD_CRUD.md` and `docs/pt-br/RECORD_CRUD.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- At least 5 deterministic integration tests using `TempDir`.
+- At least 6 deterministic integration tests using `TempDir`.
 - All quality gates pass:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -39,6 +39,6 @@ No new production code. The test suite will verify:
 
 ## Out of scope
 
-- WAL compaction strategy changes.
+- Record batch operations.
 - Server mode.
 - Production code changes.

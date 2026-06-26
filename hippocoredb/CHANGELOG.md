@@ -5,6 +5,13 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Compact + Reopen Invariant Tests v0.1
+
+- New test file `crates/hippocore/tests/compact_reopen.rs` with 5 tests: WAL
+  length zero after compact, collections / memories / documents survive compact
+  + cold reopen, multiple successive compact cycles do not lose any data. No
+  production code changes. 174 tests total.
+
 ### Added — WAL Recovery Tests v0.1
 
 - New test file `crates/hippocore/tests/wal_recovery.rs` with 4 tests locking

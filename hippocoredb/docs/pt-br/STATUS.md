@@ -4,7 +4,16 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**WAL Recovery Tests v0.1**:
+**Compact + Reopen Invariant Tests v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/compact_reopen.rs` com 5 testes.
+- Cobre: WAL zerado após compact, coleções / memórias / documentos sobrevivem
+  compact + reabertura a frio, múltiplos ciclos compact preservam todo o estado.
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/COMPACT_REOPEN.md` e `docs/pt-br/COMPACT_REOPEN.md`.
+- 5 novos testes. 174 testes no total.
+
+Anterior: **WAL Recovery Tests v0.1**:
 
 - Novo arquivo de testes `crates/hippocore/tests/wal_recovery.rs` com 4 testes.
 - Cobre: reabertura a frio com WAL limpo, linha truncada ignorada (sem panic),
@@ -473,8 +482,7 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Compact + Reopen Invariant Tests v0.1** — testes determinísticos verificando
-que chamar `compact()` e reabrir o banco de dados produz exatamente o mesmo
-estado observável: mesmas memórias, coleções, documentos e resultados de recall,
-com comprimento do WAL zerado.
+**Record CRUD Tests v0.1** — testes determinísticos para o ciclo de vida da
+entidade Record: armazenar, recuperar por id, recall, atualizar (nova versão),
+deletar e isolamento entre tenants.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
