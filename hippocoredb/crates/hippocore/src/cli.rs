@@ -71,6 +71,8 @@ enum Command {
     ListRecords(ListRecordsArgs),
     /// Run a restricted read-only query over records.
     QueryRecords(QueryRecordsArgs),
+    /// Run an MVP SQL-like command.
+    Query(QueryArgs),
     /// List imported files in a tenant.
     ListFiles(ListObjectsArgs),
     /// Add a durable graph edge between context items.
@@ -361,6 +363,20 @@ struct QueryRecordsArgs {
 }
 
 #[derive(Args)]
+struct QueryArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    /// SQL-like command: select * from <table> where ... limit ...
+    #[arg(long)]
+    sql: String,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
 struct AddEdgeArgs {
     #[arg(long)]
     db: PathBuf,
@@ -575,6 +591,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ListMemories(a) => cmd_list_memories(a),
         Command::ListRecords(a) => cmd_list_records(a),
         Command::QueryRecords(a) => cmd_query_records(a),
+        Command::Query(a) => cmd_query(a),
         Command::ListFiles(a) => cmd_list_files(a),
         Command::AddEdge(a) => cmd_add_edge(a),
         Command::ListEdges(a) => cmd_list_edges(a),
@@ -1050,6 +1067,32 @@ fn cmd_query_records(a: QueryRecordsArgs) -> Result<(), String> {
         return Ok(());
     }
     for r in &recs {
+        println!(
+            "{}/{}/{}/{}\tv{}",
+            r.tenant_id, r.collection, r.table, r.id, r.version
+        );
+    }
+    Ok(())
+}
+
+fn cmd_query(a: QueryArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let result = db
+        .execute_sql(&a.tenant, &a.sql)
+        .map_err(|e| format!("{e}"))?;
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if result.rows.is_empty() {
+        println!("no records");
+        return Ok(());
+    }
+    for r in &result.rows {
         println!(
             "{}/{}/{}/{}\tv{}",
             r.tenant_id, r.collection, r.table, r.id, r.version

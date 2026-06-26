@@ -117,8 +117,8 @@ O servidor agora expõe um console web local em `/admin` quando você executa
 - criação de tenants e collections;
 - armazenamento de memórias e documentos;
 - execução de queries de recall e contexto;
-- execução de consulta restrita read-only de records
-  (`select * from records ...`);
+- execução de SQL read-only de records via `/admin/sql` ou consulta restrita
+  compatível (`select * from records ...`);
 - configuração de provedores LLM locais para Ollama, OpenRouter e endpoints
   compatíveis;
 - rotação da API key ativa;

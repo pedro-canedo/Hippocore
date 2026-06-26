@@ -2,36 +2,32 @@
 
 ## Feature name
 
-**Phase 13 — Metadata Filtering & Faceted Search**
+**Database-like UX foundation: SQL command layer**
 
-## Why it matters
+## Implemented slice
 
-Phase 12 gave Hippocore the ability to ingest diverse content types. Phase 13
-makes the retrieval layer more precise: callers often need to scope queries to
-a date range, a specific source, a confidence band, or a custom metadata key.
-Without first-class filtering, every recall result must be post-processed by the
-caller.
+Hippocore now has a small SQL-like foundation for read-only structured record
+queries:
 
-## Minimum viable scope for Phase 13
+- public `Hippocore::execute_sql(tenant_id, sql)`;
+- typed `SqlCommand` and `SqlResult` API;
+- `SELECT * FROM <table> WHERE <field> = <value> [AND ...] [LIMIT n]`;
+- bare fields mapped to record payload keys;
+- explicit `id`, `collection`, `table`, `payload.<key>`, and `metadata.<key>`;
+- tenant-scoped execution;
+- CLI command: `hippocore query --db ... --tenant ... --sql ... --json`;
+- admin endpoint: `POST /admin/sql`;
+- legacy `query-records` behavior preserved.
 
-1. **Metadata filter expressions**: extend `RecallRequest` and `BuildContextRequest`
-   to accept richer filter expressions beyond the current exact-match
-   `Metadata` map — at minimum `$gte`, `$lte`, `$in`, and `$ne` operators on
-   string and numeric metadata values.
-2. **Date-range filter**: shorthand helpers on `RecallRequest` for
-   `valid_from >= X` and `valid_until <= Y`.
-3. **Confidence range filter**: `min_confidence: Option<f32>` on `RecallRequest`
-   to exclude memories below a threshold.
-4. **Facet counts**: new method `Hippocore::facets(tenant, collection, field)`
-   returning `Vec<(String, usize)>` — distinct values and their document counts
-   for a metadata field.
-5. **Tests**: at least 6 integration tests covering each new filter operator
-   and facets.
-6. **Docs**: bilingual documentation.
+## Next recommended slice
 
-## Out of scope for Phase 13
+Add a lightweight table/schema catalog over the existing `Record.table`
+namespace. This should persist table metadata, expose list/create table flows,
+and keep records JSON-first until SQL writes are justified.
 
-- Full query language (SQL-like DSL).
-- Geospatial filtering.
-- Nested metadata objects.
-- Write-through index updates for large filter scans.
+## Out of scope for the SQL MVP
+
+- Full SQL parsing or execution.
+- Joins, projections, ordering, aggregates, and nested JSON predicates.
+- `CREATE TABLE`, `INSERT`, `AI SEARCH`, and `IMPORT` SQL commands.
+- Replacing the existing record CRUD API.

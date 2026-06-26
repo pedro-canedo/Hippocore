@@ -35,14 +35,16 @@ For complete usage patterns, examples, and integration choices, see:
   on open and a torn trailing WAL line is skipped, not fatal.
 - **Offline & deterministic**: a built-in hashing embedder means no network and
   reproducible tests. You can also supply your own embeddings.
+- A tiny SQL-like read layer for records: `SELECT * FROM <table> WHERE ...`.
 - A foundation for a broader context database where records, files and future
   data types can be managed and projected into searchable context.
 
 ## What it is *not* (yet)
 
-No clustering, consensus, production auth, cloud embedders, GPU/ANN/HNSW, web
-dashboard, replication, SQL/query language, or external database yet. See
-[docs/en/MVP_SCOPE.md](docs/en/MVP_SCOPE.md) and [ROADMAP.md](ROADMAP.md).
+No clustering, consensus, production auth, cloud embedders, GPU/ANN/HNSW,
+replication, full SQL engine, or external database yet. See
+[docs/en/MVP_SCOPE.md](docs/en/MVP_SCOPE.md), [docs/en/SQL.md](docs/en/SQL.md),
+and [ROADMAP.md](ROADMAP.md).
 
 ## Why a memory database (not just a vector store)
 
@@ -109,10 +111,14 @@ $BIN put-record --db ./data --tenant acme --collection support --table systems \
 $BIN import-file --db ./data --tenant acme --collection support \
   --id notes --path ./notes.md --meta source=local
 
-# 6. recall context (hybrid by default; --mode vector|text|hybrid)
+# 6. query structured records with the MVP SQL-like layer
+$BIN query --db ./data --tenant acme \
+  --sql "select * from systems where engine = 'postgresql' limit 5" --json
+
+# 7. recall context (hybrid by default; --mode vector|text|hybrid)
 $BIN recall --db ./data --tenant acme --query "oracle ORA-12514 in staging" --top-k 5
 
-# 7. inspect & stats
+# 8. inspect & stats
 $BIN inspect --db ./data
 $BIN stats --db ./data
 ```

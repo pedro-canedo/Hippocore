@@ -452,6 +452,47 @@ async fn admin_restricted_records_query_returns_tenant_scoped_records() {
 }
 
 #[tokio::test]
+async fn admin_sql_endpoint_returns_result_shape() {
+    let dir = TempDir::new().unwrap();
+    let mut db = Hippocore::open(Config::new(dir.path())).unwrap();
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "data", "").unwrap();
+    let mut req = PutRecordRequest::new(
+        "acme",
+        "data",
+        "systems",
+        json!({"engine": "postgresql", "language": "python"}),
+    );
+    req.id = Some("pg-python".to_string());
+    db.put_record(req).unwrap();
+
+    let state = AppState::with_admin_credentials(db, "test-key", "admin", "secret");
+    let app = build_router(state);
+    let session = login(app.clone()).await;
+
+    let resp = app
+        .oneshot(admin_json_request(
+            "POST",
+            "/admin/sql",
+            json!({
+                "tenant_id": "acme",
+                "sql": "select * from systems where engine = 'postgresql' limit 5"
+            }),
+            &session,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let result: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(result["command"], "select");
+    assert_eq!(result["row_count"], 1);
+    assert_eq!(result["rows"][0]["id"], "pg-python");
+}
+
+#[tokio::test]
 async fn admin_llm_provider_registry_masks_secret() {
     let dir = TempDir::new().unwrap();
     let app = test_app(&dir);

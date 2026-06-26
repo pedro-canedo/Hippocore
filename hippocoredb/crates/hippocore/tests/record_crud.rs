@@ -267,3 +267,69 @@ fn restricted_record_query_rejects_unsupported_sql() {
 
     assert!(err.to_string().contains("select * from records"));
 }
+
+#[test]
+fn execute_sql_selects_table_with_bare_payload_fields() {
+    let dir = TempDir::new().unwrap();
+    let mut db = open(&dir);
+    seed(&mut db);
+
+    let mut pg = PutRecordRequest::new(
+        "acme",
+        "data",
+        "systems",
+        json!({"engine": "postgresql", "language": "python"}),
+    );
+    pg.id = Some("pg-python".to_string());
+    db.put_record(pg).unwrap();
+
+    db.put_record(PutRecordRequest::new(
+        "acme",
+        "data",
+        "systems",
+        json!({"engine": "oracle", "language": "python"}),
+    ))
+    .unwrap();
+
+    let result = db
+        .execute_sql(
+            "acme",
+            "SELECT * FROM systems WHERE engine = 'postgresql' AND language = 'python' LIMIT 5",
+        )
+        .unwrap();
+
+    assert_eq!(result.row_count, 1);
+    assert_eq!(result.rows[0].id, "pg-python");
+}
+
+#[test]
+fn execute_sql_preserves_tenant_isolation() {
+    let dir = TempDir::new().unwrap();
+    let mut db = open(&dir);
+    db.create_tenant("alpha", "Alpha").unwrap();
+    db.create_tenant("beta", "Beta").unwrap();
+    db.create_collection("alpha", "data", "").unwrap();
+    db.create_collection("beta", "data", "").unwrap();
+
+    db.put_record(PutRecordRequest::new(
+        "alpha",
+        "data",
+        "systems",
+        json!({"engine": "postgresql"}),
+    ))
+    .unwrap();
+    db.put_record(PutRecordRequest::new(
+        "beta",
+        "data",
+        "systems",
+        json!({"engine": "postgresql"}),
+    ))
+    .unwrap();
+
+    let result = db
+        .execute_sql("alpha", "select * from systems where engine = 'postgresql'")
+        .unwrap();
+
+    assert_eq!(result.row_count, 1);
+    assert_eq!(result.rows[0].tenant_id, "alpha");
+}

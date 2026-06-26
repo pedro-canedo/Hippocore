@@ -297,6 +297,9 @@ hc put-record --db ./data \
 hc list-records  --db ./data --tenant acme --table systems
 hc show-record   --db ./data --tenant acme --collection support \
     --table systems --id billing-db
+hc query --db ./data --tenant acme \
+    --sql "select * from systems where engine = 'postgresql' limit 20" \
+    --json
 hc delete-record --db ./data --tenant acme --collection support \
     --table systems --id billing-db
 

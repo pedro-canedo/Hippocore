@@ -135,6 +135,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/admin/files", get(admin::files))
         .route("/admin/graph-edges", get(admin::graph_edges))
         .route("/admin/query-records", post(admin::query_records))
+        .route("/admin/sql", post(admin::execute_sql))
         .route("/admin/llm-providers", get(admin::llm_providers))
         .route("/admin/llm-providers", post(admin::upsert_llm_provider))
         .route(

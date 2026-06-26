@@ -2,36 +2,34 @@
 
 ## Nome
 
-**Phase 13 — Filtragem de Metadados e Busca Facetada**
+**Fundação de UX estilo banco: camada de comando SQL**
 
-## Por que importa
+## Slice implementado
 
-A Phase 12 deu ao Hippocore a capacidade de ingerir tipos de conteúdo diversos.
-A Phase 13 torna a camada de recuperação mais precisa: callers frequentemente
-precisam escopar queries por intervalo de datas, fonte específica, banda de
-confiança ou chave de metadados personalizada. Sem filtragem nativa, todo
-resultado de recall precisa ser pós-processado.
+Hippocore agora tem uma fundação pequena estilo SQL para consultas read-only de
+records estruturados:
 
-## Escopo mínimo para a Phase 13
+- API pública `Hippocore::execute_sql(tenant_id, sql)`;
+- tipos `SqlCommand` e `SqlResult`;
+- `SELECT * FROM <tabela> WHERE <campo> = <valor> [AND ...] [LIMIT n]`;
+- campos sem prefixo mapeados para chaves do payload do record;
+- suporte explícito a `id`, `collection`, `table`, `payload.<key>` e
+  `metadata.<key>`;
+- execução escopada por tenant;
+- comando CLI: `hippocore query --db ... --tenant ... --sql ... --json`;
+- endpoint admin: `POST /admin/sql`;
+- comportamento legado de `query-records` preservado.
 
-1. **Expressões de filtro de metadados**: estender `RecallRequest` e
-   `BuildContextRequest` para aceitar expressões de filtro mais ricas além do
-   map de correspondência exata `Metadata` atual — ao mínimo operadores `$gte`,
-   `$lte`, `$in` e `$ne` em valores de metadados string e numéricos.
-2. **Filtro de intervalo de datas**: helpers de atalho em `RecallRequest` para
-   `valid_from >= X` e `valid_until <= Y`.
-3. **Filtro de intervalo de confiança**: `min_confidence: Option<f32>` em
-   `RecallRequest` para excluir memórias abaixo de um limiar.
-4. **Contagens de faceta**: novo método `Hippocore::facets(tenant, collection,
-   field)` retornando `Vec<(String, usize)>` — valores distintos e contagens de
-   documentos para um campo de metadados.
-5. **Testes**: ao menos 6 testes de integração cobrindo cada novo operador de
-   filtro e facetas.
-6. **Docs**: documentação bilíngue.
+## Próximo slice recomendado
 
-## Fora de escopo para a Phase 13
+Adicionar um catálogo leve de tabelas/schemas sobre o namespace existente
+`Record.table`. Esse slice deve persistir metadados de tabela, expor fluxos de
+listar/criar tabela e manter records JSON-first até que escritas via SQL sejam
+justificadas.
 
-- Linguagem de query completa (DSL estilo SQL).
-- Filtragem geoespacial.
-- Objetos de metadados aninhados.
-- Atualizações de índice write-through para scans de filtros grandes.
+## Fora do escopo do MVP SQL
+
+- Parsing ou execução SQL completa.
+- Joins, projeções, ordenação, agregações e predicados JSON aninhados.
+- Comandos SQL `CREATE TABLE`, `INSERT`, `AI SEARCH` e `IMPORT`.
+- Substituir a API CRUD de records existente.

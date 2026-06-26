@@ -89,6 +89,12 @@ pub struct QueryRecordsRequest {
     pub sql: String,
 }
 
+#[derive(Deserialize)]
+pub struct SqlRequest {
+    pub tenant_id: String,
+    pub sql: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LlmProviderConfig {
     pub id: String,
@@ -291,6 +297,14 @@ pub async fn query_records(
     Ok(Json(
         db.query_records_restricted(&body.tenant_id, &body.sql)?,
     ))
+}
+
+pub async fn execute_sql(
+    State(state): State<AppState>,
+    Json(body): Json<SqlRequest>,
+) -> Result<Json<hippocore::SqlResult>, ServerError> {
+    let db = state.db.lock().unwrap();
+    Ok(Json(db.execute_sql(&body.tenant_id, &body.sql)?))
 }
 
 pub async fn llm_providers(

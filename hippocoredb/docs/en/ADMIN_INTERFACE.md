@@ -130,7 +130,8 @@ The server now exposes a local web admin console at `/admin` when you run
 - create tenants and collections;
 - store memories and documents;
 - run recall and context queries;
-- run a restricted read-only records query (`select * from records ...`);
+- run read-only record SQL through `/admin/sql` or the compatible restricted
+  records query (`select * from records ...`);
 - configure local LLM providers for Ollama, OpenRouter, and compatible
   endpoints;
 - rotate the active API key;

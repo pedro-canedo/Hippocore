@@ -146,6 +146,51 @@ fn cli_audit_json_reports_build_context_records() {
 }
 
 #[test]
+fn cli_query_sql_returns_json_result() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    let put = bin()
+        .args([
+            "put-record",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "data",
+            "--table",
+            "systems",
+            "--id",
+            "pg-python",
+            "--json",
+            r#"{"engine":"postgresql","language":"python"}"#,
+        ])
+        .output()
+        .unwrap();
+    assert!(put.status.success(), "put-record failed: {put:?}");
+
+    let query = bin()
+        .args([
+            "query",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--sql",
+            "select * from systems where engine = 'postgresql' limit 5",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(query.status.success(), "query failed: {query:?}");
+    let result: serde_json::Value = serde_json::from_slice(&query.stdout).unwrap();
+    assert_eq!(result["command"], "select");
+    assert_eq!(result["row_count"], 1);
+    assert_eq!(result["rows"][0]["id"], "pg-python");
+}
+
+#[test]
 fn cli_graph_edge_flow_json() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();
