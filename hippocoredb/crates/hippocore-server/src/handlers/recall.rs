@@ -13,6 +13,7 @@ pub struct RecallBody {
     pub query: String,
     pub collection: Option<String>,
     pub top_k: Option<usize>,
+    pub min_score: Option<f32>,
 }
 
 #[derive(Serialize)]
@@ -34,6 +35,7 @@ pub async fn recall(
     if let Some(k) = body.top_k {
         req.top_k = k;
     }
+    req.min_score = body.min_score;
 
     let db = state.db.lock().unwrap();
     let results = db.recall(req).map_err(ServerError::from)?;

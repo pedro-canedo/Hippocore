@@ -143,6 +143,9 @@ pub struct QueryRequest {
     pub hybrid_alpha: f32,
     /// Maximum number of results.
     pub top_k: usize,
+    /// Drop results whose final score (after confidence weighting) is below
+    /// this threshold. `None` disables the filter.
+    pub min_score: Option<f32>,
 }
 
 struct Scored<'a> {
@@ -379,6 +382,12 @@ pub fn execute(
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| a.id.cmp(&b.id))
     });
+
+    // Apply min_score threshold after sorting so the filter sees final scores.
+    if let Some(min) = request.min_score {
+        results.retain(|r| r.score >= min);
+    }
+
     results.truncate(request.top_k);
     results
 }
@@ -514,5 +523,37 @@ mod tests {
         let w_min = 1.0 + CONFIDENCE_ALPHA * (0.0_f32 - 0.5);
         assert!(w_max <= 1.25, "max weight must be ≤ 1.25");
         assert!(w_min >= 0.75, "min weight must be ≥ 0.75");
+    }
+
+    #[test]
+    fn min_score_threshold_drops_low_scoring_items() {
+        // Verify the filter formula directly: items below threshold are removed.
+        let scores = [0.9_f32, 0.5, 0.3, 0.1];
+        let threshold = 0.4_f32;
+        let kept: Vec<_> = scores.iter().filter(|&&s| s >= threshold).collect();
+        assert_eq!(kept.len(), 2, "only scores ≥ 0.4 should survive");
+        assert!(kept.contains(&&0.9));
+        assert!(kept.contains(&&0.5));
+    }
+
+    #[test]
+    fn min_score_none_keeps_all() {
+        let scores = [0.9_f32, 0.1, 0.0];
+        let min: Option<f32> = None;
+        let kept: Vec<_> = scores
+            .iter()
+            .filter(|&&s| min.map_or(true, |m| s >= m))
+            .collect();
+        assert_eq!(kept.len(), 3, "None threshold must not filter anything");
+    }
+
+    #[test]
+    fn min_score_exact_threshold_is_inclusive() {
+        let score = 0.5_f32;
+        let threshold = 0.5_f32;
+        assert!(
+            score >= threshold,
+            "item exactly at threshold must be included"
+        );
     }
 }

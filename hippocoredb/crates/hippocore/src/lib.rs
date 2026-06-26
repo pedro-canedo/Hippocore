@@ -527,6 +527,10 @@ pub struct RecallRequest {
     /// When `false` (default), superseded memories are excluded from results.
     /// Set to `true` to surface the full history including superseded entries.
     pub include_superseded: bool,
+    /// Minimum final score threshold (after confidence weighting). Results
+    /// below this value are dropped even if they are within `top_k`. `None`
+    /// (default) disables the filter and preserves existing behaviour.
+    pub min_score: Option<f32>,
 }
 
 impl RecallRequest {
@@ -545,6 +549,7 @@ impl RecallRequest {
             top_k: 10,
             as_of: None,
             include_superseded: false,
+            min_score: None,
         }
     }
 }
@@ -1905,6 +1910,7 @@ impl Hippocore {
             mode: req.mode,
             hybrid_alpha: self.config.hybrid_alpha,
             top_k: req.top_k,
+            min_score: req.min_score,
         };
         Ok(query::execute(
             &self.index,

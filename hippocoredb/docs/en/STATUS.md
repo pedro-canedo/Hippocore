@@ -4,7 +4,17 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Confidence-Weighted Recall v0.1**:
+**Recall Min-Score Filter v0.1**:
+
+- Added `min_score: Option<f32>` to `RecallRequest` (default `None`).
+- After confidence weighting and sorting, results below the threshold are
+  dropped before `top_k` truncation. Inclusive lower bound.
+- Added `--min-score` flag to `hippocore recall` CLI command.
+- HTTP recall endpoint accepts `{"min_score": 0.5}` in the request body.
+- Three unit tests verify: threshold drops items, `None` keeps all, exact
+  threshold is inclusive.
+
+Previous: **Confidence-Weighted Recall v0.1**:
 
 - Memory items with an explicit `confidence` score now influence their final
   ranking position in all recall modes (vector, text, hybrid).

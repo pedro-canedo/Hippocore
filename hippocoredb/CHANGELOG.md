@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Recall Min-Score Filter v0.1
+
+- `RecallRequest` gains `min_score: Option<f32>` (default `None`). When set,
+  results with a final score below the threshold are dropped before `top_k`
+  truncation. Inclusive; omitting the field preserves existing behaviour.
+- `hippocore recall --min-score <f>` exposes the threshold from the CLI.
+- HTTP recall body accepts `{"min_score": <f>}` without breaking existing callers.
+
 ### Added — Confidence-Weighted Recall v0.1
 
 - Memory items with an explicit `confidence` score now influence their final

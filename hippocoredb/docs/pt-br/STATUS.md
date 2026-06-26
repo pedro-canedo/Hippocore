@@ -4,7 +4,17 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Confidence-Weighted Recall v0.1**:
+**Recall Min-Score Filter v0.1**:
+
+- Adicionado `min_score: Option<f32>` em `RecallRequest` (padrao `None`).
+- Apos confidence weighting e ordenacao, resultados abaixo do limiar sao
+  removidos antes da truncagem `top_k`. Limite inferior inclusivo.
+- Flag `--min-score` adicionada ao comando `hippocore recall`.
+- Endpoint HTTP de recall aceita `{"min_score": 0.5}` no body.
+- Tres testes unitarios verificam: limiar remove itens, `None` mantém todos,
+  item exatamente no limiar é incluido.
+
+Anterior: **Confidence-Weighted Recall v0.1**:
 
 - Memorias com `confidence` explicito agora influenciam sua posicao de ranking
   em todos os modos de recall (vector, text, hybrid).

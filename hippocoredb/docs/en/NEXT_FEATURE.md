@@ -2,59 +2,55 @@
 
 ## Feature name
 
-**Confidence-Weighted Recall v0.1**
+**Recall Min-Score Filter v0.1**
 
 ## Why it matters
 
-Memories can carry an explicit confidence score set by the caller or the
-human-in-the-loop `rate-memory` command, but the hybrid recall engine does not
-use it. High-confidence memories that are semantically similar to the query can
-be buried under lower-confidence but noisier matches. Factoring confidence into
-the final ranking score improves RAG output quality measurably and without
-changing the data model.
+After confidence-weighted recall, the score range across candidates can vary
+widely. An LLM context assembled from a `top_k=10` recall may include several
+items with scores near zero — noise that wastes context tokens and can confuse
+the model. Allowing the caller to set a minimum score threshold lets
+applications trade recall coverage for precision without changing `top_k`.
 
 ## Behavior
 
-- After the hybrid score (vector + text fusion) is computed, multiply it by a
-  confidence weight derived from each item's `confidence` field.
-- Items with no confidence set (the common case) are treated as neutral weight
-  (`1.0`) — no regressions for existing data.
-- Weight formula: `final_score = hybrid_score * (1.0 + alpha * (confidence - 0.5))`
-  where `alpha` is a tunable constant (start with `0.4`). This gives a ±20%
-  boost/penalty at the extremes (0.0 and 1.0).
-- Only `Memory` items carry a confidence score; `DocumentChunk` and `Record`
-  items use neutral weight.
-- The change lives entirely in the `query` module; `storage` and `lib.rs` are
-  unchanged.
-- The `RecallResult` struct gains no new fields; confidence is an internal
-  ranking signal, not a returned metadata field.
+- Add `min_score: Option<f32>` to `RecallRequest` (default `None`).
+- After confidence weighting and final sort, filter out results where
+  `score < min_score`. Truncation to `top_k` happens after filtering so
+  `top_k` remains the upper bound on result count.
+- Items at exactly `min_score` are included (inclusive lower bound).
+- Add `--min-score <f32>` flag to the `hippocore recall` CLI command.
+- HTTP server admin recall endpoint (`POST /admin/tenants/:tid/recall`) and
+  the service recall endpoint (`POST /tenants/:tid/recall`) already accept
+  an arbitrary JSON body — add `min_score` to their request types.
 
 ## Likely files
 
+- `crates/hippocore/src/lib.rs` (RecallRequest)
 - `crates/hippocore/src/query.rs`
+- `crates/hippocore/src/cli.rs` (recall subcommand)
+- `crates/hippocore-server/src/handlers/recall.rs`
 - `crates/hippocore/tests/retrieval_quality.rs`
-- `docs/en/SCORE_NORMALIZATION.md`
-- `docs/pt-br/SCORE_NORMALIZATION.md`
 - `docs/en/STATUS.md`
 - `docs/pt-br/STATUS.md`
 - `CHANGELOG.md`
 
 ## Acceptance criteria
 
-- A high-confidence memory (`confidence=0.9`) that scores identically to a
-  zero-confidence memory in hybrid recall appears above it in results.
-- A zero-confidence memory (`confidence=0.0`) that scores identically to a
-  neutral memory (no confidence set) appears below it.
-- Items with no confidence set retain their original relative ranking.
-- The retrieval quality fixture still passes all thresholds (MRR, hit@1,
-  hit@k).
+- `RecallRequest` has `min_score: Option<f32>` defaulting to `None`.
+- When `min_score = Some(0.5)`, no result with `score < 0.5` is returned.
+- When `min_score = None`, existing behaviour is unchanged.
+- `hippocore recall --min-score 0.3 ...` passes the threshold to the core.
+- HTTP recall body accepts `{"min_score": 0.5}` without breaking existing
+  callers that omit the field.
+- Tests cover: threshold removes low-score items, `None` returns all, items
+  exactly at threshold are included.
 - `cargo fmt --all --check`, `cargo test --workspace`, and
   `cargo clippy --workspace --all-targets -- -D warnings` pass.
 
 ## Out of scope
 
-- Confidence on `DocumentChunk` or `Record` items.
-- Exposing `confidence` as a filter in `RecallRequest`.
-- Making `alpha` a configurable server parameter.
-- Changing the `RecallResult` struct.
-- Any change to `storage`, `memory`, or `lib.rs`.
+- Per-mode thresholds (different min for vector vs text).
+- Dynamic threshold calibration.
+- Exposing `min_score` in `BuildContextRequest`.
+- Any change to storage or index.

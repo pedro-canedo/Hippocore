@@ -288,6 +288,10 @@ struct RecallArgs {
     /// superseded memories are hidden.
     #[arg(long)]
     include_superseded: bool,
+    /// Minimum score threshold (after confidence weighting). Results below this
+    /// value are dropped even if they are within top-k. Omit to disable.
+    #[arg(long)]
+    min_score: Option<f32>,
 }
 
 #[derive(Args)]
@@ -861,6 +865,7 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     req.top_k = a.top_k;
     req.as_of = a.as_of;
     req.include_superseded = a.include_superseded;
+    req.min_score = a.min_score;
 
     let results = db.search(req).map_err(|e| format!("{e}"))?;
 
