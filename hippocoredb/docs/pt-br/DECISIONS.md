@@ -76,3 +76,28 @@ versão em inglês em `docs/en/DECISIONS.md`.
 - **Trade-off**: usuários com ids duplicados entre collections/tables precisam
   usar ids únicos antes de criar arestas. Uma referência mais rica pode ser
   adicionada depois sem mudar o modelo básico de persistência de `GraphEdge`.
+
+## ADR-010: Contexto ciente de grafo expande apenas vizinhos diretos
+
+- **Decisão**: `build_context` pode incluir opcionalmente vizinhos diretos de
+  `GraphEdge` dos itens recuperados via `BuildContextRequest::include_related` e
+  `related_limit`. Itens expandidos são marcados como `graph_expanded` no
+  contexto e na auditoria; itens recuperados seguem como `recalled`, e itens
+  considerados que não couberem no budget aparecem como `not_included` na
+  auditoria.
+- **Contexto**: Graph Memory v0.1 registra relacionamentos duráveis e expõe ids
+  de vizinhos diretos como proveniência. O próximo incremento útil é permitir que
+  chamadores usem essas relações na montagem de contexto sem transformar o MVP
+  em um motor de query de grafo.
+- **Alternativas consideradas**:
+  - expandir vizinhos automaticamente em toda chamada de `build_context`;
+  - aplicar boost de score de recall com base em arestas;
+  - fazer travessia multi-hop ou planejamento estilo GraphRAG.
+- **Motivo**: expansão direta opt-in mantém o comportamento default de recall,
+  preserva isolamento por tenant, deixa o budget de tokens como árbitro final e
+  entrega contexto relacionado útil para RAG sem adicionar um novo sistema de
+  ranking.
+- **Trade-off**: itens expandidos usam scores neutros porque não foram
+  selecionados pelo recall. A expansão direta pode melhorar completude, mas não
+  prova relevância além da aresta armazenada; ranking ciente de grafo e
+  travessia multi-hop continuam como trabalho futuro.

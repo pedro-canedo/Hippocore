@@ -38,6 +38,7 @@ pub mod storage;
 
 pub mod cli;
 
+use std::collections::HashSet;
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Write};
@@ -49,8 +50,8 @@ pub use config::Config;
 pub use errors::{HippocoreError, Result};
 pub use index::VectorIndexKind;
 pub use model::{
-    AuditItem, AuditRecord, Chunk, Collection, Document, Embedding, FileObject, GraphEdge,
-    ItemKind, Memory, MemoryType, Metadata, RecallResult, Record, Source, Tenant,
+    AuditItem, AuditRecord, Chunk, Collection, ContextItemSource, Document, Embedding, FileObject,
+    GraphEdge, ItemKind, Memory, MemoryType, Metadata, RecallResult, Record, Source, Tenant,
 };
 pub use query::SearchMode;
 
@@ -433,6 +434,11 @@ pub struct BuildContextRequest {
     pub collection: Option<String>,
     /// Require these exact metadata pairs on recalled items.
     pub metadata_filter: Metadata,
+    /// Include direct graph neighbours of recalled items when they fit the
+    /// token budget. Default is `false`.
+    pub include_related: bool,
+    /// Maximum number of graph-expanded neighbour items to consider.
+    pub related_limit: usize,
 }
 
 impl BuildContextRequest {
@@ -447,6 +453,8 @@ impl BuildContextRequest {
             mode: SearchMode::Hybrid,
             collection: None,
             metadata_filter: Metadata::new(),
+            include_related: false,
+            related_limit: 8,
         }
     }
 }
@@ -468,6 +476,8 @@ pub struct ContextItem {
     pub snippet: String,
     /// Directly related neighbour ids known at context-build time.
     pub related_item_ids: Vec<String>,
+    /// Whether this item came from recall or graph expansion.
+    pub inclusion_source: ContextItemSource,
 }
 
 /// The assembled context string and provenance returned by
@@ -483,6 +493,20 @@ pub struct ContextBlock {
     pub items_included: Vec<ContextItem>,
     /// Number of recalled items that did not fit within `max_tokens`.
     pub items_dropped: usize,
+}
+
+#[derive(Debug, Clone)]
+struct ContextCandidate {
+    id: String,
+    kind: ItemKind,
+    collection: String,
+    text: String,
+    score: f32,
+    vector_score: f32,
+    text_score: f32,
+    confidence: Option<f32>,
+    inclusion_source: ContextItemSource,
+    related_item_ids: Vec<String>,
 }
 
 impl Hippocore {
@@ -1202,18 +1226,33 @@ impl Hippocore {
             });
         }
 
+        let mut candidates: Vec<ContextCandidate> = hits
+            .iter()
+            .map(|hit| ContextCandidate {
+                id: hit.id.clone(),
+                kind: hit.kind,
+                collection: hit.collection.clone(),
+                text: hit.text.clone(),
+                score: hit.score,
+                vector_score: hit.vector_score,
+                text_score: hit.text_score,
+                confidence: hit.confidence,
+                inclusion_source: ContextItemSource::Recalled,
+                related_item_ids: self.related_item_ids(&hit.tenant_id, hit.kind, &hit.id),
+            })
+            .collect();
+        if req.include_related && req.related_limit > 0 {
+            candidates.extend(self.graph_expanded_candidates(&hits, req.related_limit));
+        }
+
         let mut included: Vec<ContextItem> = Vec::new();
+        let mut included_text_blocks: Vec<String> = Vec::new();
+        let mut included_keys: HashSet<(ItemKind, String)> = HashSet::new();
         let mut dropped: usize = 0;
         let mut budget_used: usize = 0;
 
-        for hit in &hits {
-            let kind_label = match hit.kind {
-                ItemKind::Memory => "memory",
-                ItemKind::DocumentChunk => "chunk",
-                ItemKind::Record => "record",
-            };
-            let header = format!("[{kind_label}:{}]", hit.id);
-            let block = format!("{header}\n{}", hit.text);
+        for candidate in &candidates {
+            let block = context_text_block(candidate.kind, &candidate.id, &candidate.text);
             let item_tokens = approx_tokens(&block);
 
             if budget_used + item_tokens > req.max_tokens {
@@ -1221,37 +1260,23 @@ impl Hippocore {
                 continue;
             }
 
-            let snippet: String = hit.text.chars().take(120).collect();
-            let related_item_ids = self.related_item_ids(&hit.tenant_id, hit.kind, &hit.id);
+            let snippet: String = candidate.text.chars().take(120).collect();
+            included_keys.insert((candidate.kind, candidate.id.clone()));
+            included_text_blocks.push(block);
             included.push(ContextItem {
-                id: hit.id.clone(),
-                kind: hit.kind,
-                score: hit.score,
-                confidence: hit.confidence,
+                id: candidate.id.clone(),
+                kind: candidate.kind,
+                score: candidate.score,
+                confidence: candidate.confidence,
                 token_count: item_tokens,
                 snippet,
-                related_item_ids,
+                related_item_ids: candidate.related_item_ids.clone(),
+                inclusion_source: candidate.inclusion_source,
             });
             budget_used += item_tokens;
         }
 
-        let text = included
-            .iter()
-            .map(|item| {
-                let kind_label = match item.kind {
-                    ItemKind::Memory => "memory",
-                    ItemKind::DocumentChunk => "chunk",
-                    ItemKind::Record => "record",
-                };
-                let hit_text = hits
-                    .iter()
-                    .find(|h| h.id == item.id && h.kind == item.kind)
-                    .map(|h| h.text.as_str())
-                    .unwrap_or("");
-                format!("[{kind_label}:{}]\n{hit_text}", item.id)
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n");
+        let text = included_text_blocks.join("\n\n");
 
         let block = ContextBlock {
             token_count: approx_tokens(&text),
@@ -1270,30 +1295,31 @@ impl Hippocore {
             token_count: block.token_count,
             latency_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
             items_dropped: block.items_dropped,
-            items: hits
+            items: candidates
                 .iter()
-                .map(|hit| {
-                    let kind_label = match hit.kind {
-                        ItemKind::Memory => "memory",
-                        ItemKind::DocumentChunk => "chunk",
-                        ItemKind::Record => "record",
-                    };
-                    let item_tokens =
-                        approx_tokens(&format!("[{kind_label}:{}]\n{}", hit.id, hit.text));
+                .map(|candidate| {
+                    let item_tokens = approx_tokens(&context_text_block(
+                        candidate.kind,
+                        &candidate.id,
+                        &candidate.text,
+                    ));
+                    let included = included_keys.contains(&(candidate.kind, candidate.id.clone()));
                     AuditItem {
-                        id: hit.id.clone(),
-                        kind: hit.kind,
-                        collection: hit.collection.clone(),
-                        score: hit.score,
-                        vector_score: hit.vector_score,
-                        text_score: hit.text_score,
-                        confidence: hit.confidence,
+                        id: candidate.id.clone(),
+                        kind: candidate.kind,
+                        collection: candidate.collection.clone(),
+                        score: candidate.score,
+                        vector_score: candidate.vector_score,
+                        text_score: candidate.text_score,
+                        confidence: candidate.confidence,
                         token_count: item_tokens,
-                        included: block
-                            .items_included
-                            .iter()
-                            .any(|item| item.id == hit.id && item.kind == hit.kind),
-                        related_item_ids: self.related_item_ids(&hit.tenant_id, hit.kind, &hit.id),
+                        included,
+                        inclusion_source: if included {
+                            candidate.inclusion_source
+                        } else {
+                            ContextItemSource::NotIncluded
+                        },
+                        related_item_ids: candidate.related_item_ids.clone(),
                     }
                 })
                 .collect(),
@@ -1375,6 +1401,103 @@ impl Hippocore {
         ids.sort();
         ids.dedup();
         ids
+    }
+
+    fn graph_expanded_candidates(
+        &self,
+        hits: &[RecallResult],
+        related_limit: usize,
+    ) -> Vec<ContextCandidate> {
+        let mut seen: HashSet<(ItemKind, String)> =
+            hits.iter().map(|hit| (hit.kind, hit.id.clone())).collect();
+        let mut expanded = Vec::new();
+
+        for hit in hits {
+            for edge in self.graph_neighbors(&hit.tenant_id, hit.kind, &hit.id) {
+                let (neighbor_kind, neighbor_id) =
+                    if edge.from_kind == hit.kind && edge.from_id == hit.id {
+                        (edge.to_kind, edge.to_id.as_str())
+                    } else {
+                        (edge.from_kind, edge.from_id.as_str())
+                    };
+                let key = (neighbor_kind, neighbor_id.to_string());
+                if seen.contains(&key) {
+                    continue;
+                }
+                if let Some(candidate) =
+                    self.context_candidate_for_endpoint(&hit.tenant_id, neighbor_kind, neighbor_id)
+                {
+                    seen.insert(key);
+                    expanded.push(candidate);
+                    if expanded.len() >= related_limit {
+                        return expanded;
+                    }
+                }
+            }
+        }
+
+        expanded
+    }
+
+    fn context_candidate_for_endpoint(
+        &self,
+        tenant_id: &str,
+        kind: ItemKind,
+        id: &str,
+    ) -> Option<ContextCandidate> {
+        match kind {
+            ItemKind::Memory => self
+                .state
+                .memories
+                .iter()
+                .find(|memory| memory.tenant_id == tenant_id && memory.id == id)
+                .map(|memory| ContextCandidate {
+                    id: memory.id.clone(),
+                    kind,
+                    collection: memory.collection.clone(),
+                    text: memory.text.clone(),
+                    score: 0.0,
+                    vector_score: 0.0,
+                    text_score: 0.0,
+                    confidence: memory.confidence,
+                    inclusion_source: ContextItemSource::GraphExpanded,
+                    related_item_ids: self.related_item_ids(tenant_id, kind, id),
+                }),
+            ItemKind::DocumentChunk => self
+                .state
+                .chunks
+                .iter()
+                .find(|chunk| chunk.tenant_id == tenant_id && chunk.id == id)
+                .map(|chunk| ContextCandidate {
+                    id: chunk.id.clone(),
+                    kind,
+                    collection: chunk.collection.clone(),
+                    text: chunk.text.clone(),
+                    score: 0.0,
+                    vector_score: 0.0,
+                    text_score: 0.0,
+                    confidence: None,
+                    inclusion_source: ContextItemSource::GraphExpanded,
+                    related_item_ids: self.related_item_ids(tenant_id, kind, id),
+                }),
+            ItemKind::Record => self
+                .state
+                .records
+                .iter()
+                .find(|record| record.tenant_id == tenant_id && record.id == id)
+                .map(|record| ContextCandidate {
+                    id: record.id.clone(),
+                    kind,
+                    collection: record.collection.clone(),
+                    text: record.projection.clone(),
+                    score: 0.0,
+                    vector_score: 0.0,
+                    text_score: 0.0,
+                    confidence: None,
+                    inclusion_source: ContextItemSource::GraphExpanded,
+                    related_item_ids: self.related_item_ids(tenant_id, kind, id),
+                }),
+        }
     }
 
     fn run_query(&self, req: RecallRequest) -> Result<Vec<RecallResult>> {
@@ -1878,6 +2001,15 @@ fn append_json_projection(parts: &mut Vec<String>, value: &serde_json::Value) {
             }
         }
     }
+}
+
+fn context_text_block(kind: ItemKind, id: &str, text: &str) -> String {
+    let kind_label = match kind {
+        ItemKind::Memory => "memory",
+        ItemKind::DocumentChunk => "chunk",
+        ItemKind::Record => "record",
+    };
+    format!("[{kind_label}:{id}]\n{text}")
 }
 
 /// Approximate token count: 1 token ≈ 4 UTF-8 bytes (fast, no tokenizer dep).

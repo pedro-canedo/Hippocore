@@ -16,6 +16,7 @@ Cada chamada `Hippocore::build_context(req)` anexa um objeto JSON em
 - `items_dropped`
 - ids, tipos, coleções, scores, confiança, tokens e status de inclusão dos
   itens recuperados
+- `inclusion_source` (`recalled`, `graph_expanded` ou `not_included`)
 
 O log de auditoria é histórico operacional append-only. Ele fica separado de
 `wal.log` de propósito, porque uma query não altera o estado vivo do banco.

@@ -5,6 +5,23 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Graph-Aware Context v0.1
+
+- Added `include_related: bool` and `related_limit: usize` to
+  `BuildContextRequest` (`false` and `8` by default).
+- `build_context` can now optionally append direct graph neighbours of recalled
+  items when they fit the token budget.
+- Added `ContextItemSource` with `recalled`, `graph_expanded`, and
+  `not_included` labels.
+- `ContextItem` now exposes `inclusion_source`; `AuditItem` exposes
+  `inclusion_source` and uses `not_included` for considered items dropped by
+  the budget.
+- Graph-expanded items are tenant-isolated, limited by `related_limit`, and
+  deduplicated when already present in recall results.
+- CLI `build-context` gains `--include-related` and `--related-limit <n>`.
+- Added 5 core integration tests and extended the CLI graph edge test to cover
+  graph-aware context JSON output.
+
 ### Added — Phase 10: Graph Memory v0.1
 
 - Added public `GraphEdge` model for durable direct relationships between

@@ -221,6 +221,35 @@ fn cli_graph_edge_flow_json() {
     assert_eq!(edges.as_array().unwrap().len(), 1);
     assert_eq!(edges[0]["to_id"], "py");
 
+    let context = bin()
+        .args([
+            "build-context",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--query",
+            "postgresql setup",
+            "--top-k",
+            "1",
+            "--include-related",
+            "--related-limit",
+            "1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        context.status.success(),
+        "build-context failed: {context:?}"
+    );
+    let context: serde_json::Value = serde_json::from_slice(&context.stdout).unwrap();
+    assert!(context["items_included"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["id"] == "py" && item["inclusion_source"] == "graph_expanded"));
+
     let delete = bin()
         .args(["delete-edge", "--db", db, "--tenant", "acme", "--id", "e1"])
         .output()

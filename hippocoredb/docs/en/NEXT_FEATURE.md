@@ -2,38 +2,35 @@
 
 ## Feature name
 
-**Graph-Aware Context v0.1** — optional direct-neighbour expansion for context
-assembly.
+**Audit Retention v0.1** — bounded local retention for `audit.log`.
 
 ## Why it matters
 
-Graph Memory v0.1 stores durable direct relationships and exposes neighbour ids
-in context/audit provenance, but it does not yet use those relationships to
-improve the assembled context. The next high-value increment is to let callers
-opt into including directly related graph neighbours when building context,
-without implementing full GraphRAG traversal or changing default recall ranking.
+The RAG Audit Engine records every `build_context` call, and Graph-Aware Context
+adds richer audit entries. Without a retention policy, `audit.log` can grow
+without bound in long-running embedded applications. The next high-value
+increment is to keep auditability local and deterministic while giving users a
+simple way to bound disk usage.
 
-Graph-Aware Context v0.1 should add:
+Audit Retention v0.1 should add:
 
-- A `include_related: bool` option on `BuildContextRequest` (default `false`).
-- A small `related_limit: usize` option to cap direct-neighbour expansion.
-- Context assembly that can include directly related neighbours of recalled
-  items when they fit the token budget.
-- Provenance that marks whether a context item was included by recall or by
-  graph expansion.
-- Audit records that capture graph-expanded items distinctly from recalled
-  candidates.
-- CLI flags on `build-context`: `--include-related` and `--related-limit <n>`.
+- Config options for audit retention by max records and/or max bytes.
+- A `compact_audit()` or `rotate_audit()` API that rewrites `audit.log`
+  atomically while preserving the newest records.
+- Automatic retention enforcement after audit append when configured.
+- CLI command `compact-audit --db <path> [--json]`.
+- Status/stats visibility for audit log bytes and retained record count.
 
 ## Acceptance criteria
 
-- Default `build_context` behavior is unchanged when `include_related = false`.
-- When enabled, only direct neighbours of recalled items are considered.
-- Expansion remains tenant-isolated and token-budget-bound.
-- Expanded items are not duplicated if already recalled.
-- Context/audit output clearly distinguishes recalled vs graph-expanded items.
-- At least 4 deterministic tests: default unchanged, includes a direct neighbour,
-  respects token budget/limit, tenant isolation/no duplication.
+- Default behavior remains unchanged: no audit records are removed unless a
+  retention policy is configured or `compact-audit` is called.
+- Retention keeps the newest audit records and preserves valid JSON-lines.
+- Rewriting is atomic: temp file, fsync, rename.
+- `query_audit` continues to work after retention.
+- CLI `compact-audit --json` emits parseable summary output.
+- At least 4 deterministic tests: default unchanged, max-record retention,
+  max-byte retention or manual compaction, query after compaction.
 - Documentation is updated in English and Portuguese.
 - Quality gate passes:
   - `cargo fmt --all --check`
@@ -42,13 +39,13 @@ Graph-Aware Context v0.1 should add:
 
 ## Non-goals
 
-- Multi-hop traversal.
-- Graph-aware ranking or score boosting.
-- Entity extraction.
-- Graph query language.
+- Remote audit export.
+- Compression.
+- Encryption.
 - Server/HTTP mode.
+- Cross-file audit search.
 
 ## Follow-up
 
-After Graph-Aware Context v0.1, evaluate whether graph-aware recall ranking is
-worth adding or whether audit retention/rotation is more valuable.
+After Audit Retention v0.1, evaluate graph-aware recall ranking versus broader
+admin/studio controls for graph and audit data.

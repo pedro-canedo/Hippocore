@@ -16,6 +16,7 @@ Every `Hippocore::build_context(req)` call appends one JSON object to
 - `items_dropped`
 - retrieved item ids, kinds, collections, scores, confidence, token counts and
   whether each item was included in the final context
+- `inclusion_source` (`recalled`, `graph_expanded`, or `not_included`)
 
 The audit log is append-only operational history. It is intentionally separate
 from `wal.log` because a query does not mutate the live database state.

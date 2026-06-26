@@ -4,7 +4,25 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Fase 10 — Graph Memory v0.1**:
+**Graph-Aware Context v0.1**:
+
+- `BuildContextRequest` ganha `include_related: bool` e
+  `related_limit: usize`; defaults mantêm o comportamento existente.
+- `build_context` pode incluir vizinhos diretos do grafo dos itens recuperados
+  quando couberem no budget de tokens.
+- Itens expandidos por grafo são isolados por tenant, limitados por
+  `related_limit` e deduplicados se já vieram pelo recall.
+- Novos rótulos `ContextItemSource`: `recalled`, `graph_expanded`,
+  `not_included`.
+- `ContextItem` e `AuditItem` agora expõem `inclusion_source`; auditoria marca
+  candidatos expandidos por grafo que não couberam como `not_included`.
+- CLI `build-context` ganha `--include-related` e `--related-limit <n>`.
+- Documentação adicionada em `docs/en/GRAPH_AWARE_CONTEXT.md` e
+  `docs/pt-br/GRAPH_AWARE_CONTEXT.md`.
+- 5 novos testes de integração no core mais cobertura CLI no fluxo de graph
+  edge. 117 testes no total.
+
+Anterior: **Fase 10 — Graph Memory v0.1**:
 
 - Novo modelo público `GraphEdge` e `AddGraphEdgeRequest`.
 - Novas APIs duráveis: `add_graph_edge`, `list_graph_edges`,
@@ -269,8 +287,8 @@ de qualidade e otimização do caminho vector-only.
 ## Parcial
 
 - Retrieval usa brute-force por padrão; HNSW opcional existe.
-- Arestas de grafo são apenas proveniência na v0.1; ranking/travessia ciente de
-  grafo ainda não foi implementado.
+- Arestas de grafo podem expandir contexto por vizinhos diretos; ranking ciente
+  de grafo e travessia multi-hop ainda não foram implementados.
 - Estado vivo fica em memória e índice é reconstruído no open.
 - Records não têm schema rico nem índices por campo.
 - Blob storage completo, PDF/OCR e dashboard web admin ainda não foram
@@ -288,11 +306,12 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 112 testes:
+`cargo test --workspace` passa com 117 testes:
 
 - 22 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL, 4 novos testes HNSW);
-- 73 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
-  batch writes, resolução por confiança, HNSW backend, RAG audit e Graph Memory);
+- 78 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
+  batch writes, resolução por confiança, HNSW backend, RAG audit, Graph Memory e
+  Graph-Aware Context);
 - 1 fixture de qualidade de retrieval;
 - 15 smoke tests de CLI (incl. `audit --json`, fluxo de graph edge e
   `cli_studio_exits_without_panic`);
@@ -301,6 +320,6 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Graph-Aware Context v0.1** — usar vizinhos diretos do grafo como expansão
-opcional/proveniência de contexto sem implementar travessia GraphRAG completa.
+**Audit Retention v0.1** — retenção/rotação local limitada de `audit.log`, com
+replay de auditoria ainda determinístico e local-first.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

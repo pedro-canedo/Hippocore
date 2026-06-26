@@ -62,9 +62,12 @@ hippocore delete-edge --db ./data --tenant acme --id edge-123
 
 ## Context And Audit
 
-`ContextItem` and `AuditItem` now include `related_item_ids`, the ids of direct
-graph neighbours known at context-build time. This is provenance only; v0.1 does
-not boost or expand recall with graph edges.
+`ContextItem` and `AuditItem` include `related_item_ids`, the ids of direct graph
+neighbours known at context-build time.
+
+Graph-Aware Context v0.1 can optionally include direct neighbours in the final
+context with `BuildContextRequest::include_related`. This is still direct
+expansion only; it does not boost recall scores or perform multi-hop traversal.
 
 ## Deletion Semantics
 

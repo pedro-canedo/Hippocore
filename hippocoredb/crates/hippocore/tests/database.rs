@@ -2,9 +2,9 @@
 
 use hippocore::model::{ItemKind, MemoryType};
 use hippocore::{
-    AddGraphEdgeRequest, BuildContextRequest, ChunkInput, Config, Hippocore, HippocoreError,
-    ImportFileRequest, PutRecordRequest, RecallRequest, RememberRequest, SearchMode,
-    StoreDocumentRequest,
+    AddGraphEdgeRequest, BuildContextRequest, ChunkInput, Config, ContextItemSource, Hippocore,
+    HippocoreError, ImportFileRequest, PutRecordRequest, RecallRequest, RememberRequest,
+    SearchMode, StoreDocumentRequest,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -1689,6 +1689,187 @@ fn build_context_and_audit_include_related_item_ids() {
     assert_eq!(pg_audit_item.related_item_ids, vec!["py".to_string()]);
 }
 
+#[test]
+fn graph_aware_context_default_does_not_expand_related_items() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "unrelated python psycopg example");
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    let mut req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+    req.top_k_candidates = 1;
+    let block = db.build_context(req).unwrap();
+
+    let ids: Vec<&str> = block
+        .items_included
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect();
+    assert_eq!(ids, vec!["pg"]);
+    assert_eq!(
+        block.items_included[0].inclusion_source,
+        ContextItemSource::Recalled
+    );
+}
+
+#[test]
+fn graph_aware_context_includes_direct_neighbor_when_enabled() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "python psycopg client example");
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    let mut req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+    req.top_k_candidates = 1;
+    req.include_related = true;
+    let block = db.build_context(req).unwrap();
+
+    let py = block
+        .items_included
+        .iter()
+        .find(|item| item.id == "py")
+        .expect("direct graph neighbour must be included");
+    assert_eq!(py.inclusion_source, ContextItemSource::GraphExpanded);
+
+    let audit = db.query_audit(0, i64::MAX, "acme").unwrap();
+    let py_audit = audit[0]
+        .items
+        .iter()
+        .find(|item| item.id == "py")
+        .expect("expanded item must be audited");
+    assert_eq!(py_audit.inclusion_source, ContextItemSource::GraphExpanded);
+    assert!(py_audit.included);
+}
+
+#[test]
+fn graph_aware_context_respects_related_limit() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "python psycopg client example");
+    remember_id(&mut db, "ops", "operations runbook related to databases");
+    for to in ["py", "ops"] {
+        db.add_graph_edge(AddGraphEdgeRequest::new(
+            "acme",
+            ItemKind::Memory,
+            "pg",
+            ItemKind::Memory,
+            to,
+            "mentions",
+        ))
+        .unwrap();
+    }
+
+    let mut req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+    req.top_k_candidates = 1;
+    req.include_related = true;
+    req.related_limit = 1;
+    let block = db.build_context(req).unwrap();
+
+    let expanded = block
+        .items_included
+        .iter()
+        .filter(|item| item.inclusion_source == ContextItemSource::GraphExpanded)
+        .count();
+    assert_eq!(expanded, 1);
+}
+
+#[test]
+fn graph_aware_context_respects_token_budget_for_related_items() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql");
+    remember_id(
+        &mut db,
+        "py",
+        "python psycopg client example with enough words to exceed the remaining budget",
+    );
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    let mut req = BuildContextRequest::new("acme", "postgresql", 8);
+    req.top_k_candidates = 1;
+    req.include_related = true;
+    let block = db.build_context(req).unwrap();
+
+    let ids: Vec<&str> = block
+        .items_included
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect();
+    assert_eq!(ids, vec!["pg"]);
+    assert!(block.items_dropped >= 1);
+
+    let audit = db.query_audit(0, i64::MAX, "acme").unwrap();
+    let py_audit = audit[0]
+        .items
+        .iter()
+        .find(|item| item.id == "py")
+        .expect("graph-expanded item should be audited even when dropped");
+    assert!(!py_audit.included);
+    assert_eq!(py_audit.inclusion_source, ContextItemSource::NotIncluded);
+}
+
+#[test]
+fn graph_aware_context_does_not_duplicate_already_recalled_neighbor() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "postgresql python connection example");
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    let mut req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+    req.top_k_candidates = 10;
+    req.include_related = true;
+    let block = db.build_context(req).unwrap();
+
+    let py_count = block
+        .items_included
+        .iter()
+        .filter(|item| item.id == "py")
+        .count();
+    assert_eq!(py_count, 1);
+    let py = block
+        .items_included
+        .iter()
+        .find(|item| item.id == "py")
+        .unwrap();
+    assert_eq!(py.inclusion_source, ContextItemSource::Recalled);
+}
+
 // ── Batch write / group-commit tests ─────────────────────────────────────────
 
 #[test]
@@ -1921,6 +2102,8 @@ fn confidence_aware_context_prefers_higher_confidence_on_conflict() {
             mode: SearchMode::Hybrid,
             collection: None,
             metadata_filter: Default::default(),
+            include_related: false,
+            related_limit: 8,
         })
         .unwrap();
 

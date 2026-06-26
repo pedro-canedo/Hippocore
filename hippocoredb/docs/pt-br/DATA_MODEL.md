@@ -157,6 +157,7 @@ Saída esperada:
 - metadata;
 - sinalização de contexto insuficiente;
 - futuro trace id de auditoria.
+- origem de inclusão (`recalled` ou `graph_expanded`) em itens de contexto.
 
 ## Não objetivos imediatos
 

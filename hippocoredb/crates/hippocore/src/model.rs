@@ -480,9 +480,25 @@ pub struct AuditItem {
     pub token_count: usize,
     /// Whether this item fit inside the final context block.
     pub included: bool,
+    /// Why this item appears in the audit record.
+    #[serde(default)]
+    pub inclusion_source: ContextItemSource,
     /// Directly related neighbour ids at audit time.
     #[serde(default)]
     pub related_item_ids: Vec<String>,
+}
+
+/// How a context item was selected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ContextItemSource {
+    /// Selected by normal recall/search.
+    #[default]
+    Recalled,
+    /// Added from a direct graph edge neighbour.
+    GraphExpanded,
+    /// Retrieved or considered, but not included in the final context text.
+    NotIncluded,
 }
 
 /// A single query-time RAG audit record.

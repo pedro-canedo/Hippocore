@@ -163,6 +163,7 @@ The output should be context-oriented, not only storage-oriented:
 - metadata;
 - missing-context signals;
 - future audit trace id.
+- inclusion source (`recalled` or `graph_expanded`) for built context items.
 
 ## Non-goals for the next increments
 

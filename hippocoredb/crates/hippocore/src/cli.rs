@@ -480,6 +480,12 @@ struct BuildContextArgs {
     collection: Option<String>,
     #[arg(long = "meta", value_name = "KEY=VALUE")]
     meta: Vec<String>,
+    /// Include direct graph neighbours of recalled items.
+    #[arg(long)]
+    include_related: bool,
+    /// Maximum number of graph neighbours to consider.
+    #[arg(long = "related-limit", default_value_t = 8)]
+    related_limit: usize,
     /// Emit output as JSON.
     #[arg(long)]
     json: bool,
@@ -1525,6 +1531,8 @@ fn cmd_build_context(a: BuildContextArgs) -> Result<(), String> {
     req.mode = mode;
     req.collection = a.collection;
     req.metadata_filter = metadata;
+    req.include_related = a.include_related;
+    req.related_limit = a.related_limit;
 
     let block = db
         .build_context(req)
@@ -1543,6 +1551,7 @@ fn cmd_build_context(a: BuildContextArgs) -> Result<(), String> {
                     "token_count": item.token_count,
                     "snippet": item.snippet,
                     "related_item_ids": item.related_item_ids,
+                    "inclusion_source": item.inclusion_source,
                 })
             })
             .collect();

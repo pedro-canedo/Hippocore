@@ -91,6 +91,7 @@ not a dated commitment.
   records. ✅
 - Tenant-scoped direct-neighbour APIs and CLI commands. ✅
 - Context/audit provenance exposes direct related item ids. ✅
+- Optional direct-neighbour context expansion in `build_context`. ✅
 - Graph-aware ranking and GraphRAG-style traversal over the knowledge graph.
 
 ## Phase 11 — Server mode

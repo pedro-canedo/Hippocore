@@ -140,3 +140,26 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
 - **Tradeoffs**: Users with duplicate ids across collections/tables must use
   unique ids before creating graph edges. A richer endpoint reference can be
   added later without changing the basic `GraphEdge` persistence model.
+
+## ADR-010: Graph-aware context expands direct neighbours only
+
+- **Decision**: `build_context` can optionally include direct `GraphEdge`
+  neighbours of recalled items through `BuildContextRequest::include_related`
+  and `related_limit`. Expanded items are marked as `graph_expanded` in context
+  and audit output; recalled items stay marked as `recalled`, and considered
+  items that do not fit the token budget are marked as `not_included` in audit.
+- **Context**: Graph Memory v0.1 records durable relationships and exposes
+  direct neighbour ids as provenance. The next useful increment is to let callers
+  opt into those relationships during context assembly without turning the MVP
+  into a graph query engine.
+- **Alternatives considered**:
+  - Automatically expand graph neighbours for every `build_context` call.
+  - Boost recall scores based on graph edges.
+  - Traverse multiple hops or implement GraphRAG-style planning.
+- **Reason**: Opt-in direct expansion keeps default recall behavior unchanged,
+  preserves tenant isolation, keeps the token budget as the final arbiter, and
+  gives RAG callers useful related context without adding a new ranking system.
+- **Tradeoffs**: Expanded items currently use neutral scores because they were
+  not selected by recall. Direct expansion can improve completeness, but it does
+  not prove relevance beyond the stored edge; graph-aware ranking and multi-hop
+  traversal remain future work.

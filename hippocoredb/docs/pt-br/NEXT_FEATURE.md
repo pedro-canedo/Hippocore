@@ -2,41 +2,38 @@
 
 ## Nome
 
-**Graph-Aware Context v0.1** — expansão opcional por vizinhos diretos na montagem
-de contexto.
+**Audit Retention v0.1** — retenção local limitada para `audit.log`.
 
 ## Por que importa
 
-Graph Memory v0.1 armazena relacionamentos diretos duráveis e expõe ids de
-vizinhos na proveniência de contexto/auditoria, mas ainda não usa essas relações
-para melhorar o contexto montado. O próximo incremento de maior valor é permitir
-que chamadores optem por incluir vizinhos diretos do grafo em `build_context`,
-sem implementar travessia GraphRAG completa nem alterar o ranking padrão.
+O RAG Audit Engine registra cada chamada de `build_context`, e Graph-Aware
+Context adiciona entradas de auditoria mais ricas. Sem política de retenção,
+`audit.log` pode crescer sem limite em aplicações embedded de longa duração. O
+próximo incremento de maior valor é manter auditabilidade local e determinística
+com uma forma simples de limitar uso de disco.
 
-Graph-Aware Context v0.1 deve adicionar:
+Audit Retention v0.1 deve adicionar:
 
-- Opção `include_related: bool` em `BuildContextRequest` (default `false`).
-- Opção pequena `related_limit: usize` para limitar expansão por vizinhos
-  diretos.
-- Montagem de contexto capaz de incluir vizinhos diretos dos itens recuperados
-  quando couberem no budget de tokens.
-- Proveniência marcando se um item entrou por recall ou por expansão de grafo.
-- Registros de auditoria que diferenciem itens expandidos por grafo dos
-  candidatos recuperados.
-- Flags no CLI `build-context`: `--include-related` e `--related-limit <n>`.
+- Opções de configuração para retenção por máximo de registros e/ou máximo de
+  bytes.
+- API `compact_audit()` ou `rotate_audit()` que reescreve `audit.log`
+  atomicamente preservando os registros mais novos.
+- Aplicação automática da retenção após append de auditoria quando configurada.
+- Comando CLI `compact-audit --db <path> [--json]`.
+- Visibilidade em status/stats para bytes do audit log e quantidade de registros
+  retidos.
 
 ## Critérios de aceite
 
-- Comportamento padrão de `build_context` não muda quando
-  `include_related = false`.
-- Quando habilitado, apenas vizinhos diretos de itens recuperados são
-  considerados.
-- Expansão continua isolada por tenant e limitada pelo budget de tokens.
-- Itens expandidos não são duplicados se já vieram pelo recall.
-- Saída de contexto/auditoria distingue claramente recall vs expansão por
-  grafo.
-- Mínimo de 4 testes determinísticos: default inalterado, inclusão de vizinho
-  direto, respeito a budget/limit, isolamento por tenant/sem duplicação.
+- Comportamento default permanece igual: nenhum registro é removido sem política
+  configurada ou chamada explícita a `compact-audit`.
+- Retenção mantém os registros mais novos e preserva JSON-lines válido.
+- Reescrita é atômica: arquivo temporário, fsync, rename.
+- `query_audit` continua funcionando após retenção.
+- CLI `compact-audit --json` emite resumo parseável.
+- Mínimo de 4 testes determinísticos: default inalterado, retenção por máximo de
+  registros, retenção por máximo de bytes ou compactação manual, query após
+  compactação.
 - Documentação atualizada em inglês e português.
 - Quality gate:
   - `cargo fmt --all --check`
@@ -45,13 +42,13 @@ Graph-Aware Context v0.1 deve adicionar:
 
 ## Fora de escopo
 
-- Travessia multi-hop.
-- Ranking ou boost ciente de grafo.
-- Extração de entidades.
-- Linguagem de query de grafo.
+- Export remoto de auditoria.
+- Compressão.
+- Criptografia.
 - Server/HTTP mode.
+- Busca cruzando múltiplos arquivos de auditoria.
 
 ## Follow-up
 
-Após Graph-Aware Context v0.1, avaliar se ranking de recall ciente de grafo vale
-a pena ou se retenção/rotação de auditoria é mais valiosa.
+Após Audit Retention v0.1, avaliar ranking de recall ciente de grafo versus
+controles admin/studio mais amplos para dados de grafo e auditoria.

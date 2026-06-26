@@ -4,7 +4,26 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 10 — Graph Memory v0.1**:
+**Graph-Aware Context v0.1**:
+
+- `BuildContextRequest` gains `include_related: bool` and
+  `related_limit: usize`; defaults keep existing behavior unchanged.
+- `build_context` can optionally include direct graph neighbours of recalled
+  items when they fit the token budget.
+- Graph-expanded items are tenant-isolated, capped by `related_limit`, and
+  deduplicated if already returned by recall.
+- New `ContextItemSource` labels: `recalled`, `graph_expanded`,
+  `not_included`.
+- `ContextItem` and `AuditItem` now expose `inclusion_source`; audit records mark
+  graph-expanded candidates that were considered but did not fit as
+  `not_included`.
+- CLI `build-context` gains `--include-related` and `--related-limit <n>`.
+- Documentation added in `docs/en/GRAPH_AWARE_CONTEXT.md` and
+  `docs/pt-br/GRAPH_AWARE_CONTEXT.md`.
+- 5 new core integration tests plus CLI coverage through the graph edge flow.
+  117 tests total.
+
+Previous: **Phase 10 — Graph Memory v0.1**:
 
 - New public `GraphEdge` model and `AddGraphEdgeRequest`.
 - New durable APIs: `add_graph_edge`, `list_graph_edges`,
@@ -302,8 +321,8 @@ Ollama embeddings + generation, idempotent ingestion).
 ## What is partial
 
 - Retrieval defaults to exact brute force; optional HNSW exists.
-- Graph edges are provenance-only in v0.1; graph-aware ranking/traversal is not
-  implemented yet.
+- Graph edges can optionally expand context by direct neighbours; graph-aware
+  ranking and multi-hop traversal are not implemented yet.
 - The in-memory index is rebuilt fully on open (incremental during runtime).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
@@ -333,10 +352,10 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 112 tests:
+**All green.** `cargo test --workspace` passes 117 tests:
 - 22 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode, 4 new HNSW unit tests),
-- 73 library integration (store/recall, chunking, retrieval quality layer,
+- 78 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
@@ -345,7 +364,8 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   supersedure/contradictions, context compiler, batch writes, confidence-aware
   resolution, HNSW backend store+recall+restart+brute-force comparison, RAG audit
   write/replay/reopen, Graph Memory add/list/validation/isolation/restart/delete
-  cleanup/context provenance),
+  cleanup/context provenance, Graph-Aware Context expansion/limit/budget/no
+  duplication/default behavior),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 15 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`,
@@ -372,6 +392,5 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Graph-Aware Context v0.1** — use direct graph neighbours as optional context
-expansion/provenance hints without implementing full GraphRAG traversal. See
-NEXT_FEATURE.md.
+**Audit Retention v0.1** — bounded local `audit.log` retention/rotation with
+query replay still deterministic and local-first. See NEXT_FEATURE.md.

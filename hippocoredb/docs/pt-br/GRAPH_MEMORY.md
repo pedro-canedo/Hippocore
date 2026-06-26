@@ -63,9 +63,12 @@ hippocore delete-edge --db ./data --tenant acme --id edge-123
 
 ## Contexto e Auditoria
 
-`ContextItem` e `AuditItem` agora incluem `related_item_ids`, os ids dos
-vizinhos diretos conhecidos no momento de `build_context`. Isso é apenas
-proveniência; a v0.1 não expande nem impulsiona recall com arestas de grafo.
+`ContextItem` e `AuditItem` incluem `related_item_ids`, os ids dos vizinhos
+diretos conhecidos no momento de `build_context`.
+
+Graph-Aware Context v0.1 pode incluir vizinhos diretos no contexto final com
+`BuildContextRequest::include_related`. Isso ainda é apenas expansão direta; não
+aplica boost de score nem faz travessia multi-hop.
 
 ## Semântica de Deleção
 
