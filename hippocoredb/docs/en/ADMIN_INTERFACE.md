@@ -110,10 +110,12 @@ Build administration in this order:
 This keeps Hippocore DB aligned with local-first principles while making it
 practical for real users to curate the context their agents rely on.
 
-### Current web admin surface
+### Current Control Plane surface
 
-The server now exposes a local web admin console at `/admin` when you run
-`hippocore serve`. It is intentionally simple and local-first:
+The server now exposes a local Control Plane at `/admin` when you run
+`hippocore serve`. It remains a zero-build static UI embedded in the server
+binary, but it is organized as a product surface instead of a single debug
+screen:
 
 - human login with bootstrap credentials from `HIPPOCORE_ADMIN_USER` and
   `HIPPOCORE_ADMIN_PASSWORD`;
@@ -125,15 +127,24 @@ The server now exposes a local web admin console at `/admin` when you run
   integrations;
 - static frontend assets (`index.html`, `styles.css`, `app.js`) embedded in the
   server binary for simple Docker/local deployment;
-- Portuguese, Spanish, and English UI copy;
-- browse tenants and collections;
-- create tenants and collections;
-- store memories and documents;
-- run recall and context queries;
-- run read-only record SQL through `/admin/sql` or the compatible restricted
-  records query (`select * from records ...`);
-- configure local LLM providers for Ollama, OpenRouter, and compatible
-  endpoints;
-- rotate the active API key;
+- Portuguese and English UI copy;
+- app shell with fixed sidebar, topbar, global tenant selector, session status,
+  refresh action, breadcrumbs, responsive layout, and dark theme;
+- domain pages: Dashboard, Data Explorer, SQL Editor, Collections, Records,
+  Memories, Documents, Files, Ingestion & Recall, Graph, API Reference, Tenants,
+  Service Keys, Observability, and Settings;
+- Dashboard cards for server status, current tenant, object counts, audit log
+  size, data directory, and last operation;
+- Data Explorer with tenant/collection side panel, table view, raw JSON view,
+  physical-info view, and detail drawer;
+- dedicated SQL Editor using `POST /admin/sql`;
+- guided ingestion/recall page for memory/document writes plus recall and
+  `build_context`;
+- API Reference grouped by domain with Implemented/Planned status;
+- Observability page separating health, stats, WAL, snapshot, audit, chunks, and
+  index status;
+- Service Keys page for active API key rotation and provider registry viewing.
 
-The admin console is meant to complement the CLI, not replace it.
+Missing backend flows, such as admin file upload and record insert, are shown as
+Planned rather than simulated. The Control Plane complements the CLI; it does
+not replace embedded/local-first workflows.

@@ -2,32 +2,54 @@
 
 ## Feature name
 
-**Database-like UX foundation: SQL command layer**
+**Admin Data Actions v0.1**
 
-## Implemented slice
+## Why it matters
 
-Hippocore now has a small SQL-like foundation for read-only structured record
-queries:
+The Control Plane now separates the product domains and shows the right
+workflows, but some important UI actions are intentionally marked Planned
+because backend admin endpoints do not exist yet. The next highest-value slice
+is to make the planned data actions real without expanding into a full SQL
+engine or a large frontend framework.
 
-- public `Hippocore::execute_sql(tenant_id, sql)`;
-- typed `SqlCommand` and `SqlResult` API;
-- `SELECT * FROM <table> WHERE <field> = <value> [AND ...] [LIMIT n]`;
-- bare fields mapped to record payload keys;
-- explicit `id`, `collection`, `table`, `payload.<key>`, and `metadata.<key>`;
-- tenant-scoped execution;
-- CLI command: `hippocore query --db ... --tenant ... --sql ... --json`;
-- admin endpoint: `POST /admin/sql`;
-- legacy `query-records` behavior preserved.
+## Behavior
 
-## Next recommended slice
+- Add admin/server endpoints for structured record insert and file import.
+- Reuse existing core APIs: `put_record` and `import_file`.
+- Keep tenant isolation explicit in every route.
+- Update Control Plane Ingestion & Recall so Memory, Document, Record, and File
+  are all actionable when supported by backend endpoints.
+- Keep missing/future flows visibly marked Planned instead of faking data.
 
-Add a lightweight table/schema catalog over the existing `Record.table`
-namespace. This should persist table metadata, expose list/create table flows,
-and keep records JSON-first until SQL writes are justified.
+## Likely files
 
-## Out of scope for the SQL MVP
+- `crates/hippocore-server/src/handlers/records.rs`
+- `crates/hippocore-server/src/handlers/files.rs`
+- `crates/hippocore-server/src/lib.rs`
+- `crates/hippocore-server/src/admin/app.js`
+- `crates/hippocore-server/tests/server_integration.rs`
+- `docs/en/ADMIN_INTERFACE.md`
+- `docs/pt-br/ADMIN_INTERFACE.md`
+- `docs/en/SERVER.md`
+- `docs/pt-br/SERVER.md`
 
-- Full SQL parsing or execution.
-- Joins, projections, ordering, aggregates, and nested JSON predicates.
-- `CREATE TABLE`, `INSERT`, `AI SEARCH`, and `IMPORT` SQL commands.
-- Replacing the existing record CRUD API.
+## Acceptance criteria
+
+- `POST /admin/tenants/:tid/records` creates a JSON-first record.
+- `POST /admin/tenants/:tid/files/import` imports a local text-like file path.
+- Existing admin auth/login behavior remains unchanged.
+- Control Plane can create Memory, Document, and Record from Ingestion & Recall.
+- File import is implemented only if it can be done safely from a local path;
+  otherwise it remains Planned with clear docs.
+- Tests cover success, validation errors, and tenant isolation.
+- `cargo fmt --all --check`, `cargo test --workspace`, and
+  `cargo clippy --workspace --all-targets -- -D warnings` pass.
+
+## Out of scope
+
+- Browser multipart upload.
+- CSV rows as records.
+- PDF upload.
+- Full SQL `INSERT`.
+- Table/schema catalog.
+- Frontend framework migration.

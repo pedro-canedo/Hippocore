@@ -4,15 +4,25 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Console Web Admin v0.1**:
+**Control Plane Foundation v0.1**:
 
-- `hippocore serve` agora expõe um console administrativo web em `/admin`.
-- Endpoints de bootstrap/config permitem carregar stats, tenants e rotacionar
-  a API key ativa após o login.
-- O console navega tenants, collections, memórias, documentos, records,
-  arquivos e arestas de grafo, além de executar queries de recall/context.
-- O setup local orientado a Docker está documentado em `docker-compose.yml` e
-  no README raiz.
+- `/admin` foi reestruturado de uma tela unica estilo debug para um Control
+  Plane com sidebar fixa, topbar, selector global de tenant, status de sessao,
+  acao de refresh, breadcrumbs, layout responsivo e tema dark moderno.
+- Novas paginas por dominio: Dashboard, Data Explorer, SQL Editor, Collections,
+  Records, Memories, Documents, Files, Ingestion & Recall, Graph, API Reference,
+  Tenants, Service Keys, Observability e Settings.
+- Dashboard mostra status do servidor, tenant atual, contagens de objetos,
+  tamanho do audit log, diretorio de dados e ultima operacao.
+- Data Explorer separa Logical View, Raw JSON e Physical Info, com navegacao de
+  tenant/collection e drawer de detalhe.
+- SQL Editor usa o endpoint existente `POST /admin/sql` e deixa isolamento por
+  tenant explicito.
+- Objetos fisicos/internos ficam separados em Records/Memories/Documents/Files/
+  Graph e placeholders de Observability para chunks, WAL, snapshot, audit, logs
+  e status de indice.
+- Testes dos assets admin agora verificam navegacao do Control Plane e a base
+  de componentes reutilizaveis.
 
 Anterior: **Phase 12 — Armazenamento Multimodal ✅**:
 

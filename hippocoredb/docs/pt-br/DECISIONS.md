@@ -101,3 +101,25 @@ versão em inglês em `docs/en/DECISIONS.md`.
   selecionados pelo recall. A expansão direta pode melhorar completude, mas não
   prova relevância além da aresta armazenada; ranking ciente de grafo e
   travessia multi-hop continuam como trabalho futuro.
+
+## ADR-011: Control Plane permanece zero-build enquanto fluxos backend estabilizam
+
+- **Decisão**: o Control Plane em `/admin` continua como HTML/CSS/JavaScript
+  estatico embutido e servido por `hippocore-server`, mas passa a ser
+  organizado como app shell com paginas por dominio e helpers reutilizaveis de
+  UI.
+- **Contexto**: a UI admin precisa virar uma superficie clara para
+  desenvolvedores, enquanto os contratos backend de SQL/import/catalogo de
+  tabelas ainda estao evoluindo.
+- **Alternativas consideradas**:
+  - migrar imediatamente para Vite/React/TypeScript;
+  - manter uma tela unica de debug ate todos os fluxos backend existirem.
+- **Motivo**: o shell zero-build mantem deploy Docker/local simples e evita
+  complexidade de build frontend antes dos contratos backend estabilizarem. As
+  paginas por dominio ainda deixam claro o modelo de produto: dados logicos,
+  objetos fisicos/internos, fluxos RAG/contexto e operacoes API/admin ficam
+  separados.
+- **Trade-off**: o codigo UI escrito a mao escala menos que um app com
+  framework. Se o estado do Control Plane crescer alem desta fundacao, um build
+  frontend empacotado pode substituir os assets estaticos sem mudar o modelo do
+  banco core.

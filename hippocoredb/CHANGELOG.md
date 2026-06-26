@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane Foundation v0.1
+
+- Reworked `/admin` from a single-screen console into a Control Plane app shell
+  with fixed sidebar, topbar, global tenant selector, session status,
+  breadcrumbs, refresh action, responsive layout, and modern dark theme.
+- Added domain pages for Dashboard, Data Explorer, SQL Editor, Collections,
+  Records, Memories, Documents, Files, Ingestion & Recall, Graph, API Reference,
+  Tenants, Service Keys, Observability, and Settings.
+- Added Data Explorer table/JSON/physical tabs and detail drawer.
+- Added dedicated SQL Editor using `POST /admin/sql`.
+- Added API Reference and Observability pages with Implemented/Planned badges
+  for current versus future backend flows.
+- Added static asset integration assertions for the Control Plane navigation and
+  reusable UI component foundation.
+- Updated admin, server, status, and architecture-decision docs.
+
 ### Added — Web Admin Console v0.1
 
 - Browser-based admin console at `/admin` served by `hippocore serve`.

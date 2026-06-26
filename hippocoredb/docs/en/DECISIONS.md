@@ -163,3 +163,22 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
   not selected by recall. Direct expansion can improve completeness, but it does
   not prove relevance beyond the stored edge; graph-aware ranking and multi-hop
   traversal remain future work.
+
+## ADR-011: Control Plane stays zero-build while backend flows stabilize
+
+- **Decision**: The `/admin` Control Plane remains embedded static
+  HTML/CSS/JavaScript served by `hippocore-server`, but is organized as an app
+  shell with domain pages and reusable UI render helpers.
+- **Context**: The admin UI needs to become a clear developer-facing product
+  surface, while SQL/import/table-catalog backend flows are still evolving.
+- **Alternatives considered**:
+  - Migrate immediately to Vite/React/TypeScript.
+  - Keep a single-page debug console until all backend flows exist.
+- **Reason**: A zero-build shell keeps Docker/local deployment simple and avoids
+  adding frontend build complexity before backend contracts settle. Domain pages
+  still make the product model clear: logical data, physical/internal objects,
+  RAG/context workflows, and API/admin operations are separated.
+- **Tradeoffs**: The hand-written UI code is less scalable than a framework app.
+  If Control Plane state management grows beyond this foundation, a bundled
+  frontend build can replace the static assets later without changing the core
+  database model.

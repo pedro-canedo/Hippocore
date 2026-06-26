@@ -97,10 +97,12 @@ Opções de longo prazo:
 Isso deve vir depois do modelo de dados, context projection e fluxos de
 administração estarem estáveis.
 
-### Superfície web atual
+### Superficie atual do Control Plane
 
-O servidor agora expõe um console web local em `/admin` quando você executa
-`hippocore serve`. Ele é simples e local-first:
+O servidor agora expoe um Control Plane local em `/admin` quando voce executa
+`hippocore serve`. Ele continua sendo uma UI estatica zero-build embutida no
+binario do servidor, mas agora e organizada como superficie de produto em vez
+de uma tela unica de debug:
 
 - login humano com credenciais bootstrap de `HIPPOCORE_ADMIN_USER` e
   `HIPPOCORE_ADMIN_PASSWORD`;
@@ -112,18 +114,27 @@ O servidor agora expõe um console web local em `/admin` quando você executa
   máquina-a-máquina;
 - assets estáticos (`index.html`, `styles.css`, `app.js`) embutidos no binário
   do servidor para facilitar deploy local/Docker;
-- cópia de UI em português, espanhol e inglês;
-- navegação de tenants e collections;
-- criação de tenants e collections;
-- armazenamento de memórias e documentos;
-- execução de queries de recall e contexto;
-- execução de SQL read-only de records via `/admin/sql` ou consulta restrita
-  compatível (`select * from records ...`);
-- configuração de provedores LLM locais para Ollama, OpenRouter e endpoints
-  compatíveis;
-- rotação da API key ativa;
+- copia de UI em portugues e ingles;
+- app shell com sidebar fixa, topbar, selector global de tenant, status de
+  sessao, acao de refresh, breadcrumbs, layout responsivo e tema dark;
+- paginas por dominio: Dashboard, Data Explorer, SQL Editor, Collections,
+  Records, Memories, Documents, Files, Ingestion & Recall, Graph, API Reference,
+  Tenants, Service Keys, Observability e Settings;
+- cards no Dashboard para status do servidor, tenant atual, contagens de
+  objetos, tamanho do audit log, diretorio de dados e ultima operacao;
+- Data Explorer com painel lateral tenant/collection, tabela, JSON bruto,
+  informacao fisica e drawer de detalhe;
+- SQL Editor dedicado usando `POST /admin/sql`;
+- pagina guiada de ingestao/recall para escrita de memory/document, recall e
+  `build_context`;
+- API Reference agrupada por dominio com status Implemented/Planned;
+- Observability separando health, stats, WAL, snapshot, audit, chunks e status
+  de indice;
+- Service Keys para rotacionar API key ativa e visualizar registry de providers.
 
-O console administrativo complementa a CLI; não a substitui.
+Fluxos sem backend nesta fase, como upload de arquivo e insert de record pelo
+admin HTTP, aparecem como Planned em vez de dados simulados. O Control Plane
+complementa a CLI; ele nao substitui os fluxos embedded/local-first.
 
 ## Recomendação de curto prazo
 

@@ -2,34 +2,55 @@
 
 ## Nome
 
-**Fundação de UX estilo banco: camada de comando SQL**
+**Admin Data Actions v0.1**
 
-## Slice implementado
+## Por que importa
 
-Hippocore agora tem uma fundação pequena estilo SQL para consultas read-only de
-records estruturados:
+O Control Plane agora separa os dominios do produto e mostra os fluxos certos,
+mas algumas acoes importantes da UI continuam marcadas como Planned porque os
+endpoints admin ainda nao existem. O proximo slice de maior valor e tornar essas
+acoes reais sem expandir para um motor SQL completo nem para um framework
+frontend grande.
 
-- API pública `Hippocore::execute_sql(tenant_id, sql)`;
-- tipos `SqlCommand` e `SqlResult`;
-- `SELECT * FROM <tabela> WHERE <campo> = <valor> [AND ...] [LIMIT n]`;
-- campos sem prefixo mapeados para chaves do payload do record;
-- suporte explícito a `id`, `collection`, `table`, `payload.<key>` e
-  `metadata.<key>`;
-- execução escopada por tenant;
-- comando CLI: `hippocore query --db ... --tenant ... --sql ... --json`;
-- endpoint admin: `POST /admin/sql`;
-- comportamento legado de `query-records` preservado.
+## Comportamento
 
-## Próximo slice recomendado
+- Adicionar endpoints admin/server para insert de record estruturado e import de
+  arquivo.
+- Reusar APIs core existentes: `put_record` e `import_file`.
+- Manter isolamento por tenant explicito em toda rota.
+- Atualizar Ingestion & Recall no Control Plane para Memory, Document, Record e
+  File serem acionaveis quando suportados pelo backend.
+- Manter fluxos futuros marcados como Planned em vez de simular dados.
 
-Adicionar um catálogo leve de tabelas/schemas sobre o namespace existente
-`Record.table`. Esse slice deve persistir metadados de tabela, expor fluxos de
-listar/criar tabela e manter records JSON-first até que escritas via SQL sejam
-justificadas.
+## Arquivos provaveis
 
-## Fora do escopo do MVP SQL
+- `crates/hippocore-server/src/handlers/records.rs`
+- `crates/hippocore-server/src/handlers/files.rs`
+- `crates/hippocore-server/src/lib.rs`
+- `crates/hippocore-server/src/admin/app.js`
+- `crates/hippocore-server/tests/server_integration.rs`
+- `docs/en/ADMIN_INTERFACE.md`
+- `docs/pt-br/ADMIN_INTERFACE.md`
+- `docs/en/SERVER.md`
+- `docs/pt-br/SERVER.md`
 
-- Parsing ou execução SQL completa.
-- Joins, projeções, ordenação, agregações e predicados JSON aninhados.
-- Comandos SQL `CREATE TABLE`, `INSERT`, `AI SEARCH` e `IMPORT`.
-- Substituir a API CRUD de records existente.
+## Criterios de aceite
+
+- `POST /admin/tenants/:tid/records` cria um record JSON-first.
+- `POST /admin/tenants/:tid/files/import` importa um caminho local text-like.
+- Login/auth admin existentes continuam funcionando.
+- Control Plane consegue criar Memory, Document e Record em Ingestion & Recall.
+- Import de arquivo so e implementado se puder ser feito com seguranca a partir
+  de caminho local; caso contrario, permanece Planned com docs claros.
+- Testes cobrem sucesso, erros de validacao e isolamento por tenant.
+- `cargo fmt --all --check`, `cargo test --workspace` e
+  `cargo clippy --workspace --all-targets -- -D warnings` passam.
+
+## Fora do escopo
+
+- Upload multipart no browser.
+- CSV como rows de records.
+- Upload PDF.
+- SQL `INSERT` completo.
+- Catalogo de table/schema.
+- Migracao para framework frontend.

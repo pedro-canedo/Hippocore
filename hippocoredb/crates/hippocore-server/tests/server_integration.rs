@@ -103,6 +103,13 @@ async fn admin_assets_are_public() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+    let css = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let css = String::from_utf8(css.to_vec()).unwrap();
+    assert!(css.contains(".sidebar"));
+    assert!(css.contains(".topbar"));
+
     let resp = app
         .oneshot(
             Request::builder()
@@ -113,6 +120,25 @@ async fn admin_assets_are_public() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+    let js = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let js = String::from_utf8(js.to_vec()).unwrap();
+    for marker in [
+        "Dashboard",
+        "Data Explorer",
+        "SQL Editor",
+        "Ingestion & Recall",
+        "API Reference",
+        "Observability",
+        "function AppShell",
+        "function DataTable",
+        "function JsonViewer",
+        "function DetailDrawer",
+        "/admin/sql",
+    ] {
+        assert!(js.contains(marker), "missing admin asset marker {marker}");
+    }
 }
 
 // --- auth ---

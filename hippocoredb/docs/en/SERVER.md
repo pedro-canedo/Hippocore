@@ -52,6 +52,8 @@ environment variable. The server refuses to start if no key is provided.
 | `GET` | `/admin/records` | List records |
 | `GET` | `/admin/files` | List files |
 | `GET` | `/admin/graph-edges` | List graph edges |
+| `POST` | `/admin/sql` | Execute MVP SQL-like record query (`{"tenant_id":"acme","sql":"select * from systems limit 5"}`) |
+| `POST` | `/admin/query-records` | Legacy restricted records query response |
 | `GET` | `/stats` | `DatabaseStats` as JSON |
 | `POST` | `/tenants` | Create a tenant (`{"id":"t1","name":"T1"}`) |
 | `POST` | `/tenants/:tid/collections` | Create a collection (`{"name":"col","description":"..."}`) |
