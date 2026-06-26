@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Contradiction Advisory Tests v0.1**:
+**Valid-Window Recall Tests v0.1**:
+
+- New test file `crates/hippocore/tests/valid_window.rs` with 5 tests using
+  deterministic epoch-ms constants (FAR_PAST=2001, FAR_FUTURE=~year 2255).
+- Covers: expired excluded, future-until included, not-yet-valid excluded,
+  `as_of` backdating inside vs outside window, no validity window always
+  included.
+- No production code changes.
+- Documentation in `docs/en/VALID_WINDOW_RECALL.md` and
+  `docs/pt-br/VALID_WINDOW_RECALL.md`.
+- 5 new tests. 159 tests total.
+
+Previous: **Contradiction Advisory Tests v0.1**:
 
 - New test file `crates/hippocore/tests/contradiction.rs` with 4 tests.
 - Confirms: both contradicting memories appear in recall (advisory, not filter);
@@ -505,8 +517,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Valid-Window Recall Tests v0.1** — deterministic tests verifying that memories
-and documents with `valid_from` / `valid_until` timestamps are excluded from
-recall when the query time falls outside the validity window, and included when
-it falls inside, including edge cases at the boundary and with `as_of`
-backdating. See NEXT_FEATURE.md.
+**Collection CRUD Tests v0.1** — deterministic tests for the collection
+lifecycle: create, list, delete, isolation between tenants, and behavior when
+items in the collection are queried after the collection is deleted.
+See NEXT_FEATURE.md.

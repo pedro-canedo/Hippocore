@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Valid-Window Recall Tests v0.1
+
+- New test file `crates/hippocore/tests/valid_window.rs` with 5 deterministic
+  tests using fixed epoch-ms constants: expired excluded, future-until included,
+  not-yet-valid excluded, `as_of` backdating (inside window → included, current
+  time → excluded), no validity window always included. No production code
+  changes. 159 tests total.
+
 ### Added — Contradiction Advisory Tests v0.1
 
 - New test file `crates/hippocore/tests/contradiction.rs` with 4 tests: both
