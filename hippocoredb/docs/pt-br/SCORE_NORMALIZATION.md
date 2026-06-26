@@ -38,6 +38,22 @@ comportamento pré-normalização.
 - Este passo afeta apenas o caminho de mesclagem interno; scores retornados via
   `ContextItem.score` refletem o score efetivo pós-mesclagem.
 
+## Confidence weighting (v0.1)
+
+Antes da ordenacao final em `recall()` e `search()`, itens Memory com
+confidence explicita recebem um ajuste multiplicativo:
+
+```
+final_score = base_score × (1.0 + 0.4 × (confidence − 0.5))
+```
+
+- `confidence = 1.0` → ×1.20 de boost
+- `confidence = 0.5` ou `None` → ×1.00 (neutro)
+- `confidence = 0.0` → ×0.80 de penalidade
+
+`DocumentChunk` e `Record` sao sempre neutros. O multiplicador fica no
+intervalo `[0.75, 1.25]` pela formula.
+
 ## Fora de escopo
 
 - Normalização de scores retornados por `recall()` ou `search()`.

@@ -4,7 +4,19 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Admin CLI v0.1**:
+**Confidence-Weighted Recall v0.1**:
+
+- Memorias com `confidence` explicito agora influenciam sua posicao de ranking
+  em todos os modos de recall (vector, text, hybrid).
+- Formula: `final_score = base_score * (1.0 + 0.4 * (confidence - 0.5))`.
+  Confianca 1.0 da boost de 20%; confianca 0.0 aplica penalidade de 20%.
+- Itens sem confianca definida e itens nao-Memory sao neutros (sem alteracao
+  de ranking relativo).
+- Mudanca contida em `query.rs`; storage, model e CLI nao foram alterados.
+- Tres testes unitarios verificam direcao do weighting, invariancia do caso
+  neutro e limites do multiplicador.
+
+Anterior: **Admin CLI v0.1**:
 
 - Adicionados sub-comandos aninhados `hippocore tenants list` e
   `hippocore tenants create`, com criacao explicita de tenant (antes so

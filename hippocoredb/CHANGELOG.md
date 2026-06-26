@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Confidence-Weighted Recall v0.1
+
+- Memory items with an explicit `confidence` score now influence their final
+  rank in all recall modes. Formula:
+  `final_score = base × (1.0 + 0.4 × (confidence − 0.5))`.
+  Neutral (no confidence set) and non-Memory items are unaffected.
+- Change is isolated to `query.rs`; storage, model, and CLI unchanged.
+
 ### Added — Admin CLI v0.1
 
 - `hippocore tenants list` / `hippocore tenants create <id> [--name <n>]` —

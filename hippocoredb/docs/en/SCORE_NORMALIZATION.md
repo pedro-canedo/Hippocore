@@ -36,6 +36,22 @@ When both blend weights are `0.0` (default) normalisation is skipped entirely �
   caller via `ContextItem.score` reflect the post-blend effective score, not
   the raw recall score.
 
+## Confidence weighting (v0.1)
+
+Before the final sort in `recall()` and `search()`, Memory items with an
+explicit confidence score receive a multiplicative adjustment:
+
+```
+final_score = base_score × (1.0 + 0.4 × (confidence − 0.5))
+```
+
+- `confidence = 1.0` → ×1.20 boost
+- `confidence = 0.5` or `None` → ×1.00 (neutral)
+- `confidence = 0.0` → ×0.80 penalty
+
+`DocumentChunk` and `Record` items are always neutral. The multiplier is
+clamped to the `[0.75, 1.25]` range by the formula.
+
 ## Non-goals
 
 - Normalisation of scores returned by `recall()` or `search()`.

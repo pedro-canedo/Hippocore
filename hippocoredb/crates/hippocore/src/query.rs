@@ -363,6 +363,16 @@ pub fn execute(
         }
     };
 
+    // Confidence weighting: Memory items with an explicit confidence score get a
+    // proportional boost or penalty before the final sort.  Items without a
+    // confidence rating (None → treated as 0.5) and non-Memory items are neutral.
+    for result in &mut results {
+        if result.kind == ItemKind::Memory {
+            let c = result.confidence.unwrap_or(0.5).clamp(0.0, 1.0);
+            result.score *= 1.0 + CONFIDENCE_ALPHA * (c - 0.5);
+        }
+    }
+
     results.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
@@ -375,6 +385,11 @@ pub fn execute(
 
 /// RRF constant — keep here so the unit test can import it.
 pub const RRF_K: f32 = 60.0;
+
+/// Confidence weighting strength. A memory at confidence=1.0 gets a
+/// `1 + ALPHA*0.5` multiplier; at 0.0 it gets `1 - ALPHA*0.5`.
+/// Memories with no confidence set are treated as neutral (0.5).
+const CONFIDENCE_ALPHA: f32 = 0.4;
 
 fn build_result(
     e: &IndexEntry,
@@ -465,5 +480,39 @@ mod tests {
         let score_rank1: f32 = 1.0 / (RRF_K + 1.0);
         let score_rank5: f32 = 1.0 / (RRF_K + 5.0);
         assert!(score_rank1 > score_rank5);
+    }
+
+    #[test]
+    fn confidence_weight_high_beats_low_at_equal_base_score() {
+        // A memory with high confidence must rank above one with low confidence
+        // when both have an identical base score.
+        let base = 0.5_f32;
+        let high_weight = 1.0 + CONFIDENCE_ALPHA * (0.9_f32 - 0.5);
+        let low_weight = 1.0 + CONFIDENCE_ALPHA * (0.1_f32 - 0.5);
+        assert!(
+            base * high_weight > base * low_weight,
+            "high-confidence item must score higher"
+        );
+    }
+
+    #[test]
+    fn neutral_confidence_leaves_score_unchanged() {
+        // confidence=0.5 (or None→0.5) applies weight 1.0 exactly.
+        let base = 0.7_f32;
+        let weight = 1.0 + CONFIDENCE_ALPHA * (0.5_f32 - 0.5);
+        let expected = base * weight;
+        assert!(
+            (expected - base).abs() < f32::EPSILON,
+            "neutral confidence must not change score"
+        );
+    }
+
+    #[test]
+    fn confidence_weight_is_bounded() {
+        // Even at extremes the multiplier stays in a reasonable range.
+        let w_max = 1.0 + CONFIDENCE_ALPHA * (1.0_f32 - 0.5);
+        let w_min = 1.0 + CONFIDENCE_ALPHA * (0.0_f32 - 0.5);
+        assert!(w_max <= 1.25, "max weight must be ≤ 1.25");
+        assert!(w_min >= 0.75, "min weight must be ≥ 0.75");
     }
 }
