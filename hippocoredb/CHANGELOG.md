@@ -5,6 +5,13 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — build_context Smoke Tests v0.1
+
+- New test file `crates/hippocore/tests/build_context_smoke.rs` with 5 tests:
+  non-empty context text, snippet appears in output, max_tokens budget enforced,
+  include_related graph expansion, empty store returns text="" not error. No
+  production code changes. 195 tests total.
+
 ### Added — Document Chunking Tests v0.1
 
 - New test file `crates/hippocore/tests/document_chunking.rs` with 5 tests

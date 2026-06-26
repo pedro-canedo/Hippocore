@@ -4,7 +4,18 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Document Chunking Tests v0.1**:
+**build_context Smoke Tests v0.1**:
+
+- New test file `crates/hippocore/tests/build_context_smoke.rs` with 5 tests.
+- Covers: non-empty text output, snippet in context string, `max_tokens`
+  budget enforced, `include_related = true` graph expansion, empty store
+  returns `text = ""` (not an error).
+- No production code changes.
+- Documentation in `docs/en/BUILD_CONTEXT_SMOKE.md` and
+  `docs/pt-br/BUILD_CONTEXT_SMOKE.md`.
+- 5 new tests. 195 tests total.
+
+Previous: **Document Chunking Tests v0.1**:
 
 - New test file `crates/hippocore/tests/document_chunking.rs` with 5 tests.
 - Key API finding documented: `RecallResult.id` is the **chunk id**; the
@@ -586,7 +597,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**build_context Smoke Tests v0.1** — deterministic tests verifying that
-`build_context` produces a non-empty context string with expected snippets,
-respects `max_tokens`, and includes `related_items` when
-`include_related = true`. See NEXT_FEATURE.md.
+**Hybrid Search Ranking Tests v0.1** — deterministic tests verifying that
+`SearchMode::Hybrid` blends vector and text scores correctly: vector-only hits
+outrank pure-text hits when semantically close, and text-only hits surface when
+the query is an exact substring. See NEXT_FEATURE.md.

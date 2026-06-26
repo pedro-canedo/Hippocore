@@ -2,33 +2,37 @@
 
 ## Nome
 
-**build_context Smoke Tests v0.1** — testes determinísticos verificando que
-`build_context` monta um bloco de contexto utilizável para LLM.
+**Hybrid Search Ranking Tests v0.1** — testes determinísticos verificando que
+`SearchMode::Hybrid` mistura corretamente scores vetoriais e textuais.
 
 ## Por que importa
 
-`build_context` é o caminho de saída primário para consumidores de IA — ele
-classifica, aparar e serializa itens em uma string pronta para prompt. Não há
-testes dedicados verificando: (a) a string de contexto não é vazia quando itens
-relevantes existem, (b) `max_tokens` é respeitado, (c) itens relacionados
-expandidos pelo grafo aparecem quando `include_related = true`. Uma regressão
-em qualquer desses caminhos degrada silenciosamente as saídas de IA.
+O caminho de busca híbrida funde scores TF-IDF com scores de cosseno vetorial.
+Se a fusão ou normalização estiver errada, correspondências puramente textuais
+ou puramente semânticas podem ser suprimidas silenciosamente. Nenhum teste
+atualmente bloqueia a garantia de ordenação relativa: uma memory que corresponde
+tanto ao texto quanto ao vetor deve classificar acima de uma que só corresponde
+ao texto.
 
 ## Comportamento
 
-Sem novo código de produção. A suite de testes cobrirá:
+Sem novo código de produção. A suite de testes verificará:
 
-1. Uma memory → `build_context` produz uma string `text` não vazia.
-2. A string de contexto contém um snippet reconhecível da memory.
-3. `max_tokens` baixo → menos itens incluídos do que disponíveis.
-4. `include_related = true` com aresta de grafo → item relacionado aparece em
-   `items_included`.
-5. Store vazio → `build_context` retorna `text = ""` (não erro).
+1. `SearchMode::Vector` retorna uma memory semanticamente próxima que não
+   compartilha palavras-chave exatas com a query.
+2. `SearchMode::Text` retorna uma memory que compartilha palavras exatas com a
+   query.
+3. `SearchMode::Hybrid` retorna ambos os tipos; o conjunto de resultados é um
+   superconjunto dos hits de `Vector` e `Text` quando esses hits existem.
+4. Uma memory que corresponde exatamente à query aparece nos 3 primeiros
+   resultados em modo `Hybrid`.
+5. Mudar de `Hybrid` para `Vector` não retorna um resultado cujo texto é
+   exatamente a query mas semanticamente não relacionado.
 
 ## Arquivos
 
-- `crates/hippocore/tests/build_context_smoke.rs` — novo arquivo de testes.
-- `docs/en/BUILD_CONTEXT_SMOKE.md` e `docs/pt-br/BUILD_CONTEXT_SMOKE.md`.
+- `crates/hippocore/tests/hybrid_search.rs` — novo arquivo de testes dedicado.
+- `docs/en/HYBRID_SEARCH.md` e `docs/pt-br/HYBRID_SEARCH.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
@@ -41,6 +45,6 @@ Sem novo código de produção. A suite de testes cobrirá:
 
 ## Fora de escopo
 
-- Mudanças no formato de contexto customizado.
+- Ajuste de pesos de fusão.
 - Modo server.
 - Mudanças no código de produção.

@@ -4,7 +4,19 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Document Chunking Tests v0.1**:
+**build_context Smoke Tests v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/build_context_smoke.rs` com
+  5 testes.
+- Cobre: texto não vazio, snippet na string de contexto, budget `max_tokens`
+  aplicado, expansão por grafo com `include_related = true`, store vazio
+  retorna `text = ""` (sem erro).
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/BUILD_CONTEXT_SMOKE.md` e
+  `docs/pt-br/BUILD_CONTEXT_SMOKE.md`.
+- 5 novos testes. 195 testes no total.
+
+Anterior: **Document Chunking Tests v0.1**:
 
 - Novo arquivo de testes `crates/hippocore/tests/document_chunking.rs` com 5
   testes.
@@ -521,7 +533,8 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**build_context Smoke Tests v0.1** — testes determinísticos verificando que
-`build_context` produz uma string de contexto não vazia com snippets esperados,
-respeita `max_tokens` e inclui `related_items` quando `include_related = true`.
+**Hybrid Search Ranking Tests v0.1** — testes determinísticos verificando que
+`SearchMode::Hybrid` mistura corretamente scores vetoriais e textuais: hits
+só-vetoriais se destacam sobre hits só-textuais quando semanticamente próximos,
+e hits só-textuais aparecem quando a query é uma substring exata.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
