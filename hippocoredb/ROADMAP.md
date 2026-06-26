@@ -47,7 +47,7 @@ not a dated commitment.
 
 - Lexical BM25 scoring. ✅
 - Retrieval quality fixtures. ✅
-- Fusion of lexical and vector scores (e.g. reciprocal rank fusion). ← next
+- Fusion of lexical and vector scores (e.g. reciprocal rank fusion). ✅
 - Benchmark regression guard.
 
 ## Phase 6 — Admin interface and local Studio

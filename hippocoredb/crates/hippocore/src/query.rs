@@ -146,7 +146,7 @@ pub fn execute(
     };
 
     // Build the candidate set, then score every candidate.
-    let mut scored: Vec<Scored> = index
+    let scored: Vec<Scored> = index
         .entries()
         .filter(|e| request.filter.matches(e))
         .map(|e| {
@@ -175,34 +175,85 @@ pub fn execute(
         return Vec::new();
     }
 
-    // Min-max normalize each signal across the candidate set into [0, 1].
-    let (vmin, vmax) = min_max(scored.iter().filter_map(|s| s.raw_vec));
-    let (tmin, tmax) = min_max(scored.iter().map(|s| s.raw_text).filter(|&t| t > 0.0));
+    let mut results: Vec<RecallResult> = match request.mode {
+        SearchMode::Vector => {
+            // Min-max normalize cosine scores.
+            let (vmin, vmax) = min_max(scored.iter().filter_map(|s| s.raw_vec));
+            scored
+                .iter()
+                .map(|s| {
+                    let vnorm = s.raw_vec.map(|v| normalize(v, vmin, vmax)).unwrap_or(0.0);
+                    let reason = format!("vector match (cosine={:.3})", s.raw_vec.unwrap_or(0.0));
+                    build_result(s.entry, vnorm, vnorm, 0.0, reason)
+                })
+                .collect()
+        }
+        SearchMode::Text => {
+            // Min-max normalize BM25 scores.
+            let (tmin, tmax) = min_max(scored.iter().map(|s| s.raw_text).filter(|&t| t > 0.0));
+            scored
+                .iter()
+                .map(|s| {
+                    let tnorm = if s.raw_text > 0.0 {
+                        normalize(s.raw_text, tmin, tmax)
+                    } else {
+                        0.0
+                    };
+                    build_result(s.entry, tnorm, 0.0, tnorm, "text match (bm25)".into())
+                })
+                .collect()
+        }
+        SearchMode::Hybrid => {
+            // Reciprocal Rank Fusion: parameter-free rank-based fusion.
+            // See module-level RRF_K for the smoothing constant.
+            let n = scored.len();
 
-    let alpha = clamp01(request.hybrid_alpha);
-    let mut results: Vec<RecallResult> = scored
-        .drain(..)
-        .map(|s| {
-            let vnorm = s.raw_vec.map(|v| normalize(v, vmin, vmax)).unwrap_or(0.0);
-            let tnorm = if s.raw_text > 0.0 {
-                normalize(s.raw_text, tmin, tmax)
-            } else {
-                0.0
-            };
-            let (score, reason) = match request.mode {
-                SearchMode::Vector => (
-                    vnorm,
-                    format!("vector match (cosine={:.3})", s.raw_vec.unwrap_or(0.0)),
-                ),
-                SearchMode::Text => (tnorm, "text match (bm25)".to_string()),
-                SearchMode::Hybrid => (
-                    alpha * vnorm + (1.0 - alpha) * tnorm,
-                    format!("hybrid(vector={vnorm:.3}, text={tnorm:.3})"),
-                ),
-            };
-            build_result(s.entry, score, vnorm, tnorm, reason)
-        })
-        .collect();
+            // Compute vector ranks: descending by raw cosine (None → lowest).
+            let mut vec_order: Vec<usize> = (0..n).collect();
+            vec_order.sort_by(|&a, &b| {
+                let va = scored[a].raw_vec.unwrap_or(f32::NEG_INFINITY);
+                let vb = scored[b].raw_vec.unwrap_or(f32::NEG_INFINITY);
+                vb.partial_cmp(&va).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let mut vec_rank = vec![n + 1; n]; // default: unranked
+            for (rank, &idx) in vec_order.iter().enumerate() {
+                if scored[idx].raw_vec.is_some() {
+                    vec_rank[idx] = rank + 1; // 1-based
+                }
+            }
+
+            // Compute text ranks: descending by raw BM25 (0 → unranked).
+            let mut text_order: Vec<usize> = (0..n).collect();
+            text_order.sort_by(|&a, &b| {
+                scored[b]
+                    .raw_text
+                    .partial_cmp(&scored[a].raw_text)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let mut text_rank = vec![n + 1; n]; // default: unranked
+            for (rank, &idx) in text_order.iter().enumerate() {
+                if scored[idx].raw_text > 0.0 {
+                    text_rank[idx] = rank + 1; // 1-based
+                }
+            }
+
+            scored
+                .iter()
+                .enumerate()
+                .map(|(i, s)| {
+                    let vr = vec_rank[i] as f32;
+                    let tr = text_rank[i] as f32;
+                    let rrf = 1.0 / (RRF_K + vr) + 1.0 / (RRF_K + tr);
+                    let reason = format!(
+                        "hybrid/rrf(vector_rank={}, text_rank={})",
+                        vec_rank[i], text_rank[i]
+                    );
+                    // Carry raw scores for transparency; rrf is the fused score.
+                    build_result(s.entry, rrf, s.raw_vec.unwrap_or(0.0), s.raw_text, reason)
+                })
+                .collect()
+        }
+    };
 
     results.sort_by(|a, b| {
         b.score
@@ -213,6 +264,9 @@ pub fn execute(
     results.truncate(request.top_k);
     results
 }
+
+/// RRF constant — keep here so the unit test can import it.
+pub const RRF_K: f32 = 60.0;
 
 fn build_result(
     e: &IndexEntry,
@@ -278,10 +332,6 @@ fn normalize(v: f32, lo: f32, hi: f32) -> f32 {
     ((v - lo) / (hi - lo)).clamp(0.0, 1.0)
 }
 
-fn clamp01(x: f32) -> f32 {
-    x.clamp(0.0, 1.0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,5 +342,18 @@ mod tests {
             normalize_query_text("Como postgress funciona?"),
             "como postgresql funciona"
         );
+    }
+
+    #[test]
+    fn rrf_k_is_standard_constant() {
+        assert!((RRF_K - 60.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn rrf_score_decreases_with_rank() {
+        // Higher rank (worse) → lower score contribution.
+        let score_rank1: f32 = 1.0 / (RRF_K + 1.0);
+        let score_rank5: f32 = 1.0 / (RRF_K + 5.0);
+        assert!(score_rank1 > score_rank5);
     }
 }

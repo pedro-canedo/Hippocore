@@ -4,7 +4,27 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Admin CLI v0.1**:
+**RRF Hybrid Fusion**:
+
+- Replaced `alpha * vector_norm + (1-alpha) * text_norm` with Reciprocal Rank
+  Fusion (RRF, k=60) in `SearchMode::Hybrid`.
+- RRF is parameter-free: `score = 1/(60+rank_v) + 1/(60+rank_t)`, where each
+  rank is 1-based within the sorted vector or text candidate list. Items with no
+  signal in one dimension receive a penalty rank beyond the candidate set.
+- `RecallResult.reason` for hybrid mode now reports
+  `hybrid/rrf(vector_rank=N, text_rank=M)` for transparency.
+- `RecallResult.vector_score` and `text_score` still carry raw cosine and BM25
+  scores (not the ranks) for debugging.
+- `hybrid_alpha` in `Config` is kept in the API for backwards compatibility but
+  has no effect on hybrid scoring.
+- `SearchMode::Vector` and `SearchMode::Text` are unchanged (still min-max
+  normalized cosine and BM25 respectively).
+- Added `RRF_K` as a public constant in `query.rs`.
+- Removed dead `clamp01` helper.
+- Added 2 new unit tests for the RRF constant and score-vs-rank ordering.
+- All 69 tests pass; retrieval quality fixture thresholds are met.
+
+Previous increment: **Admin CLI v0.1**:
 
 - Added `list-tenants`, `list-collections`, `list-documents`, `list-memories`,
   `list-records`, and `list-files` commands for full database exploration.
@@ -126,8 +146,8 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 67 tests:
-- 16 unit (embedder/chunker, cosine/index/BM25, query normalization, CRC32 + WAL
+**All green.** `cargo test --workspace` passes 69 tests:
+- 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode),
 - 39 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
@@ -160,4 +180,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**RRF Hybrid Fusion** — see NEXT_FEATURE.md.
+**eval-quality CLI command** — see NEXT_FEATURE.md.

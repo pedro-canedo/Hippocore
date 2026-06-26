@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Changed — RRF Hybrid Fusion
+
+- Replaced `alpha * vector_norm + (1-alpha) * text_norm` with Reciprocal Rank
+  Fusion (RRF, k=60) in `SearchMode::Hybrid`. RRF is parameter-free: each
+  candidate is ranked independently by cosine similarity and BM25 score; the
+  fused score is `1/(60+rank_v) + 1/(60+rank_t)`. Items absent from one
+  dimension receive a penalty rank.
+- `RecallResult.reason` for hybrid mode now reports
+  `hybrid/rrf(vector_rank=N, text_rank=M)`.
+- `RecallResult.vector_score` and `text_score` still carry raw cosine and BM25
+  values for debugging transparency.
+- `hybrid_alpha` in `Config` is retained in the public API for backwards
+  compatibility but has no effect on hybrid scoring.
+- Removed unused `clamp01` helper.
+- Added `RRF_K` as a public constant in `query.rs`.
+
 ### Added — Admin CLI v0.1
 
 - Added `list-tenants`, `list-collections`, `list-documents`, `list-memories`,

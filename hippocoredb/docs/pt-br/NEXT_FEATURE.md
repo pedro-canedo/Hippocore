@@ -2,71 +2,65 @@
 
 ## Nome
 
-**RRF Hybrid Fusion** — substituir a normalização min-max + fusão linear com
-alpha do modo híbrido por Reciprocal Rank Fusion (RRF).
+**eval-quality CLI** — permitir que operadores executem avaliações de fixture de
+qualidade contra qualquer banco implantado e obtenham um relatório (hit@k, MRR).
 
 ## Por que importa
 
-O modo híbrido atual normaliza os scores de vetor e BM25 independentemente
-via min-max e combina como `alpha * vector_norm + (1-alpha) * text_norm`.
-Essa abordagem tem dois problemas conhecidos:
+O Hippocore DB possui um formato de fixture de qualidade de retrieval
+(`tests/fixtures/retrieval_quality_v01.json`) usado internamente pela suíte de
+testes. Mas desenvolvedores e operadores não têm como executar a mesma avaliação
+contra um banco em produção via CLI — eles precisam escrever código ou depender
+da suíte interna de testes, que opera em um banco temporário recém-alimentado.
 
-1. **Sensibilidade à escala**: normalização min-max colapsa uma diferença de 0,9
-   entre os ranks 1 e 2 para a mesma largura que uma diferença de 0,001,
-   tornando ranks adjacentes indistinguíveis quando um score domina.
-2. **alpha manual**: `hybrid_alpha` exige ajuste por caso de uso. Um valor
-   padrão fixo de 0,5 é arbitrário.
-
-Reciprocal Rank Fusion é sem parâmetro, baseado em rank e bem estudado:
-
-```
-RRF(d) = 1 / (k + rank_vetor(d))  +  1 / (k + rank_texto(d))
-```
-
-onde `k = 60` é a constante de suavização padrão, `rank_vetor(d)` é o rank
-1-based de `d` na lista ordenada por vetor e `rank_texto(d)` é o rank na lista
-BM25 (itens sem match recebem rank penalizado além do conjunto de candidatos).
+Um comando `eval-quality` fecha essa lacuna: lê um arquivo de fixture, alimenta
+as memórias do fixture em um banco temporário (ou existente), executa cada query
+e reporta métricas por cenário e agregadas (hit@1, hit@k, MRR). Sai com código
+não-zero se qualquer threshold não for atendido, sendo útil em pipelines de CI.
 
 ## Comportamento esperado
 
-- `SearchMode::Hybrid` usa RRF internamente em vez de fusão ponderada com alpha.
-- `hybrid_alpha` em `Config` fica sem efeito para o modo híbrido; ainda é aceito
-  sem erro para compatibilidade, mas não influencia o score.
-- `RecallResult.vector_score` e `text_score` continuam com os scores brutos
-  (não normalizados) de cosine e BM25 para transparência.
-- `RecallResult.reason` para modo híbrido reporta o score RRF:
-  `hybrid/rrf(vector_rank=N, text_rank=M)`.
-- `SearchMode::Vector` e `SearchMode::Text` permanecem inalterados.
-- Todos os testes existentes devem passar; os thresholds do fixture de qualidade
-  devem continuar sendo atendidos ou melhorar.
+```
+hippocore eval-quality --fixture path/to/fixture.json [--json] [--db <path>]
+```
+
+- `--fixture <file>`: caminho para um arquivo de fixture JSON (mesmo formato do
+  fixture interno).
+- `--db <path>` (opcional): se informado, alimenta memórias em um banco
+  existente e avalia contra ele. Se omitido, usa diretório temporário.
+- Saída por cenário: hit@1, hit@k, MRR e ausência de `forbidden_first_ids` no
+  top.
+- Saída agregada: média hit@1, hit@k, MRR em todos os cenários.
+- `--json` emite um relatório JSON legível por máquina.
+- Sai 0 se todos os thresholds passam; sai 1 com mensagem de erro legível.
 
 ## Arquivos afetados
 
-- `crates/hippocore/src/query.rs` — substituir lógica de fusão por RRF.
-- `crates/hippocore/tests/database.rs` — verificar que os testes de modo híbrido
-  ainda passam (asserções de comportamento devem ser estáveis).
-- `crates/hippocore/tests/retrieval_quality.rs` — executar fixture; verificar
-  thresholds.
+- `crates/hippocore/src/cli.rs` — adicionar comando `EvalQuality` e handler.
+- `crates/hippocore/src/lib.rs` — API de avaliação se necessária.
+- `crates/hippocore-cli/tests/cli.rs` — smoke test via subprocesso.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
-- `CHANGELOG.md`, `ROADMAP.md`.
+- `CHANGELOG.md`.
 
 ## Critérios de aceite
 
-- `SearchMode::Hybrid` usa RRF.
-- A string de reason inclui "rrf" no modo híbrido.
-- Os thresholds de qualidade (hit@1, hit@5, MRR) são atendidos.
-- Todos os 67+ testes passam.
+- `eval-quality --fixture <file>` executa e reporta hit@1, hit@k, MRR por
+  cenário e aggregate.
+- `--json` emite relatório JSON parseável.
+- Sai com código não-zero quando threshold não é atendido.
+- Sem novas dependências externas.
+- Todos os 69+ testes passam.
 - `cargo fmt`, `cargo clippy -D warnings` limpos.
-- Sem novas dependências.
 
 ## Fora de escopo
 
-- Alterar `SearchMode::Vector` ou `SearchMode::Text`.
-- Remover `hybrid_alpha` da API pública (manter para compatibilidade, silenciando
-  o efeito).
-- HNSW, ANN, server mode.
+- Armazenamento persistente de fixtures no banco.
+- Dashboard web ou relatório visual.
+- Geração automática de fixture.
+- Server mode.
 
 ## Follow-up
 
-Após RRF, o próximo passo é o comando CLI `eval-quality` para que operadores
-possam executar avaliações de fixture de qualidade contra qualquer banco implantado.
+Após eval-quality, o próximo passo é Temporal Truth Layer v0.1:
+`valid_from`/`valid_until` em memórias e documentos, permitindo queries "o que
+era verdade no tempo T?" (Fase 7 do roadmap).
