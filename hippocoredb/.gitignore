@@ -3,3 +3,5 @@
 Cargo.lock
 # local database data directories
 /data
+/dat
+/hippocore-data

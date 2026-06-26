@@ -1,14 +1,13 @@
-FROM rust:1.75-bookworm AS builder
+FROM rust:1.96-bookworm AS builder
 WORKDIR /app
 
 COPY . .
-RUN cargo build --release -p hippocore-cli
+RUN cargo build --release --locked -p hippocore-cli
 
 FROM debian:bookworm-slim
 RUN useradd -m -u 10001 hippocore
-WORKDIR /data
 COPY --from=builder /app/target/release/hippocore /usr/local/bin/hippocore
-USER hippocore
+COPY docker/hippocore-entrypoint.sh /usr/local/bin/hippocore-entrypoint
+RUN chmod 0755 /usr/local/bin/hippocore-entrypoint
 EXPOSE 8080
-ENTRYPOINT ["/bin/sh", "-lc"]
-CMD ["exec hippocore serve --db /data --port 8080 --api-key \"${HIPPOCORE_API_KEY:-change-me}\""]
+ENTRYPOINT ["/usr/local/bin/hippocore-entrypoint"]
