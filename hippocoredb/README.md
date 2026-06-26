@@ -17,8 +17,8 @@ that can be projected into native context for SDKs, agents and RAG systems.
 ## What it is
 
 - An **embedded** Rust library (`hippocore`) plus a **CLI** (`hippocore`).
-- A durable store for **documents** (auto-chunked), **memories**, and
-  JSON-first structured **records**.
+- A durable store for **documents** (auto-chunked), **memories**, JSON-first
+  structured **records**, and imported text-like **files**.
 - **Vector** (cosine), **text** (BM25 inverted index), and **hybrid** recall.
 - **Multi-tenant**: every recall is scoped to a tenant; data never leaks across.
 - **Crash-safe**: a write-ahead log + atomic snapshot; recovery rebuilds state
@@ -54,6 +54,7 @@ Vector similarity alone is not reliable context:
 | `Chunk`      | A searchable slice of a document, with its own embedding.        |
 | `Memory`     | A long-term memory item (episodic/semantic/procedural/note).     |
 | `Record`     | A structured JSON object in a logical table namespace.           |
+| `FileObject` | Imported text-like file metadata linked to a derived document. |
 | `Indexed Entry` | In-memory searchable projection of one `Chunk`, `Memory`, or `Record`. |
 | `WAL Entry`  | Durable append-only operation record replayed on database open.  |
 | `Embedding`  | `Vec<f32>`; produced by the built-in embedder or supplied by you.|
@@ -65,8 +66,9 @@ Documents and memories are intentionally distinct. A `Document` is source text
 managed as a whole and split into persisted `Chunk`s; each chunk becomes one
 indexed entry. A `Memory` is already an atomic remembered fact/procedure/note and
 also becomes one indexed entry directly. A `Record` preserves its original JSON
-payload and stores a deterministic text projection for retrieval. The WAL stores
-write/delete operations, not retrieval hits.
+payload and stores a deterministic text projection for retrieval. A `FileObject`
+stores import metadata and links to a derived document whose chunks are
+retrievable. The WAL stores write/delete operations, not retrieval hits.
 
 Because memories do not create `Document` records, a memory-only RAG example can
 correctly report `documents=0` while `memories>0` and `indexed_entries>0`.
@@ -93,10 +95,14 @@ $BIN put-document --db ./data --tenant acme --collection support \
 $BIN put-record --db ./data --tenant acme --collection support --table systems \
   --id billing-db --json '{"engine":"postgresql","port":5432,"env":"prod"}'
 
-# 5. recall context (hybrid by default; --mode vector|text|hybrid)
+# 5. import a text-like file (metadata stored, text projected into chunks)
+$BIN import-file --db ./data --tenant acme --collection support \
+  --id notes --path ./notes.md --meta source=local
+
+# 6. recall context (hybrid by default; --mode vector|text|hybrid)
 $BIN recall --db ./data --tenant acme --query "oracle ORA-12514 in staging" --top-k 5
 
-# 6. inspect & stats
+# 7. inspect & stats
 $BIN inspect --db ./data
 $BIN stats --db ./data
 ```
@@ -138,8 +144,9 @@ answer loop with citations.
 ## Public API
 
 `Hippocore::open`, `create_tenant`, `create_collection`, `store_document`,
-`remember`, `put_record`, `recall`, `search`, `forget`, `delete_document`,
-`delete_record`, `stats`, `compact`, `close`. Every fallible call returns
+`remember`, `put_record`, `import_file`, `recall`, `search`, `forget`,
+`delete_document`, `delete_record`, `delete_file`, `stats`, `compact`, `close`.
+Every fallible call returns
 `hippocore::Result<T>` — no panics on normal errors.
 
 **Embeddings.** `remember`, `recall` and `store_document` all accept

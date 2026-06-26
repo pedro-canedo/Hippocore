@@ -2,8 +2,8 @@
 
 use hippocore::model::{ItemKind, MemoryType};
 use hippocore::{
-    ChunkInput, Config, Hippocore, HippocoreError, PutRecordRequest, RecallRequest,
-    RememberRequest, SearchMode, StoreDocumentRequest,
+    ChunkInput, Config, Hippocore, HippocoreError, ImportFileRequest, PutRecordRequest,
+    RecallRequest, RememberRequest, SearchMode, StoreDocumentRequest,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -101,6 +101,119 @@ fn overwrite_document_increments_version() {
     assert_eq!(v1.created_at, v0.created_at);
     // Only one document remains; old chunks were replaced.
     assert_eq!(db.stats().unwrap().documents, 1);
+}
+
+#[test]
+fn import_file_recalls_and_tracks_stats() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("postgres.md");
+    std::fs::write(
+        &file_path,
+        "PostgreSQL starts with sudo systemctl start postgresql on port 5432.",
+    )
+    .unwrap();
+
+    let mut db = seeded(&dir);
+    let mut req = ImportFileRequest::new("acme", "support", &file_path);
+    req.id = Some("pg-guide".into());
+    req.metadata.insert("topic".into(), "postgres".into());
+    let file = db.import_file(req).unwrap();
+    assert_eq!(file.id, "pg-guide");
+    assert_eq!(file.media_type, "text/markdown");
+
+    let stats = db.stats().unwrap();
+    assert_eq!(stats.files, 1);
+    assert_eq!(stats.documents, 1);
+    assert!(stats.chunks >= 1);
+
+    let mut recall = RecallRequest::new("acme", "systemctl postgresql 5432");
+    recall.metadata.insert("file_id".into(), "pg-guide".into());
+    let hits = db.recall(recall).unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(
+        hits[0].metadata.get("topic").map(String::as_str),
+        Some("postgres")
+    );
+    assert_eq!(hits[0].document_id.as_deref(), Some("file:pg-guide"));
+}
+
+#[test]
+fn import_json_file_projects_structured_text() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("db.json");
+    std::fs::write(
+        &file_path,
+        r#"{"name":"billing","engine":"postgresql","port":5432}"#,
+    )
+    .unwrap();
+
+    let mut db = seeded(&dir);
+    db.import_file(ImportFileRequest {
+        id: Some("db-json".into()),
+        ..ImportFileRequest::new("acme", "support", &file_path)
+    })
+    .unwrap();
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "billing postgresql 5432"))
+        .unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(
+        hits[0].metadata.get("media_type").map(String::as_str),
+        Some("application/json")
+    );
+    assert!(hits[0].text.contains("postgresql"));
+}
+
+#[test]
+fn imported_file_survives_restart_and_delete() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("oracle.txt");
+    std::fs::write(&file_path, "Oracle listener starts with lsnrctl start.").unwrap();
+
+    {
+        let mut db = seeded(&dir);
+        db.import_file(ImportFileRequest {
+            id: Some("oracle-file".into()),
+            ..ImportFileRequest::new("acme", "support", &file_path)
+        })
+        .unwrap();
+        db.close().unwrap();
+    }
+
+    {
+        let mut db = open(&dir);
+        assert_eq!(db.stats().unwrap().files, 1);
+        let hits = db
+            .recall(RecallRequest::new("acme", "lsnrctl listener"))
+            .unwrap();
+        assert!(!hits.is_empty());
+        db.delete_file("acme", "support", "oracle-file").unwrap();
+        db.close().unwrap();
+    }
+
+    let db = open(&dir);
+    let stats = db.stats().unwrap();
+    assert_eq!(stats.files, 0);
+    assert_eq!(stats.documents, 0);
+    assert_eq!(stats.chunks, 0);
+    assert!(db
+        .recall(RecallRequest::new("acme", "lsnrctl listener"))
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn import_file_rejects_unsupported_extension() {
+    let dir = TempDir::new().unwrap();
+    let file_path = dir.path().join("data.bin");
+    std::fs::write(&file_path, b"postgresql").unwrap();
+
+    let mut db = seeded(&dir);
+    let err = db
+        .import_file(ImportFileRequest::new("acme", "support", &file_path))
+        .unwrap_err();
+    assert!(matches!(err, HippocoreError::Validation(_)));
 }
 
 #[test]

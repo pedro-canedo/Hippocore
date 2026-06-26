@@ -73,7 +73,7 @@ pub enum Operation {
     /// Store (or overwrite) a file object and its derived document/chunks.
     PutFile {
         /// Imported file metadata.
-        file: FileObject,
+        file: Box<FileObject>,
         /// Derived document containing extracted text.
         document: Document,
         /// Chunks derived from the extracted text.
@@ -205,7 +205,7 @@ impl State {
                         && ch.collection == document.collection
                         && ch.document_id == document.id)
                 });
-                self.files.push(file);
+                self.files.push(*file);
                 self.documents.push(document);
                 self.chunks.extend(chunks);
             }

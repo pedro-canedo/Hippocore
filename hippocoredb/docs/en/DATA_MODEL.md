@@ -29,6 +29,7 @@ Context projection is a native responsibility of Hippocore DB.
 | `Chunk` | implemented | Searchable slice of a document. |
 | `Memory` | implemented | Atomic remembered fact/procedure/note/event. |
 | `Record` | implemented | Structured JSON object in a logical table namespace. |
+| `FileObject` | implemented | Imported text-like file metadata linked to a derived document. |
 | `IndexedEntry` | implemented internally | In-memory searchable projection of one chunk, memory, or record. |
 | `WAL Entry` | implemented internally | Durable mutation record for recovery. |
 
@@ -38,7 +39,6 @@ These are product concepts, not immediate implementation commitments.
 
 | Entity | Role |
 |--------|------|
-| `File` | Original file object with path/name/media type/checksum/source metadata. |
 | `Table` | Implemented as the `Record.table` namespace; richer schema management is future work. |
 | `ContextItem` | Public context unit returned to SDKs/agents, independent of whether it came from a document, memory, record, or file. |
 | `ContextTrace` | Future audit record tying question → retrieval → context → answer. |
@@ -72,6 +72,11 @@ Record
   table: "systems"
   json: {"name":"billing-db","engine":"postgresql","port":5432}
   → projected text: "systems record name billing-db engine postgresql port 5432"
+
+FileObject
+  path: "./notes.md"
+  media_type: "text/markdown"
+  → derived Document → chunks → IndexedEntries
 ```
 
 ## Structured data direction
@@ -99,17 +104,23 @@ Expected behavior:
 This keeps the path open for table-like management and later query languages
 without prematurely implementing SQL.
 
-## File ingestion direction
+## File ingestion
 
-Files should become first-class stored objects before multimodal processing is
-expanded.
+Files are first-class stored metadata objects for text-like local inputs.
+Hippocore stores the file object durably and projects extracted text into a
+derived document, whose chunks become searchable indexed entries.
 
-Early scope:
+Implemented scope:
 
-- `.txt`, `.md`, `.json`, `.csv` ingestion.
-- Store file metadata: path/name/media type/checksum/source.
-- Project text-like files into documents/chunks or records.
-- Keep binary/OCR/PDF/multimodal extraction for later phases.
+- `.txt`, `.md`, `.json`, `.csv` ingestion. ✅
+- File metadata: path, name, media type, CRC32 checksum, byte size, metadata,
+  source, timestamps, version. ✅
+- Derived document id (`file:<id>`) and chunks for recall/search. ✅
+- `import_file` / `delete_file` API and `import-file` / `delete-file` CLI. ✅
+
+The original file bytes are not copied into a blob store yet. The durable state
+stores metadata and extracted text via the derived document. PDF, OCR and
+multimodal extraction remain future work.
 
 ## SDK context API direction
 

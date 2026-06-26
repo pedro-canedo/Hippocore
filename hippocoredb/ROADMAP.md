@@ -32,9 +32,10 @@ not a dated commitment.
 
 - Define `File`, `Table`, `Record`, and `ContextItem` concepts.
 - JSON-first structured record storage. ✅
-- Text-like file ingestion (`.txt`, `.md`, `.json`, `.csv`).
-- Native context projection for documents, memories, records and files.
+- Text-like file ingestion (`.txt`, `.md`, `.json`, `.csv`). ✅
+- Native context projection for documents, memories, records and files. ✅
 - CLI `put-record` / `delete-record`. ✅
+- CLI `import-file` / `delete-file`. ✅
 - CLI inspection/list/import/export workflows for broader database management.
 
 ## Phase 4 — HNSW or pluggable ANN vector index

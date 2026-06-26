@@ -2,68 +2,61 @@
 
 ## Nome
 
-**File ingestion v0.1** — armazenar arquivos textuais como objetos de banco e
-projetá-los em contexto nativo.
+**Admin CLI v0.1** — facilitar inspeção, listagem e exportação do banco sem
+introduzir server mode ou UI ainda.
 
 ## Por que importa
 
-Hippocore DB está evoluindo de memória/document retrieval para um banco onde
-informações armazenadas viram contexto. Records estruturados já existem. O
-próximo tipo de dado prático é arquivo, começando por formatos textuais locais e
-sem dependências externas.
+Hippocore DB agora armazena documentos, memórias, records estruturados e
+arquivos importados. Antes de construir um Studio local, usuários precisam de
+uma superfície prática de administração, no espírito dos fluxos básicos de
+pgAdmin/DBeaver: ver o que existe, inspecionar objetos, exportar dados e
+depurar contexto.
 
 ## Comportamento esperado
 
-- Adicionar um modelo `FileObject` ou equivalente:
-  - tenant;
-  - collection;
-  - id;
-  - path/nome original;
-  - media type ou extensão;
-  - checksum;
-  - metadata;
-  - source;
-  - created/updated/version.
-- Adicionar comando:
-
-```bash
-hippocore import-file --db ./data --tenant acme --collection kb --path ./notes.md
-```
-
-- Suportar primeiro:
-  - `.txt`;
-  - `.md`;
-  - `.json`;
-  - `.csv`.
-- Armazenar metadata do arquivo de forma durável.
-- Projetar texto extraído para documentos/chunks ou contexto record-like.
-- Não criar blob engine complexa ainda.
+- Adicionar comandos de listagem para tipos armazenados:
+  - `list-tenants`;
+  - `list-collections`;
+  - `list-documents`;
+  - `list-memories`;
+  - `list-records`;
+  - `list-files`.
+- Adicionar `inspect --json` ou saída equivalente legível por máquina.
+- Adicionar comandos de detalhe quando fizer sentido, como `show-record`,
+  `show-document` e `show-file`.
+- Adicionar exportação JSON de objetos ou collections selecionadas.
+- Manter tudo local-first e embedded; sem server mode.
+- Preservar tenant isolation e visibilidade de metadata.
 
 ## Arquivos afetados
 
-- `model.rs`;
-- `storage.rs`;
-- `lib.rs`;
-- `cli.rs`;
-- helper de ingestão textual;
-- `DATA_MODEL.md`, `README.md`, `STATUS.md`, `CHANGELOG.md`;
-- testes de import, recall, metadata, restart, delete e formato não suportado.
+- `crates/hippocore/src/lib.rs` — APIs públicas de leitura/listagem quando
+  faltarem.
+- `crates/hippocore/src/cli.rs` — comandos administrativos e saída JSON.
+- `crates/hippocore-cli/tests/cli.rs` — cobertura por subprocesso.
+- `docs/en/ADMIN_INTERFACE.md` e `docs/pt-br/ADMIN_INTERFACE.md`.
+- `README.md`, `STATUS.md`, `CHANGELOG.md`.
 
 ## Critérios de aceite
 
-- `.txt` ou `.md` pode ser importado e recuperado.
-- `.json` e `.csv` têm projeção determinística.
-- Metadata do arquivo sobrevive reopen.
-- Extensões não suportadas retornam erro claro.
-- Tenant isolation e metadata filters continuam válidos.
-- Sem rede ou parser externo obrigatório.
-- `fmt`, `test` e clippy passam.
+- Usuário consegue listar tenants, collections e cada tipo de objeto armazenado.
+- Usuário consegue inspecionar record/file/document específico o suficiente para
+  entender o que foi armazenado e qual projeção de contexto existe.
+- Saída JSON é estável o bastante para scripts e futura integração com Studio.
+- Nenhum processo servidor é necessário.
+- `cargo fmt --all --check`, `cargo test --workspace` e clippy passam.
 
 ## Fora de escopo
 
-- PDF;
-- OCR;
-- imagem/áudio/vídeo;
-- blob engine completa;
-- server mode;
-- admin UI.
+- Web UI.
+- Protocolo PostgreSQL.
+- Linguagem SQL.
+- Auth/autorização.
+- Server mode remoto.
+
+## Follow-up
+
+Depois do Admin CLI v0.1, revisitar um protótipo local do Hippocore Studio e
+adicionar um comando pequeno de avaliação de qualidade usando o formato de
+fixture existente.

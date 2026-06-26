@@ -29,6 +29,7 @@ responsabilidade nativa do Hippocore DB.
 | `Chunk` | implementado | Fatia pesquisável de documento. |
 | `Memory` | implementado | Fato/procedimento/nota/evento atômico. |
 | `Record` | implementado | Objeto JSON estruturado em namespace de tabela. |
+| `FileObject` | implementado | Metadata de arquivo textual importado ligada a documento derivado. |
 | `IndexedEntry` | interno | Projeção pesquisável de chunk, memory ou record. |
 | `WAL Entry` | interno | Registro durável de mutação para recovery. |
 
@@ -36,7 +37,6 @@ responsabilidade nativa do Hippocore DB.
 
 | Entidade | Papel |
 |----------|-------|
-| `File` | Objeto de arquivo com path/nome/media type/checksum/source. |
 | `Table` | Hoje é `Record.table`; schema rico fica para o futuro. |
 | `ContextItem` | Unidade pública de contexto independente da origem. |
 | `ContextTrace` | Futuro registro de auditoria pergunta → retrieval → contexto → resposta. |
@@ -69,6 +69,11 @@ Record
   table: "systems"
   json: {"name":"billing-db","engine":"postgresql","port":5432}
   → "table systems record billing-db name billing-db engine postgresql port 5432"
+
+FileObject
+  path: "./notes.md"
+  media_type: "text/markdown"
+  → Document derivado → chunks → IndexedEntries
 ```
 
 ## Records estruturados
@@ -91,16 +96,24 @@ Comportamento:
 - retornar contexto derivado de record com tipo/source;
 - índices por campo e schemas ricos ficam para depois.
 
-## Direção para ingestão de arquivos
+## Ingestão de arquivos
 
-Arquivos devem virar objetos de primeira classe antes de multimodal avançado.
+Arquivos são objetos de metadata de primeira classe para entradas locais
+textuais. Hippocore armazena o objeto de arquivo de forma durável e projeta o
+texto extraído em um documento derivado, cujos chunks viram indexed entries
+pesquisáveis.
 
-Escopo inicial:
+Escopo implementado:
 
-- `.txt`, `.md`, `.json`, `.csv`;
-- metadata de arquivo: path/nome/media type/checksum/source;
-- projeção para documentos/chunks ou records;
-- PDF/OCR/multimodal ficam para fases futuras.
+- ingestão de `.txt`, `.md`, `.json`, `.csv`; ✅
+- metadata de arquivo: path, nome, media type, checksum CRC32, tamanho em bytes,
+  metadata, source, timestamps e version; ✅
+- documento derivado (`file:<id>`) e chunks para recall/search; ✅
+- API `import_file` / `delete_file` e CLI `import-file` / `delete-file`. ✅
+
+Os bytes originais ainda não são copiados para uma blob store. O estado durável
+guarda metadata e o texto extraído via documento derivado. PDF, OCR e extração
+multimodal continuam fora do escopo imediato.
 
 ## Direção da API de contexto
 

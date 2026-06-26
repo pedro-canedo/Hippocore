@@ -262,6 +262,93 @@ fn cli_put_and_delete_record() {
 }
 
 #[test]
+fn cli_import_and_delete_file() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().join("db");
+    let db = db.to_str().unwrap();
+    let file_path = dir.path().join("postgres.md");
+    std::fs::write(
+        &file_path,
+        "PostgreSQL does not use Oracle-style lsnrctl listener.",
+    )
+    .unwrap();
+    let path = file_path.to_str().unwrap();
+
+    let import = bin()
+        .args([
+            "import-file",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--id",
+            "pg-file",
+            "--path",
+            path,
+            "--meta",
+            "topic=postgres",
+        ])
+        .output()
+        .unwrap();
+    assert!(import.status.success(), "import-file failed: {import:?}");
+
+    let recall = bin()
+        .args([
+            "recall",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--query",
+            "postgresql listener",
+            "--kind",
+            "chunk",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(recall.status.success(), "recall failed: {recall:?}");
+    let out = String::from_utf8_lossy(&recall.stdout);
+    assert!(out.contains("\"file_id\": \"pg-file\""), "{out}");
+
+    let delete = bin()
+        .args([
+            "delete-file",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--id",
+            "pg-file",
+        ])
+        .output()
+        .unwrap();
+    assert!(delete.status.success(), "delete-file failed: {delete:?}");
+
+    let recall = bin()
+        .args([
+            "recall",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--query",
+            "postgresql listener",
+            "--kind",
+            "chunk",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(recall.status.success());
+    assert_eq!(String::from_utf8_lossy(&recall.stdout).trim(), "[]");
+}
+
+#[test]
 fn cli_bad_metadata_returns_nonzero() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();

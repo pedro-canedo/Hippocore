@@ -4,7 +4,20 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Context data model v0.1**:
+**File ingestion v0.1**:
+
+- `FileObject`s agora são objetos duráveis de metadata para arquivos locais
+  textuais importados.
+- APIs `import_file` / `delete_file` e CLI `import-file` / `delete-file`
+  suportam `.txt`, `.md`, `.json` e `.csv`.
+- Arquivos importados guardam path, nome, media type, checksum CRC32, tamanho em
+  bytes, metadata, source, timestamps e version.
+- Texto extraído é projetado em um `Document` derivado (`file:<id>`) cujos
+  chunks são indexados e recuperáveis com metadata de arquivo.
+- Import, recall, filtro por metadata, projeção JSON, restart/delete, extensão
+  não suportada e fluxo CLI têm testes.
+
+Incremento anterior: Context data model v0.1:
 
 - `Record`s JSON estruturados são objetos armazenados de primeira classe em um
   namespace lógico de tabela.
@@ -24,7 +37,8 @@ vector-only.
 
 ## Funcionando
 
-- Store/recall para documentos, memórias e records.
+- Store/recall para documentos, memórias, records e arquivos textuais
+  importados.
 - Vector, BM25 text e hybrid recall.
 - Tenant isolation.
 - WAL com checksum, snapshot atômico, recovery e compaction.
@@ -37,7 +51,7 @@ vector-only.
 - Retrieval ainda é brute-force.
 - Estado vivo fica em memória e índice é reconstruído no open.
 - Records não têm schema rico nem índices por campo.
-- File objects e admin UI ainda não foram implementados.
+- Blob storage completo, PDF/OCR e admin UI ainda não foram implementados.
 
 ## Comandos recentes
 
@@ -51,14 +65,14 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 59 testes:
+`cargo test --workspace` passa com 64 testes:
 
 - 16 unit;
-- 35 integração da biblioteca;
+- 39 integração da biblioteca;
 - 1 fixture de qualidade;
-- 6 smoke tests de CLI;
+- 7 smoke tests de CLI;
 - 1 doctest.
 
 ## Próxima feature
 
-**File ingestion v0.1** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**Admin CLI v0.1** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

@@ -254,6 +254,41 @@ impl PutRecordRequest {
     }
 }
 
+/// Request to import a text-like file as database context.
+#[derive(Debug, Clone)]
+pub struct ImportFileRequest {
+    /// Owning tenant (must exist).
+    pub tenant_id: String,
+    /// Owning collection (must exist).
+    pub collection: String,
+    /// Optional explicit file id; generated if `None`.
+    pub id: Option<String>,
+    /// Path to a local file.
+    pub path: PathBuf,
+    /// Exact-match metadata.
+    pub metadata: Metadata,
+    /// Optional provenance.
+    pub source: Option<Source>,
+}
+
+impl ImportFileRequest {
+    /// Build a minimal import request.
+    pub fn new(
+        tenant_id: impl Into<String>,
+        collection: impl Into<String>,
+        path: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            collection: collection.into(),
+            id: None,
+            path: path.into(),
+            metadata: Metadata::new(),
+            source: None,
+        }
+    }
+}
+
 /// Request to recall/search context.
 #[derive(Debug, Clone)]
 pub struct RecallRequest {
@@ -507,6 +542,85 @@ impl Hippocore {
         Ok(record)
     }
 
+    /// Import a text-like file and index its extracted text as a derived document.
+    pub fn import_file(&mut self, req: ImportFileRequest) -> Result<FileObject> {
+        self.require_collection(&req.tenant_id, &req.collection)?;
+
+        let id = req.id.unwrap_or_else(|| gen_id("file"));
+        let path = req.path;
+        let path_string = path.display().to_string();
+        let name = path
+            .file_name()
+            .and_then(|v| v.to_str())
+            .ok_or_else(|| HippocoreError::validation("file path must include a valid name"))?
+            .to_string();
+        let bytes = std::fs::read(&path)?;
+        let size_bytes = bytes.len() as u64;
+        let checksum = format!("{:08x}", storage::crc32(&bytes));
+        let (media_type, extracted_text) = extract_file_text(&path, &bytes)?;
+        let now = now_millis();
+        let (created_at, version, document_id) =
+            match self.find_file(&req.tenant_id, &req.collection, &id) {
+                Some(existing) => (
+                    existing.created_at,
+                    existing.version + 1,
+                    existing.document_id.clone(),
+                ),
+                None => (now, 0, format!("file:{id}")),
+            };
+
+        let source = req.source.or_else(|| {
+            Some(Source {
+                label: "file".to_string(),
+                uri: Some(path_string.clone()),
+                title: Some(name.clone()),
+            })
+        });
+        let mut metadata = req.metadata;
+        metadata.insert("file_id".to_string(), id.clone());
+        metadata.insert("file_name".to_string(), name.clone());
+        metadata.insert("media_type".to_string(), media_type.clone());
+        metadata.insert("checksum".to_string(), checksum.clone());
+
+        let file = FileObject {
+            id: id.clone(),
+            tenant_id: req.tenant_id.clone(),
+            collection: req.collection.clone(),
+            path: path_string,
+            name,
+            media_type,
+            checksum,
+            size_bytes,
+            document_id: document_id.clone(),
+            metadata: metadata.clone(),
+            source: source.clone(),
+            created_at,
+            updated_at: now,
+            version,
+        };
+        file.validate()?;
+
+        let document = Document {
+            id: document_id,
+            tenant_id: req.tenant_id,
+            collection: req.collection,
+            text: extracted_text,
+            metadata,
+            source,
+            created_at,
+            updated_at: now,
+            version,
+        };
+        document.validate()?;
+        let chunks = self.build_chunks(&document);
+        self.commit(Operation::PutFile {
+            file: Box::new(file.clone()),
+            document,
+            chunks,
+        })?;
+        Ok(file)
+    }
+
     /// Forget (delete) a memory by identity.
     ///
     /// The removal is durable (a tombstone is written to the WAL and replayed on
@@ -545,6 +659,24 @@ impl Hippocore {
             tenant_id: tenant_id.to_string(),
             collection: collection.to_string(),
             table: table.to_string(),
+            id: id.to_string(),
+        })
+    }
+
+    /// Delete an imported file and its derived document/chunks by identity.
+    ///
+    /// Durable and idempotent, like [`Hippocore::forget`].
+    pub fn delete_file(&mut self, tenant_id: &str, collection: &str, id: &str) -> Result<()> {
+        let document_id = self
+            .find_file(tenant_id, collection, id)
+            .map(|file| file.document_id.clone());
+        if let Some(document_id) = document_id {
+            self.index
+                .remove_document(tenant_id, collection, &document_id);
+        }
+        self.commit(Operation::DeleteFile {
+            tenant_id: tenant_id.to_string(),
+            collection: collection.to_string(),
             id: id.to_string(),
         })
     }
@@ -607,6 +739,7 @@ impl Hippocore {
             chunks: self.state.chunks.len(),
             memories: self.state.memories.len(),
             records: self.state.records.len(),
+            files: self.state.files.len(),
             indexed_entries: self.index.len(),
             wal_entries: self.storage.wal_len,
             disk_bytes: self.storage.disk_bytes()?,
@@ -648,9 +781,12 @@ impl Hippocore {
     fn commit(&mut self, op: Operation) -> Result<()> {
         self.storage.append(&op)?;
         // Update in-memory state and index.
-        if let Operation::PutDocument { document, .. } = &op {
-            self.index
-                .remove_document(&document.tenant_id, &document.collection, &document.id);
+        match &op {
+            Operation::PutDocument { document, .. } | Operation::PutFile { document, .. } => {
+                self.index
+                    .remove_document(&document.tenant_id, &document.collection, &document.id);
+            }
+            _ => {}
         }
         let to_index = op.clone();
         self.state.apply(op);
@@ -686,6 +822,17 @@ impl Hippocore {
             Operation::PutRecord(r) => {
                 self.index.insert(IndexEntry::from_record(r));
             }
+            Operation::PutFile {
+                document, chunks, ..
+            } => {
+                for chunk in chunks {
+                    self.index.insert(IndexEntry::from_chunk(
+                        chunk,
+                        document.metadata.clone(),
+                        document.source.clone(),
+                    ));
+                }
+            }
             Operation::DeleteMemory {
                 tenant_id,
                 collection,
@@ -708,6 +855,7 @@ impl Hippocore {
             } => {
                 self.index.remove_record(tenant_id, collection, table, id);
             }
+            Operation::DeleteFile { .. } => {}
             Operation::CreateTenant(_) | Operation::CreateCollection(_) => {}
         }
     }
@@ -805,6 +953,13 @@ impl Hippocore {
             r.tenant_id == tenant_id && r.collection == collection && r.table == table && r.id == id
         })
     }
+
+    fn find_file(&self, tenant_id: &str, collection: &str, id: &str) -> Option<&FileObject> {
+        self.state
+            .files
+            .iter()
+            .find(|f| f.tenant_id == tenant_id && f.collection == collection && f.id == id)
+    }
 }
 
 fn project_record(table: &str, id: &str, payload: &serde_json::Value) -> Result<String> {
@@ -822,6 +977,31 @@ fn project_record(table: &str, id: &str, payload: &serde_json::Value) -> Result<
     ];
     append_json_projection(&mut parts, payload);
     Ok(parts.join(" "))
+}
+
+fn extract_file_text(path: &std::path::Path, bytes: &[u8]) -> Result<(String, String)> {
+    let extension = path
+        .extension()
+        .and_then(|v| v.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| HippocoreError::validation("file extension is required"))?;
+    let raw_text = std::str::from_utf8(bytes)
+        .map_err(|e| HippocoreError::validation(format!("file must be valid UTF-8: {e}")))?;
+
+    match extension.as_str() {
+        "txt" => Ok(("text/plain".to_string(), raw_text.to_string())),
+        "md" => Ok(("text/markdown".to_string(), raw_text.to_string())),
+        "csv" => Ok(("text/csv".to_string(), raw_text.to_string())),
+        "json" => {
+            let value: serde_json::Value = serde_json::from_str(raw_text)?;
+            let mut parts = Vec::new();
+            append_json_projection(&mut parts, &value);
+            Ok(("application/json".to_string(), parts.join(" ")))
+        }
+        other => Err(HippocoreError::validation(format!(
+            "unsupported file extension: {other:?} (expected txt|md|json|csv)"
+        ))),
+    }
 }
 
 fn append_json_projection(parts: &mut Vec<String>, value: &serde_json::Value) {

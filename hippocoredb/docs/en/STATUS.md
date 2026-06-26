@@ -4,7 +4,20 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Context data model v0.1**:
+**File ingestion v0.1**:
+
+- `FileObject`s are now durable stored metadata objects for imported text-like
+  local files.
+- `import_file` / `delete_file` APIs and `import-file` / `delete-file` CLI
+  commands support `.txt`, `.md`, `.json`, and `.csv`.
+- Imported files store path, name, media type, CRC32 checksum, byte size,
+  metadata, source, timestamps and version.
+- Extracted text is projected into a derived `Document` (`file:<id>`) whose
+  chunks are indexed and recallable with file metadata.
+- Import, recall, metadata filter, JSON projection, restart/delete, unsupported
+  extension and CLI flows are covered by tests.
+
+Previous increment: Context data model v0.1:
 
 - Structured JSON `Record`s are now first-class stored objects under a logical
   table namespace.
@@ -19,7 +32,7 @@ _Last updated: 2026-06-26._
 - Documentation under `docs/` is now bilingual by rule: every file must exist
   under both `docs/en/` and `docs/pt-br/`.
 
-Previous increment: RAG Quality Layer v0.1:
+Earlier increment: RAG Quality Layer v0.1:
 
 - Query normalization maps common PostgreSQL typos/aliases (`postgress`,
   `postgres`) to `postgresql` and connection variants (`conexão`, `conexao`,
@@ -51,7 +64,8 @@ Ollama embeddings + generation, idempotent ingestion).
 
 ## What is working
 
-- Store/recall for documents (chunked), memories and structured records.
+- Store/recall for documents (chunked), memories, structured records and
+  imported text-like files.
 - Vector, BM25 text, and hybrid modes; every result carries `score`,
   `vector_score`, `text_score`, and a `reason` that includes entity tags and
   boost/penalty explanations when applied.
@@ -66,8 +80,7 @@ Ollama embeddings + generation, idempotent ingestion).
 - Retrieval quality evaluation through
   `crates/hippocore/tests/fixtures/retrieval_quality_v01.json`.
 - Product direction docs now define Hippocore as a database plus native context
-  projection layer, with future record/file data types and human administration
-  surfaces.
+  projection layer, with records/files and future human administration surfaces.
 
 ## What is partial
 
@@ -75,9 +88,9 @@ Ollama embeddings + generation, idempotent ingestion).
 - The in-memory index is rebuilt fully on open (incremental during runtime).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
-- Record field-level indexes, schema management, file objects, and a user-facing
-  admin interface are product-direction documents only; they are not implemented
-  yet.
+- Record field-level indexes, schema management, full blob storage, PDF/OCR and
+  a user-facing admin interface are product-direction documents only; they are
+  not implemented yet.
 
 ## What is broken or missing
 
@@ -101,27 +114,27 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 59 tests:
+**All green.** `cargo test --workspace` passes 64 tests:
 - 16 unit (embedder/chunker, cosine/index/BM25, query normalization, CRC32 + WAL
   line decode),
-- 35 library integration (store/recall, chunking, retrieval quality layer,
-  structured records,
-  user-supplied document
-  embeddings + validation, modes, sorting, metadata & type/user filters, tenant
-  isolation, restart, compaction, auto-compaction bounding the WAL,
-  checksum-mismatch recovery, delete/forget + restart + compaction, user
-  embeddings, empty DB, error paths, dimension-mismatch, torn-WAL recovery),
+- 39 library integration (store/recall, chunking, retrieval quality layer,
+  structured records, imported files, user-supplied document embeddings +
+  validation, modes, sorting, metadata & type/user filters, tenant isolation,
+  restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
+  recovery, delete/forget + restart + compaction, user embeddings, empty DB,
+  error paths, dimension-mismatch, torn-WAL recovery),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 6 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`),
+- 7 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+  `import-file`),
 - 1 doctest.
 
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
 is clean.
 
 `cargo bench -p hippocore` completed. Final run:
-- `remember`: 6.8941-6.9676 ms, improved by 12.282-16.301%.
-- `recall_hybrid`: 732.88-762.00 us, improved by 20.859-27.701%.
-- `search_vector`: 358.37-365.17 us, improved by 57.262-61.086%.
+- `remember`: 6.8615-6.9277 ms, no statistically significant change.
+- `recall_hybrid`: 696.41-707.12 us, no statistically significant change.
+- `search_vector`: 348.91-350.96 us, within the noise threshold.
 
 The performance fix avoids normalization/tag work in pure vector search and
 removes a set allocation from query tag detection.
@@ -135,4 +148,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**File ingestion v0.1** — see NEXT_FEATURE.md.
+**Admin CLI v0.1** — see NEXT_FEATURE.md.

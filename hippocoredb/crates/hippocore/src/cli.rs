@@ -12,7 +12,8 @@ use clap::{Args, Parser, Subcommand};
 use crate::model::{ItemKind, MemoryType, Source};
 use crate::query::SearchMode;
 use crate::{
-    Config, Hippocore, PutRecordRequest, RecallRequest, RememberRequest, StoreDocumentRequest,
+    Config, Hippocore, ImportFileRequest, PutRecordRequest, RecallRequest, RememberRequest,
+    StoreDocumentRequest,
 };
 
 /// Hippocore DB command-line interface.
@@ -37,6 +38,8 @@ enum Command {
     Remember(RememberArgs),
     /// Store a structured JSON record.
     PutRecord(PutRecordArgs),
+    /// Import a text-like file as retrievable context.
+    ImportFile(ImportFileArgs),
     /// Recall context (hybrid by default; choose --mode for vector/text).
     Recall(RecallArgs),
     /// Forget (delete) a memory by id.
@@ -45,6 +48,8 @@ enum Command {
     DeleteDocument(IdArgs),
     /// Delete a structured record by table and id.
     DeleteRecord(RecordIdArgs),
+    /// Delete an imported file and its derived document chunks by id.
+    DeleteFile(IdArgs),
     /// Print database statistics.
     Stats(DbArg),
     /// Inspect tenants, collections and counts.
@@ -156,6 +161,24 @@ struct PutRecordArgs {
 }
 
 #[derive(Args)]
+struct ImportFileArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: String,
+    #[arg(long)]
+    id: Option<String>,
+    #[arg(long)]
+    path: PathBuf,
+    #[arg(long = "meta", value_name = "KEY=VALUE")]
+    meta: Vec<String>,
+    #[arg(long)]
+    source: Option<String>,
+}
+
+#[derive(Args)]
 struct RecallArgs {
     #[arg(long)]
     db: PathBuf,
@@ -215,10 +238,12 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::PutDocument(a) => cmd_put_document(a),
         Command::Remember(a) => cmd_remember(a),
         Command::PutRecord(a) => cmd_put_record(a),
+        Command::ImportFile(a) => cmd_import_file(a),
         Command::Recall(a) => cmd_recall(a),
         Command::Forget(a) => cmd_forget(a),
         Command::DeleteDocument(a) => cmd_delete_document(a),
         Command::DeleteRecord(a) => cmd_delete_record(a),
+        Command::DeleteFile(a) => cmd_delete_file(a),
         Command::Stats(a) => cmd_stats(a),
         Command::Inspect(a) => cmd_inspect(a),
         Command::Compact(a) => cmd_compact(a),
@@ -346,6 +371,27 @@ fn cmd_put_record(a: PutRecordArgs) -> Result<(), String> {
     Ok(())
 }
 
+fn cmd_import_file(a: ImportFileArgs) -> Result<(), String> {
+    let metadata = parse_meta(&a.meta)?;
+    let mut db = open(&a.db)?;
+    db.create_tenant(&a.tenant, &a.tenant)
+        .map_err(|e| format!("{e}"))?;
+    db.create_collection(&a.tenant, &a.collection, "")
+        .map_err(|e| format!("{e}"))?;
+
+    let mut req = ImportFileRequest::new(&a.tenant, &a.collection, a.path);
+    req.id = a.id;
+    req.metadata = metadata;
+    req.source = a.source.map(Source::label);
+    let file = db.import_file(req).map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!(
+        "imported file {}/{}/{} -> {} ({} bytes, version {})",
+        file.tenant_id, file.collection, file.id, file.document_id, file.size_bytes, file.version
+    );
+    Ok(())
+}
+
 fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     let mode = SearchMode::parse(&a.mode)
         .ok_or_else(|| format!("invalid mode: {:?} (expected hybrid|vector|text)", a.mode))?;
@@ -437,6 +483,15 @@ fn cmd_delete_record(a: RecordIdArgs) -> Result<(), String> {
         "deleted record {}/{}/{}/{}",
         a.tenant, a.collection, a.table, a.id
     );
+    Ok(())
+}
+
+fn cmd_delete_file(a: IdArgs) -> Result<(), String> {
+    let mut db = open(&a.db)?;
+    db.delete_file(&a.tenant, &a.collection, &a.id)
+        .map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!("deleted file {}/{}/{}", a.tenant, a.collection, a.id);
     Ok(())
 }
 

@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — File ingestion v0.1
+
+- Added first-class `FileObject` metadata for imported text-like local files,
+  including path, name, media type, CRC32 checksum, byte size, source, metadata,
+  timestamps and version.
+- Added `Hippocore::import_file` / `delete_file` and CLI `import-file` /
+  `delete-file`.
+- Supported `.txt`, `.md`, `.json`, and `.csv` imports without network or
+  external parser dependencies.
+- Imported file text is projected into a derived document (`file:<id>`) whose
+  chunks are indexed and recallable with file metadata.
+- Added tests for import, recall, metadata filtering, JSON projection, restart,
+  delete, unsupported extensions and CLI import/delete.
+- Scoped document chunk replacement by tenant and collection, avoiding
+  cross-tenant chunk removal when document ids repeat.
+
 ### Added — Context data model v0.1
 
 - Added first-class structured JSON `Record`s under a logical table namespace.
