@@ -1288,6 +1288,19 @@ impl Hippocore {
             candidates.extend(self.graph_expanded_candidates(&hits, req.related_limit));
         }
 
+        // Score normalisation: clamp all recall scores to [0.0, 1.0] relative
+        // to the current candidate set so that temporal and graph blend weights
+        // have corpus-independent semantics.  Only applied when any blend weight
+        // is active; otherwise a no-op preserving the original ordering exactly.
+        if self.config.temporal_weight > 0.0 || self.config.graph_rank_weight > 0.0 {
+            let max_score = candidates.iter().map(|c| c.score).fold(0.0_f32, f32::max);
+            if max_score > 0.0 {
+                for candidate in &mut candidates {
+                    candidate.score /= max_score;
+                }
+            }
+        }
+
         // Temporal decay: prefer recently updated items over stale ones.
         //
         // decay = exp(-age_days / temporal_decay_days), clamped to [0.0, 1.0]

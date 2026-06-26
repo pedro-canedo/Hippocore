@@ -2650,3 +2650,74 @@ fn temporal_decay_zero_decay_days_returns_error() {
         "expected Validation error for temporal_decay_days=0.0, got {err:?}"
     );
 }
+
+// ── Score Normalisation tests ─────────────────────────────────────────────────
+
+#[test]
+fn score_normalisation_preserves_ordering_when_blends_inactive() {
+    // When temporal_weight = 0 and graph_rank_weight = 0 (default), normalisation
+    // is not applied; the recall ordering must be unchanged.
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    remember_id(
+        &mut db,
+        "pg",
+        "postgresql database connection pool configuration",
+    );
+    remember_id(
+        &mut db,
+        "ora",
+        "oracle listener startup and lsnrctl command",
+    );
+    remember_id(&mut db, "py", "python psycopg2 postgresql client library");
+
+    let plain = db
+        .recall(RecallRequest::new("acme", "postgresql connection"))
+        .unwrap();
+    let block = db
+        .build_context(BuildContextRequest::new(
+            "acme",
+            "postgresql connection",
+            4096,
+        ))
+        .unwrap();
+
+    let ctx: Vec<&str> = block.items_included.iter().map(|i| i.id.as_str()).collect();
+    let recall: Vec<&str> = plain.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(
+        ctx, recall,
+        "no-blend build_context must match recall order"
+    );
+}
+
+#[test]
+fn score_normalisation_single_candidate_gets_full_score() {
+    // With a single recall result and any blend active, normalised score = 1.0,
+    // so after blending with decay ≈ 1.0 (just stored), final score ≈ 1.0.
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.temporal_weight = 0.5;
+    cfg.temporal_decay_days = 30.0;
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+
+    remember_id(
+        &mut db,
+        "only",
+        "postgresql database connection pool configuration",
+    );
+
+    let mut req = BuildContextRequest::new("acme", "postgresql database", 4096);
+    req.top_k_candidates = 1;
+    let block = db.build_context(req).unwrap();
+
+    assert_eq!(block.items_included.len(), 1);
+    let score = block.items_included[0].score;
+    // Normalised recall = 1.0; decay ≈ 1.0 (brand new item); blend → ≈ 1.0.
+    assert!(
+        score > 0.9,
+        "single-item score should be near 1.0, got {score}"
+    );
+}

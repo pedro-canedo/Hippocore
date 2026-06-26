@@ -5,6 +5,17 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Score Normalization v0.1
+
+- `build_context` now normalises raw hybrid recall scores to `[0.0, 1.0]`
+  relative to the current candidate set before temporal decay and graph-aware
+  ranking blend formulas are evaluated. The highest-scoring candidate receives
+  normalised score `1.0`; relative ordering is unchanged.
+- Normalisation is skipped entirely when both blend weights are `0.0` (the
+  default), so there is zero overhead and no behavior change for unblended
+  queries.
+- 2 new integration tests. 132 tests total.
+
 ### Added — Temporal Decay v0.1
 
 - Added `temporal_weight: f32` (default `0.0`) and `temporal_decay_days: f32`

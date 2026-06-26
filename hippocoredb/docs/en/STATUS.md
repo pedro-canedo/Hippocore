@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Temporal Decay v0.1**:
+**Score Normalization v0.1**:
+
+- `build_context` now normalises raw hybrid recall scores to `[0.0, 1.0]`
+  before temporal decay and graph-aware ranking blends when any blend weight
+  is non-zero. The highest-scoring candidate receives a normalised score of
+  `1.0`; ordering is preserved.
+- Normalisation is skipped entirely when both blend weights are `0.0` (default),
+  so there is zero overhead and zero behavior change for unblended queries.
+- Documentation in `docs/en/SCORE_NORMALIZATION.md` and
+  `docs/pt-br/SCORE_NORMALIZATION.md`.
+- 2 new integration tests. 132 tests total.
+
+Previous: **Temporal Decay v0.1**:
 
 - `Config` gains `temporal_weight: f32` (default `0.0`) and
   `temporal_decay_days: f32` (default `30.0`).
@@ -445,7 +457,6 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Score Normalization v0.1** — ensure recall scores, decay values, and
-connectivity bonuses are produced on a consistent `[0.0, 1.0]` scale before
-blending, so that `temporal_weight` and `graph_rank_weight` have symmetric and
-predictable effects regardless of query or corpus size. See NEXT_FEATURE.md.
+**Multi-tenant Query Isolation Audit v0.1** — add a deterministic test suite
+that verifies no query, recall, or `build_context` result ever leaks data across
+tenant boundaries, even when tenants share collection names. See NEXT_FEATURE.md.

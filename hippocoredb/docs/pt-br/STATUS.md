@@ -4,7 +4,19 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Temporal Decay v0.1**:
+**Score Normalization v0.1**:
+
+- `build_context` agora normaliza scores brutos de recall híbrido para
+  `[0.0, 1.0]` antes das mesclagens de Temporal Decay e Graph-Aware Ranking
+  quando qualquer peso de mesclagem é não-zero. O candidato de maior score
+  recebe score normalizado `1.0`; a ordenação é preservada.
+- A normalização é completamente ignorada quando ambos os pesos de mesclagem
+  são `0.0` (padrão), sem overhead e sem mudança de comportamento.
+- Documentação em `docs/en/SCORE_NORMALIZATION.md` e
+  `docs/pt-br/SCORE_NORMALIZATION.md`.
+- 2 novos testes de integração. 132 testes no total.
+
+Anterior: **Temporal Decay v0.1**:
 
 - `Config` ganha `temporal_weight: f32` (padrão `0.0`) e
   `temporal_decay_days: f32` (padrão `30.0`).
@@ -375,8 +387,8 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Score Normalization v0.1** — garantir que scores de recall, valores de
-decaimento e bônus de conectividade sejam produzidos em escala consistente
-`[0.0, 1.0]` antes de mesclagem, para que `temporal_weight` e
-`graph_rank_weight` tenham efeitos simétricos e previsíveis.
+**Multi-tenant Query Isolation Audit v0.1** — adicionar uma suite de testes
+determinística que verifica que nenhum resultado de query, recall ou
+`build_context` vaza dados entre fronteiras de tenant, mesmo quando tenants
+compartilham nomes de coleção.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
