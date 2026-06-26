@@ -1213,6 +1213,18 @@ impl Hippocore {
                 self.config.graph_rank_weight
             )));
         }
+        if !(0.0..=1.0).contains(&self.config.temporal_weight) {
+            return Err(HippocoreError::validation(format!(
+                "temporal_weight must be in [0.0, 1.0], got {}",
+                self.config.temporal_weight
+            )));
+        }
+        if self.config.temporal_weight > 0.0 && self.config.temporal_decay_days <= 0.0 {
+            return Err(HippocoreError::validation(format!(
+                "temporal_decay_days must be > 0 when temporal_weight > 0, got {}",
+                self.config.temporal_decay_days
+            )));
+        }
         let started = Instant::now();
         let tenant_id = req.tenant_id.clone();
         let query = req.query.clone();
@@ -1274,6 +1286,34 @@ impl Hippocore {
             .collect();
         if req.include_related && req.related_limit > 0 {
             candidates.extend(self.graph_expanded_candidates(&hits, req.related_limit));
+        }
+
+        // Temporal decay: prefer recently updated items over stale ones.
+        //
+        // decay = exp(-age_days / temporal_decay_days), clamped to [0.0, 1.0]
+        // effective_score = recall_score * (1 - w) + decay * w
+        //
+        // When w = 0 (default) this is a no-op; ordering is unchanged.
+        if self.config.temporal_weight > 0.0 {
+            let now = now_millis();
+            let decay_days = self.config.temporal_decay_days;
+            let w = self.config.temporal_weight;
+            for candidate in &mut candidates {
+                let updated_at = self.item_updated_at(candidate.kind, &candidate.id);
+                let decay = if let Some(ts) = updated_at {
+                    let age_ms = (now - ts).max(0) as f64;
+                    let age_days = age_ms / 86_400_000.0;
+                    (-(age_days / decay_days as f64)).exp() as f32
+                } else {
+                    0.5 // neutral decay for items whose timestamp cannot be resolved
+                };
+                candidate.score = candidate.score * (1.0 - w) + decay.clamp(0.0, 1.0) * w;
+            }
+            candidates.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
         }
 
         // Graph-aware ranking: candidates whose direct neighbours also appear in
@@ -1479,6 +1519,33 @@ impl Hippocore {
             })
             .unwrap_or(0);
         (bytes, records)
+    }
+
+    fn item_updated_at(&self, kind: ItemKind, id: &str) -> Option<i64> {
+        match kind {
+            // Memory has no updated_at (memories are immutable; use created_at).
+            ItemKind::Memory => self
+                .state
+                .memories
+                .iter()
+                .find(|m| m.id == id)
+                .map(|m| m.created_at),
+            // Chunks have no timestamp; use the parent document's updated_at.
+            ItemKind::DocumentChunk => {
+                let chunk = self.state.chunks.iter().find(|c| c.id == id)?;
+                self.state
+                    .documents
+                    .iter()
+                    .find(|d| d.id == chunk.document_id)
+                    .map(|d| d.updated_at)
+            }
+            ItemKind::Record => self
+                .state
+                .records
+                .iter()
+                .find(|r| r.id == id)
+                .map(|r| r.updated_at),
+        }
     }
 
     fn related_item_ids(&self, tenant_id: &str, kind: ItemKind, id: &str) -> Vec<String> {

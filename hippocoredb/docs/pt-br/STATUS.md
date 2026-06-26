@@ -4,7 +4,23 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Graph-Aware Ranking v0.1**:
+**Temporal Decay v0.1**:
+
+- `Config` ganha `temporal_weight: f32` (padrão `0.0`) e
+  `temporal_decay_days: f32` (padrão `30.0`).
+- `build_context` aplica um viés de recência opcional após o recall híbrido:
+  `decay = exp(-age_days / decay_days)` mesclado ao score efetivo
+  (`recall × (1−w) + decay × w`). Itens Memory usam `created_at`; chunks de
+  documentos usam `updated_at` do documento pai; records usam `updated_at`.
+  Itens com timestamp não resolvível recebem decaimento neutro de `0.5`.
+- O Temporal Decay é executado antes do Graph-Aware Ranking; as duas features
+  se compõem.
+- `temporal_weight` fora de `[0.0, 1.0]` ou `temporal_decay_days ≤ 0` com
+  peso não-zero retorna `HippocoreError::Validation` antes de qualquer I/O.
+- Documentação em `docs/en/TEMPORAL_DECAY.md` e `docs/pt-br/TEMPORAL_DECAY.md`.
+- 4 novos testes de integração. 130 testes no total.
+
+Anterior: **Graph-Aware Ranking v0.1**:
 
 - `Config` ganha `graph_rank_weight: f32` (default `0.0` = desativado; sem
   mudança de comportamento para bancos existentes).
@@ -359,7 +375,8 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Temporal Decay v0.1** — aplicar um viés de recência aos scores de recall
-para que memórias armazenadas ou atualizadas recentemente sejam preferidas em
-relação a memórias semanticamente similares mas desatualizadas.
+**Score Normalization v0.1** — garantir que scores de recall, valores de
+decaimento e bônus de conectividade sejam produzidos em escala consistente
+`[0.0, 1.0]` antes de mesclagem, para que `temporal_weight` e
+`graph_rank_weight` tenham efeitos simétricos e previsíveis.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

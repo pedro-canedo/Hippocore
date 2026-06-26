@@ -4,7 +4,23 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Graph-Aware Ranking v0.1**:
+**Temporal Decay v0.1**:
+
+- `Config` gains `temporal_weight: f32` (default `0.0`) and
+  `temporal_decay_days: f32` (default `30.0`).
+- `build_context` applies an optional recency bias after hybrid recall:
+  `decay = exp(-age_days / decay_days)` blended into the effective score
+  (`recall × (1−w) + decay × w`). Memory items use `created_at`; document
+  chunks use the parent document's `updated_at`; records use `updated_at`.
+  Items with unresolvable timestamps get a neutral decay of `0.5`.
+- Temporal decay runs before graph-aware ranking; both features compose.
+- `temporal_weight` outside `[0.0, 1.0]` or `temporal_decay_days ≤ 0` with
+  non-zero weight returns `HippocoreError::Validation` before any I/O.
+- Documentation in `docs/en/TEMPORAL_DECAY.md` and
+  `docs/pt-br/TEMPORAL_DECAY.md`.
+- 4 new integration tests. 130 tests total.
+
+Previous: **Graph-Aware Ranking v0.1**:
 
 - `Config` gains `graph_rank_weight: f32` (default `0.0` = disabled; no
   behavior change for existing databases).
@@ -429,6 +445,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Temporal Decay v0.1** — apply a recency bias to recall scores so that
-recently stored or updated memories are preferred over semantically similar
-but stale ones. See NEXT_FEATURE.md.
+**Score Normalization v0.1** — ensure recall scores, decay values, and
+connectivity bonuses are produced on a consistent `[0.0, 1.0]` scale before
+blending, so that `temporal_weight` and `graph_rank_weight` have symmetric and
+predictable effects regardless of query or corpus size. See NEXT_FEATURE.md.

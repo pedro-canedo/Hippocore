@@ -59,6 +59,16 @@ pub struct Config {
     /// `effective = recall_score * (1 - w) + connectivity_score * w`.
     /// `0.0` (default) disables the bonus; ordering is identical to plain recall.
     pub graph_rank_weight: f32,
+    /// Weight in `[0.0, 1.0]` for temporal decay bonus in `build_context`.
+    ///
+    /// When non-zero, more recently updated candidates are preferred:
+    /// `decay = exp(-age_days / temporal_decay_days)` blended into the score as
+    /// `effective = recall_score * (1 - w) + decay * w`.
+    /// `0.0` (default) disables the bias; ordering is identical to plain recall.
+    pub temporal_weight: f32,
+    /// Half-life denominator (in days) for temporal decay. Must be `> 0.0` when
+    /// `temporal_weight > 0`. Default: `30.0` (a 30-day half-life).
+    pub temporal_decay_days: f32,
 }
 
 impl Config {
@@ -85,6 +95,8 @@ impl Default for Config {
             audit_max_records: DEFAULT_AUDIT_MAX_RECORDS,
             audit_max_bytes: DEFAULT_AUDIT_MAX_BYTES,
             graph_rank_weight: 0.0,
+            temporal_weight: 0.0,
+            temporal_decay_days: 30.0,
         }
     }
 }

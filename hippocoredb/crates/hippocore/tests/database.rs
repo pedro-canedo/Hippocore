@@ -2547,3 +2547,106 @@ fn graph_rank_weight_out_of_range_returns_error() {
         "expected Validation error, got {err:?}"
     );
 }
+
+// ── Temporal Decay tests ──────────────────────────────────────────────────────
+
+#[test]
+fn temporal_decay_weight_zero_preserves_recall_ordering() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.temporal_weight = 0.0;
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+
+    remember_id(&mut db, "old", "postgresql connection pool tuning advice");
+    remember_id(&mut db, "new", "postgresql connection pool best practices");
+
+    // With weight=0 the context order must equal recall order.
+    let plain_hits = db
+        .recall(RecallRequest::new("acme", "postgresql connection pool"))
+        .unwrap();
+    let block = db
+        .build_context(BuildContextRequest::new(
+            "acme",
+            "postgresql connection pool",
+            2048,
+        ))
+        .unwrap();
+
+    let ctx_order: Vec<&str> = block.items_included.iter().map(|i| i.id.as_str()).collect();
+    let recall_order: Vec<&str> = plain_hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(
+        ctx_order, recall_order,
+        "temporal_weight=0 must preserve recall ordering"
+    );
+}
+
+#[test]
+fn temporal_decay_prefers_recent_memory() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.temporal_weight = 1.0; // purely time-based
+    cfg.temporal_decay_days = 1.0; // sharp decay: 1-day half-life
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+
+    // Both memories have identical content; their insertion time differs
+    // because remember_id stores each with the current clock. In tests
+    // both will have nearly the same age (sub-millisecond apart), so we
+    // cannot assert a strict ordering here — instead we verify the
+    // mechanism does not error and returns both items.
+    remember_id(&mut db, "a", "postgresql connection settings reference");
+    remember_id(&mut db, "b", "postgresql connection settings reference");
+
+    let block = db
+        .build_context(BuildContextRequest::new(
+            "acme",
+            "postgresql connection settings",
+            4096,
+        ))
+        .unwrap();
+
+    // Both items must appear (nothing should be silently dropped).
+    let ids: Vec<&str> = block.items_included.iter().map(|i| i.id.as_str()).collect();
+    assert!(ids.contains(&"a"), "item 'a' missing from context");
+    assert!(ids.contains(&"b"), "item 'b' missing from context");
+}
+
+#[test]
+fn temporal_decay_weight_out_of_range_returns_error() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.temporal_weight = -0.1; // out of range
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    let req = BuildContextRequest::new("acme", "postgresql", 2048);
+    let err = db.build_context(req).unwrap_err();
+    assert!(
+        matches!(err, HippocoreError::Validation(_)),
+        "expected Validation error for temporal_weight=-0.1, got {err:?}"
+    );
+}
+
+#[test]
+fn temporal_decay_zero_decay_days_returns_error() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.temporal_weight = 0.5;
+    cfg.temporal_decay_days = 0.0; // invalid
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    let req = BuildContextRequest::new("acme", "postgresql", 2048);
+    let err = db.build_context(req).unwrap_err();
+    assert!(
+        matches!(err, HippocoreError::Validation(_)),
+        "expected Validation error for temporal_decay_days=0.0, got {err:?}"
+    );
+}

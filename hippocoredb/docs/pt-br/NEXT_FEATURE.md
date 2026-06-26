@@ -2,49 +2,48 @@
 
 ## Nome
 
-**Temporal Decay v0.1** — aplicar um viés de recência aos scores de recall.
+**Score Normalization v0.1** — normalizar scores de recall e entradas de
+mesclagem para o range consistente `[0.0, 1.0]` antes do Temporal Decay e do
+Graph-Aware Ranking.
 
 ## Por que importa
 
-O Graph-Aware Ranking v0.1 recompensa conectividade; a lacuna remanescente é
-desatualização. Uma memória sobre "a config de staging" armazenada há seis
-meses deveria ter score menor do que uma memória equivalente adicionada ontem,
-porque contexto recente é mais provavelmente preciso e acionável. Sem
-ponderação de recência, similaridade semântica sozinha determina o ranking —
-uma memória desatualizada mas altamente similar pode deslocar uma mais recente,
-ligeiramente menos similar.
+`temporal_weight` e `graph_rank_weight` assumem que ambos os operandos da
+mesclagem estão em `[0.0, 1.0]`. Os scores de decaimento e conectividade já
+são normalizados, mas o score de recall bruto (um híbrido de cosseno + TF-IDF)
+pode exceder `1.0` dependendo da forma da query ou do corpus, tornando a
+mesclagem assimétrica. Sem normalização, os parâmetros de peso não têm
+semântica intuitiva e independente do corpus.
 
 ## Comportamento
 
-Após o recall híbrido produzir candidatos com scores, aplica um multiplicador
-de decaimento temporal antes do re-ranking de grafo e do passo de budget:
+Antes das mesclagens de Temporal Decay e Graph-Aware Ranking, normalizar o
+`recall_score` bruto de cada candidato:
 
-- `age_seconds = now_ms - item.updated_at_ms / 1000`.
-- `decay = exp(-decay_rate × age_seconds / 86400)` (exponencial, por dia).
-- `effective_score = recall_score * (1 - temporal_weight) + decay * temporal_weight`.
+- Coletar todos os scores do conjunto de candidatos.
+- `max_score = max(scores)`.
+- `normalised = score / max_score` (ou `0.0` quando max é `0`).
+- Prosseguir com `normalised` como base em todas as fórmulas de mesclagem.
 
-Quando `temporal_weight = 0.0` (padrão) o multiplicador é no-op e a ordenação
-não muda. Quando `temporal_weight = 1.0` apenas a recência importa.
+A normalização é escopada por query (relativa ao conjunto de candidatos atual),
+então valores absolutos de score entre queries permanecem incomparáveis — isso
+é intencional.
 
 ## Arquivos
 
-- `crates/hippocore/src/lib.rs` — blend de decaimento temporal em
-  `build_context` após `run_query` e antes do ranking de grafo.
-- `crates/hippocore/src/config.rs` — novos campos `temporal_weight: f32`
-  (padrão `0.0`) e `temporal_decay_days: f32` (padrão `30.0`).
+- `crates/hippocore/src/lib.rs` — passo de normalização em `build_context`
+  antes do Temporal Decay e Graph-Aware Ranking.
 - `crates/hippocore/tests/database.rs` — testes determinísticos.
-- `docs/en/TEMPORAL_DECAY.md` e `docs/pt-br/TEMPORAL_DECAY.md`.
+- `docs/en/SCORE_NORMALIZATION.md` e `docs/pt-br/SCORE_NORMALIZATION.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- `temporal_weight = 0.0` mantém exatamente a mesma ordenação que o recall
-  simples.
-- Uma memória atualizada recentemente é ranqueada acima de uma memória
-  idêntica (conteúdo, vetor) mais antiga quando `temporal_weight > 0`.
-- `temporal_weight` ou `temporal_decay_days` fora do range válido retorna erro
-  tipado.
-- Mínimo de 3 testes de integração determinísticos.
+- Todos os scores de candidatos no caminho de mesclagem estão em `[0.0, 1.0]`.
+- A normalização não muda a ordenação relativa quando nenhuma mesclagem está
+  ativa (todos os pesos `= 0`).
+- Quando um único candidato é retornado, ele recebe score `1.0`.
+- Mínimo de 2 testes de integração determinísticos.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -52,7 +51,7 @@ não muda. Quando `temporal_weight = 1.0` apenas a recência importa.
 
 ## Fora de escopo
 
-- Reindexação periódica em background por idade.
+- Normalização de scores de recall retornados por `recall()` ou `search()`
+  (afeta apenas a mesclagem em `build_context`).
+- Persistência ou calibração de scores entre queries.
 - Modo server.
-- Evicção automática de memórias desatualizadas.
-- Travessia multi-hop de grafo.

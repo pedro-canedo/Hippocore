@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Temporal Decay v0.1
+
+- Added `temporal_weight: f32` (default `0.0`) and `temporal_decay_days: f32`
+  (default `30.0`) to `Config`.
+- `build_context` now applies an optional exponential recency bias before
+  graph-aware ranking: `decay = exp(-age_days / decay_days)` blended as
+  `recall × (1−w) + decay × w`. Memory items use `created_at`; chunks use
+  parent document `updated_at`; records use `updated_at`. Items with
+  unresolvable timestamps receive a neutral decay of `0.5`.
+- Passing `temporal_weight` outside `[0.0, 1.0]` or `temporal_decay_days ≤ 0`
+  with non-zero weight returns a typed `HippocoreError::Validation` error.
+- 4 new integration tests. 130 tests total.
+
 ### Added — Graph-Aware Ranking v0.1
 
 - Added `graph_rank_weight: f32` to `Config` (default `0.0`; zero means
