@@ -19,6 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 clap = { workspace = true }
+pdf-extract = "0.7"
 
 [dev-dependencies]
 tempfile = { workspace = true }

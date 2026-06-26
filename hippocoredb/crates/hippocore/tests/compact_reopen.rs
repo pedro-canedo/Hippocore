@@ -114,6 +114,8 @@ fn documents_survive_compact_reopen() {
             collection: "kb".into(),
             id: Some("doc-1".into()),
             text: "backpropagation through time for RNNs".into(),
+            content_type: None,
+            raw: None,
             metadata: Default::default(),
             source: None,
             chunks: None,

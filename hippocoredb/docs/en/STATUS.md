@@ -4,7 +4,22 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 11 — HTTP Server ✅**:
+**Phase 12 — Multimodal Storage ✅**:
+
+- `StoreDocumentRequest` gains `content_type: Option<String>` and
+  `raw: Option<Vec<u8>>` (binary payload for PDF).
+- New module `crates/hippocore/src/ingest.rs` with content-type dispatch.
+- **PDF** (`application/pdf`): `from_pdf(tenant, col, bytes)` constructor;
+  text extracted via `pdf-extract` (pure Rust, no C deps). Extraction errors
+  return `HippocoreError::Validation`, never panic.
+- **Code files** (`text/x-<lang>`): `from_code(tenant, col, text, language)`;
+  heuristic chunker splits at top-level definition boundaries. Supported
+  languages: rust, python, javascript, typescript, go, java, kotlin.
+  Unrecognised languages fall back to the standard token chunker.
+- 8 integration tests + 6 unit tests. **223 tests total.**
+- Documentation in `docs/en/MULTIMODAL_INGEST.md` and `docs/pt-br/`.
+
+Previous: **Phase 11 — HTTP Server ✅**:
 
 - New crate `crates/hippocore-server`: axum 0.8 REST/JSON server over the
   full core API. Shared `Arc<Mutex<Hippocore>>` state.

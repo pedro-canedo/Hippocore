@@ -111,6 +111,18 @@ not a dated commitment.
   - 7 integration tests (health, auth×2, stats, full flow, document, context). ✅
 - `hippocore serve [--port 8080] [--db ./data] [--api-key KEY]` CLI subcommand. ✅
 
-## Phase 12 — Multimodal storage
+## Phase 12 — Multimodal storage ✅
 
-- Text, PDF, image, audio, video and code.
+- `StoreDocumentRequest` gains `content_type: Option<String>` and
+  `raw: Option<Vec<u8>>` for binary payloads. ✅
+- New crate module `ingest.rs` with content-type dispatch pipeline. ✅
+- **PDF** (`application/pdf`): text extracted via `pdf-extract` (pure Rust). ✅
+  - `StoreDocumentRequest::from_pdf(tenant, collection, bytes)` constructor. ✅
+  - Extraction failures surface as `HippocoreError::Validation` — no panic. ✅
+- **Code files** (`text/x-<lang>`, `application/x-<lang>`): heuristic chunker
+  splits at top-level definition boundaries. ✅
+  - Supported: rust, python, javascript, typescript, go, java, kotlin. ✅
+  - `StoreDocumentRequest::from_code(tenant, collection, text, language)`. ✅
+  - Unrecognised languages fall back to the standard token chunker. ✅
+- 8 integration tests + 6 unit tests. 223 tests total. ✅
+- Image, audio, video: later phases.

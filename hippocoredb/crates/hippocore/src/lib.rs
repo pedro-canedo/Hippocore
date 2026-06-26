@@ -31,6 +31,7 @@ pub mod config;
 pub mod errors;
 pub mod hnsw;
 pub mod index;
+pub mod ingest;
 pub mod memory;
 pub mod model;
 pub mod query;
@@ -158,6 +159,15 @@ impl ChunkInput {
 /// use embeddings from an external model, set [`chunks`](Self::chunks) with
 /// pre-embedded [`ChunkInput`]s; then `text` is stored as the document body but
 /// chunking/embedding is taken entirely from the supplied chunks.
+///
+/// ## Multimodal content types (Phase 12)
+///
+/// Set `content_type` to enable content-aware ingestion:
+///
+/// * `"application/pdf"` — provide binary bytes in `raw`; text is extracted
+///   automatically.
+/// * `"text/x-rust"`, `"text/x-python"`, `"text/x-javascript"`, etc. — uses a
+///   heuristic code chunker that splits at top-level definition boundaries.
 #[derive(Debug, Clone)]
 pub struct StoreDocumentRequest {
     /// Owning tenant (must exist).
@@ -166,8 +176,13 @@ pub struct StoreDocumentRequest {
     pub collection: String,
     /// Optional explicit id; generated if `None`.
     pub id: Option<String>,
-    /// Full document text.
+    /// Full document text. For binary content types (e.g. PDF), leave this
+    /// empty and supply bytes in [`raw`](Self::raw) instead.
     pub text: String,
+    /// MIME type hint that selects the ingestion pipeline. `None` = plain text.
+    pub content_type: Option<String>,
+    /// Raw binary payload. Required when `content_type == "application/pdf"`.
+    pub raw: Option<Vec<u8>>,
     /// Exact-match metadata.
     pub metadata: Metadata,
     /// Optional provenance.
@@ -193,6 +208,55 @@ impl StoreDocumentRequest {
             collection: collection.into(),
             id: None,
             text: text.into(),
+            content_type: None,
+            raw: None,
+            metadata: Metadata::new(),
+            source: None,
+            chunks: None,
+            valid_from: None,
+            valid_until: None,
+        }
+    }
+
+    /// Build a request for a PDF binary payload.
+    ///
+    /// The `text` field is left empty; bytes are extracted during ingestion.
+    pub fn from_pdf(
+        tenant_id: impl Into<String>,
+        collection: impl Into<String>,
+        bytes: Vec<u8>,
+    ) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            collection: collection.into(),
+            id: None,
+            text: String::new(),
+            content_type: Some("application/pdf".into()),
+            raw: Some(bytes),
+            metadata: Metadata::new(),
+            source: None,
+            chunks: None,
+            valid_from: None,
+            valid_until: None,
+        }
+    }
+
+    /// Build a request for a source-code file with a language hint.
+    ///
+    /// Uses the `text/x-<language>` MIME convention (e.g. `"rust"`, `"python"`).
+    pub fn from_code(
+        tenant_id: impl Into<String>,
+        collection: impl Into<String>,
+        text: impl Into<String>,
+        language: impl Into<String>,
+    ) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            collection: collection.into(),
+            id: None,
+            text: text.into(),
+            content_type: Some(format!("text/x-{}", language.into())),
+            raw: None,
             metadata: Metadata::new(),
             source: None,
             chunks: None,
@@ -680,8 +744,32 @@ impl Hippocore {
     }
 
     /// Store (or overwrite) a document, chunking and embedding its text.
+    ///
+    /// When `req.content_type` is set, the ingestion pipeline is routed through
+    /// the appropriate extractor before chunking:
+    /// - `"application/pdf"`: text extracted from `req.raw` bytes.
+    /// - `"text/x-<lang>"`: heuristic code chunker for the given language.
     pub fn store_document(&mut self, req: StoreDocumentRequest) -> Result<Document> {
         self.require_collection(&req.tenant_id, &req.collection)?;
+
+        // Content-type dispatch: resolve the document text and any override
+        // chunking strategy before building the stored document.
+        let (resolved_text, code_lang) = match req.content_type.as_deref() {
+            Some(ct) if ingest::is_pdf(ct) => {
+                let bytes = req.raw.as_deref().ok_or_else(|| {
+                    HippocoreError::Validation(
+                        "content_type is application/pdf but no raw bytes were provided".into(),
+                    )
+                })?;
+                let text = ingest::extract_pdf(bytes)?;
+                (text, None)
+            }
+            Some(ct) => {
+                let lang = ingest::code_language(ct);
+                (req.text.clone(), lang)
+            }
+            None => (req.text.clone(), None),
+        };
 
         let id = req.id.unwrap_or_else(|| gen_id("doc"));
         let now = now_millis();
@@ -694,7 +782,7 @@ impl Hippocore {
             id: id.clone(),
             tenant_id: req.tenant_id.clone(),
             collection: req.collection.clone(),
-            text: req.text.clone(),
+            text: resolved_text,
             metadata: req.metadata,
             source: req.source,
             created_at,
@@ -705,10 +793,13 @@ impl Hippocore {
         };
         document.validate()?;
 
-        // Either use caller-supplied per-chunk embeddings, or auto chunk+embed.
+        // Chunking: caller-supplied > code-aware > default token chunker.
         let chunks = match req.chunks {
             Some(inputs) => self.build_chunks_from_inputs(&document, inputs)?,
-            None => self.build_chunks(&document),
+            None => match code_lang {
+                Some(ref lang) => self.build_chunks_code(&document, lang),
+                None => self.build_chunks(&document),
+            },
         };
         self.commit(Operation::PutDocument {
             document: document.clone(),
@@ -2200,6 +2291,25 @@ impl Hippocore {
 
     fn build_chunks(&self, document: &Document) -> Vec<Chunk> {
         memory::chunk_text(&document.text, self.config.chunk_tokens)
+            .into_iter()
+            .enumerate()
+            .map(|(ordinal, text)| {
+                let embedding = self.embedder.embed(&text);
+                Chunk {
+                    id: format!("{}#{}", document.id, ordinal),
+                    document_id: document.id.clone(),
+                    tenant_id: document.tenant_id.clone(),
+                    collection: document.collection.clone(),
+                    ordinal,
+                    text,
+                    embedding,
+                }
+            })
+            .collect()
+    }
+
+    fn build_chunks_code(&self, document: &Document, language: &str) -> Vec<Chunk> {
+        ingest::chunk_code(&document.text, language, self.config.chunk_tokens)
             .into_iter()
             .enumerate()
             .map(|(ordinal, text)| {

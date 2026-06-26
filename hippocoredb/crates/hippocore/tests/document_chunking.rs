@@ -23,6 +23,8 @@ fn store_doc(db: &mut Hippocore, id: &str, text: &str) -> hippocore::model::Docu
         collection: "kb".into(),
         id: Some(id.into()),
         text: text.into(),
+        content_type: None,
+        raw: None,
         metadata: Default::default(),
         source: None,
         chunks: None,

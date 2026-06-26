@@ -4,7 +4,22 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Phase 11 — HTTP Server ✅**:
+**Phase 12 — Armazenamento Multimodal ✅**:
+
+- `StoreDocumentRequest` ganha `content_type: Option<String>` e
+  `raw: Option<Vec<u8>>` (payload binário para PDF).
+- Novo módulo `crates/hippocore/src/ingest.rs` com despacho por content-type.
+- **PDF** (`application/pdf`): construtor `from_pdf(tenant, col, bytes)`;
+  texto extraído via `pdf-extract` (Rust puro, sem deps C). Erros de extração
+  retornam `HippocoreError::Validation`, nunca panic.
+- **Código** (`text/x-<lang>`): construtor `from_code(tenant, col, text, lang)`;
+  chunker heurístico divide em fronteiras de definições top-level. Linguagens:
+  rust, python, javascript, typescript, go, java, kotlin. Linguagens não
+  reconhecidas recaem no chunker por tokens.
+- 8 testes de integração + 6 unitários. **223 testes no total.**
+- Documentação em `docs/en/MULTIMODAL_INGEST.md` e `docs/pt-br/`.
+
+Anterior: **Phase 11 — HTTP Server ✅**:
 
 - Novo crate `crates/hippocore-server`: servidor REST/JSON axum 0.8 sobre
   toda a API core. Estado compartilhado `Arc<Mutex<Hippocore>>`.

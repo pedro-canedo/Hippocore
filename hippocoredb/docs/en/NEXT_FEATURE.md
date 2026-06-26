@@ -2,30 +2,36 @@
 
 ## Feature name
 
-**Phase 12 — Multimodal Storage** (text, PDF, code, images)
+**Phase 13 — Metadata Filtering & Faceted Search**
 
 ## Why it matters
 
-Phase 11 (HTTP server) made Hippocore accessible to any language. Phase 12
-extends the document model to handle richer content types: PDFs, source code
-files, and eventually images. This closes the gap between Hippocore and
-production RAG pipelines that must process real-world inputs.
+Phase 12 gave Hippocore the ability to ingest diverse content types. Phase 13
+makes the retrieval layer more precise: callers often need to scope queries to
+a date range, a specific source, a confidence band, or a custom metadata key.
+Without first-class filtering, every recall result must be post-processed by the
+caller.
 
-## Minimum viable scope for Phase 12
+## Minimum viable scope for Phase 13
 
-1. **PDF ingestion**: accept a PDF byte payload, extract text per-page, chunk
-   and embed each page. Store page number in metadata.
-2. **Code file ingestion**: accept source files with a `language` hint; use
-   token-aware chunking that respects function boundaries (heuristic, no tree-
-   sitter required).
-3. **MIME-type routing**: `StoreDocumentRequest` gains a `content_type` field;
-   the core library dispatches to the appropriate extractor.
-4. **Tests**: at least one PDF round-trip test and one code-file round-trip test.
-5. **Docs**: bilingual documentation for the new `content_type` API.
+1. **Metadata filter expressions**: extend `RecallRequest` and `BuildContextRequest`
+   to accept richer filter expressions beyond the current exact-match
+   `Metadata` map — at minimum `$gte`, `$lte`, `$in`, and `$ne` operators on
+   string and numeric metadata values.
+2. **Date-range filter**: shorthand helpers on `RecallRequest` for
+   `valid_from >= X` and `valid_until <= Y`.
+3. **Confidence range filter**: `min_confidence: Option<f32>` on `RecallRequest`
+   to exclude memories below a threshold.
+4. **Facet counts**: new method `Hippocore::facets(tenant, collection, field)`
+   returning `Vec<(String, usize)>` — distinct values and their document counts
+   for a metadata field.
+5. **Tests**: at least 6 integration tests covering each new filter operator
+   and facets.
+6. **Docs**: bilingual documentation.
 
-## Out of scope for Phase 12
+## Out of scope for Phase 13
 
-- Image / audio / video (later phases).
-- GPU acceleration.
-- Tree-sitter AST parsing.
-- Cloud-hosted extractors.
+- Full query language (SQL-like DSL).
+- Geospatial filtering.
+- Nested metadata objects.
+- Write-through index updates for large filter scans.

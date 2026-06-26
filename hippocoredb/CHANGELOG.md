@@ -5,6 +5,23 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Multimodal Storage (Phase 12 complete)
+
+- `StoreDocumentRequest` gains `content_type: Option<String>` and
+  `raw: Option<Vec<u8>>` fields.
+- New constructors: `from_pdf(tenant, col, bytes)` and
+  `from_code(tenant, col, text, language)`.
+- New module `crates/hippocore/src/ingest.rs`:
+  - `extract_pdf` — pure-Rust PDF text extraction via `pdf-extract 0.7`.
+  - `chunk_code` — heuristic code chunker that splits at top-level definition
+    boundaries for rust, python, javascript, typescript, go, java, kotlin.
+  - `is_pdf`, `code_language`, `normalise_mime` — content-type routing helpers.
+- `Hippocore::store_document` dispatches on `content_type`; new private method
+  `build_chunks_code` handles language-aware chunking.
+- New integration test file `crates/hippocore/tests/multimodal_ingest.rs`
+  (8 tests). 6 new unit tests in `ingest.rs`. 223 tests total.
+- Added `pdf-extract = "0.7"` to `crates/hippocore` dependencies.
+
 ### Added — HTTP Server (Phase 11 complete)
 
 - New crate `crates/hippocore-server`: axum 0.8 REST/JSON HTTP server.
