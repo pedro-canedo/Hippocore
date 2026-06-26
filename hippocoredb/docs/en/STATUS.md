@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Admin Data Actions v0.1**:
+**Admin CLI v0.1**:
+
+- Added `hippocore tenants list` and `hippocore tenants create` nested
+  subcommands, backed by explicit `create_tenant` calls (tenants and collections
+  were previously only created implicitly as side effects).
+- Added `hippocore collections list` and `hippocore collections create`
+  subcommands.
+- All existing flat commands (`list-tenants`, `list-collections`, `put-record`,
+  `recall`, etc.) remain unchanged.
+- Five unit tests verify argument parsing and round-trip create/list flows for
+  the new subcommands.
+
+Previous: **Admin Data Actions v0.1**:
 
 - Added `POST /admin/tenants/:tid/records` handler backed by `put_record`.
 - Ingestion & Recall page now supports Memory, Document, and Record creation.

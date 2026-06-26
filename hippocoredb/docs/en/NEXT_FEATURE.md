@@ -2,55 +2,59 @@
 
 ## Feature name
 
-**Admin CLI v0.1**
+**Confidence-Weighted Recall v0.1**
 
 ## Why it matters
 
-The Control Plane and the REST API now cover the main data-ingestion flows.
-The next highest-value slice is to add CLI sub-commands that mirror those flows
-so operators can script and automate without running an HTTP server. The existing
-`hippocore-cli` binary already has `stats` and `bench`; it needs data-plane
-commands.
+Memories can carry an explicit confidence score set by the caller or the
+human-in-the-loop `rate-memory` command, but the hybrid recall engine does not
+use it. High-confidence memories that are semantically similar to the query can
+be buried under lower-confidence but noisier matches. Factoring confidence into
+the final ranking score improves RAG output quality measurably and without
+changing the data model.
 
 ## Behavior
 
-- `hippocore tenants list` — print all tenants in a data directory.
-- `hippocore tenants create <id> [--name <n>]` — create a tenant.
-- `hippocore collections list --tenant <tid>` — list collections for a tenant.
-- `hippocore collections create --tenant <tid> <name>` — create a collection.
-- `hippocore memories add --tenant <tid> --collection <col> <text>` — remember.
-- `hippocore records put --tenant <tid> --collection <col> --table <tbl>
-  [--payload <json>|--file <path>]` — put a structured JSON record.
-- `hippocore recall --tenant <tid> --collection <col> <query>` — hybrid recall.
-- All commands read from the data directory (`--db` flag, default
-  `./hippocore-data`).
-- Output is plain text or JSON (`--json` flag).
+- After the hybrid score (vector + text fusion) is computed, multiply it by a
+  confidence weight derived from each item's `confidence` field.
+- Items with no confidence set (the common case) are treated as neutral weight
+  (`1.0`) — no regressions for existing data.
+- Weight formula: `final_score = hybrid_score * (1.0 + alpha * (confidence - 0.5))`
+  where `alpha` is a tunable constant (start with `0.4`). This gives a ±20%
+  boost/penalty at the extremes (0.0 and 1.0).
+- Only `Memory` items carry a confidence score; `DocumentChunk` and `Record`
+  items use neutral weight.
+- The change lives entirely in the `query` module; `storage` and `lib.rs` are
+  unchanged.
+- The `RecallResult` struct gains no new fields; confidence is an internal
+  ranking signal, not a returned metadata field.
 
 ## Likely files
 
-- `crates/hippocore-cli/src/main.rs`
-- `crates/hippocore/src/cli.rs`
-- `crates/hippocore/tests/record_crud.rs`
+- `crates/hippocore/src/query.rs`
+- `crates/hippocore/tests/retrieval_quality.rs`
+- `docs/en/SCORE_NORMALIZATION.md`
+- `docs/pt-br/SCORE_NORMALIZATION.md`
 - `docs/en/STATUS.md`
 - `docs/pt-br/STATUS.md`
 - `CHANGELOG.md`
 
 ## Acceptance criteria
 
-- All listed sub-commands are implemented and respond to `--help`.
-- `hippocore tenants list` lists tenants after `tenants create`.
-- `hippocore records put` creates a record readable via `hippocore sql`.
-- `hippocore recall` returns text results.
-- Tenant isolation: commands fail with a clear error if the tenant does not
-  exist.
+- A high-confidence memory (`confidence=0.9`) that scores identically to a
+  zero-confidence memory in hybrid recall appears above it in results.
+- A zero-confidence memory (`confidence=0.0`) that scores identically to a
+  neutral memory (no confidence set) appears below it.
+- Items with no confidence set retain their original relative ranking.
+- The retrieval quality fixture still passes all thresholds (MRR, hit@1,
+  hit@k).
 - `cargo fmt --all --check`, `cargo test --workspace`, and
   `cargo clippy --workspace --all-targets -- -D warnings` pass.
 
 ## Out of scope
 
-- Interactive TUI.
-- Shell completion.
-- Streaming output.
-- CSV import.
-- Graph traversal CLI.
-- HTTP server sub-commands (those live in `hippocore serve`).
+- Confidence on `DocumentChunk` or `Record` items.
+- Exposing `confidence` as a filter in `RecallRequest`.
+- Making `alpha` a configurable server parameter.
+- Changing the `RecallResult` struct.
+- Any change to `storage`, `memory`, or `lib.rs`.

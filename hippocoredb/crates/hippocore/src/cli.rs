@@ -99,6 +99,10 @@ enum Command {
     RateMemory(RateMemoryArgs),
     /// Compact the audit log, keeping only the newest records within a retention limit.
     CompactAudit(CompactAuditArgs),
+    /// Manage tenants (subcommands: list, create).
+    Tenants(TenantsCmd),
+    /// Manage collections (subcommands: list, create).
+    Collections(CollectionsCmd),
 }
 
 #[derive(Args)]
@@ -559,6 +563,58 @@ struct CompactAuditArgs {
     json: bool,
 }
 
+#[derive(Args)]
+struct TenantsCmd {
+    #[command(subcommand)]
+    command: TenantsSubcmd,
+}
+
+#[derive(Subcommand)]
+enum TenantsSubcmd {
+    /// List all tenants in the data directory.
+    List(ListTenantsArgs),
+    /// Create a tenant.
+    Create(CreateTenantArgs),
+}
+
+#[derive(Args)]
+struct CollectionsCmd {
+    #[command(subcommand)]
+    command: CollectionsSubcmd,
+}
+
+#[derive(Subcommand)]
+enum CollectionsSubcmd {
+    /// List collections (optionally filtered to one tenant).
+    List(ListCollectionsArgs),
+    /// Create a collection inside a tenant.
+    Create(CreateCollectionArgs),
+}
+
+#[derive(Args)]
+struct CreateTenantArgs {
+    #[arg(long)]
+    db: PathBuf,
+    /// Unique tenant id.
+    id: String,
+    /// Human-readable name (defaults to id).
+    #[arg(long)]
+    name: Option<String>,
+}
+
+#[derive(Args)]
+struct CreateCollectionArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    /// Collection name.
+    name: String,
+    /// Optional description.
+    #[arg(long, default_value = "")]
+    description: String,
+}
+
 /// Parse arguments from the process and run, returning a process exit code.
 pub fn run() -> ExitCode {
     match dispatch(Cli::parse()) {
@@ -605,6 +661,14 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::Audit(a) => cmd_audit(a),
         Command::RateMemory(a) => cmd_rate_memory(a),
         Command::CompactAudit(a) => cmd_compact_audit(a),
+        Command::Tenants(cmd) => match cmd.command {
+            TenantsSubcmd::List(a) => cmd_list_tenants(a),
+            TenantsSubcmd::Create(a) => cmd_create_tenant(a),
+        },
+        Command::Collections(cmd) => match cmd.command {
+            CollectionsSubcmd::List(a) => cmd_list_collections(a),
+            CollectionsSubcmd::Create(a) => cmd_create_collection(a),
+        },
     }
 }
 
@@ -1364,6 +1428,24 @@ fn cmd_show_file(a: ShowIdArgs) -> Result<(), String> {
     Ok(())
 }
 
+fn cmd_create_tenant(a: CreateTenantArgs) -> Result<(), String> {
+    let name = a.name.as_deref().unwrap_or(&a.id);
+    let mut db = open(&a.db)?;
+    db.create_tenant(&a.id, name).map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!("created tenant {} ({})", a.id, name);
+    Ok(())
+}
+
+fn cmd_create_collection(a: CreateCollectionArgs) -> Result<(), String> {
+    let mut db = open(&a.db)?;
+    db.create_collection(&a.tenant, &a.name, &a.description)
+        .map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!("created collection {}/{}", a.tenant, a.name);
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // eval-quality
 // ---------------------------------------------------------------------------
@@ -1763,4 +1845,113 @@ fn cmd_compact_audit(a: CompactAuditArgs) -> Result<(), String> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+    use tempfile::TempDir;
+
+    fn db_flag(dir: &TempDir) -> String {
+        dir.path().to_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn tenants_create_parses() {
+        let dir = TempDir::new().unwrap();
+        let db = db_flag(&dir);
+        let cli = Cli::try_parse_from(["hippocore", "tenants", "create", "--db", &db, "t1"])
+            .expect("should parse tenants create");
+        assert!(matches!(
+            cli.command,
+            Command::Tenants(TenantsCmd {
+                command: TenantsSubcmd::Create(_)
+            })
+        ));
+    }
+
+    #[test]
+    fn tenants_list_parses() {
+        let dir = TempDir::new().unwrap();
+        let db = db_flag(&dir);
+        let cli = Cli::try_parse_from(["hippocore", "tenants", "list", "--db", &db])
+            .expect("should parse tenants list");
+        assert!(matches!(
+            cli.command,
+            Command::Tenants(TenantsCmd {
+                command: TenantsSubcmd::List(_)
+            })
+        ));
+    }
+
+    #[test]
+    fn collections_create_parses() {
+        let dir = TempDir::new().unwrap();
+        let db = db_flag(&dir);
+        let cli = Cli::try_parse_from([
+            "hippocore",
+            "collections",
+            "create",
+            "--db",
+            &db,
+            "--tenant",
+            "t1",
+            "col1",
+        ])
+        .expect("should parse collections create");
+        assert!(matches!(
+            cli.command,
+            Command::Collections(CollectionsCmd {
+                command: CollectionsSubcmd::Create(_)
+            })
+        ));
+    }
+
+    #[test]
+    fn tenants_create_and_list_roundtrip() {
+        let dir = TempDir::new().unwrap();
+        let db_str = db_flag(&dir);
+
+        dispatch(
+            Cli::try_parse_from([
+                "hippocore",
+                "tenants",
+                "create",
+                "--db",
+                &db_str,
+                "acme",
+                "--name",
+                "Acme Corp",
+            ])
+            .unwrap(),
+        )
+        .expect("create tenant should succeed");
+
+        dispatch(Cli::try_parse_from(["hippocore", "tenants", "list", "--db", &db_str]).unwrap())
+            .expect("list tenants should succeed");
+    }
+
+    #[test]
+    fn collections_create_requires_existing_tenant() {
+        let dir = TempDir::new().unwrap();
+        let db_str = db_flag(&dir);
+        let result = dispatch(
+            Cli::try_parse_from([
+                "hippocore",
+                "collections",
+                "create",
+                "--db",
+                &db_str,
+                "--tenant",
+                "ghost",
+                "col1",
+            ])
+            .unwrap(),
+        );
+        assert!(
+            result.is_err(),
+            "create collection for non-existent tenant must fail"
+        );
+    }
 }

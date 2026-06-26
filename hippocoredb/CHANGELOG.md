@@ -5,6 +5,17 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Admin CLI v0.1
+
+- `hippocore tenants list` / `hippocore tenants create <id> [--name <n>]` —
+  explicit tenant management subcommands; previously creation was only a
+  side effect of memory/document/record commands.
+- `hippocore collections list [--tenant <t>]` /
+  `hippocore collections create --tenant <t> <name>` — explicit collection
+  management subcommands.
+- All existing flat commands unchanged; new subcommands are backward-compatible
+  additions.
+
 ### Added — Admin Data Actions v0.1
 
 - `POST /admin/tenants/:tid/records` — creates a JSON-first structured record

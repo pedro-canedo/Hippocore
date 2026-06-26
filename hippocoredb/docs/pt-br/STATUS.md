@@ -4,7 +4,17 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Admin Data Actions v0.1**:
+**Admin CLI v0.1**:
+
+- Adicionados sub-comandos aninhados `hippocore tenants list` e
+  `hippocore tenants create`, com criacao explicita de tenant (antes so
+  ocorria como side effect de outros comandos).
+- Adicionados `hippocore collections list` e `hippocore collections create`.
+- Todos os comandos flat existentes continuam funcionando sem alteracao.
+- Cinco testes unitarios verificam parse de argumentos e fluxo de
+  create/list dos novos sub-comandos.
+
+Anterior: **Admin Data Actions v0.1**:
 
 - Adicionado handler `POST /admin/tenants/:tid/records` usando `put_record`.
 - Pagina Ingestion & Recall agora suporta criacao de Memory, Document e Record.

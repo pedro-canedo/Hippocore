@@ -2,55 +2,56 @@
 
 ## Nome
 
-**Admin CLI v0.1**
+**Confidence-Weighted Recall v0.1**
 
 ## Por que importa
 
-O Control Plane e a API REST agora cobrem os fluxos principais de ingestao de
-dados. O proximo slice de maior valor e adicionar sub-comandos CLI que espelhem
-esses fluxos para que operadores possam automatizar sem precisar rodar um
-servidor HTTP. O binario `hippocore-cli` ja tem `stats` e `bench`; faltam
-comandos de plano de dados.
+Memorias podem carregar um score de confianca definido pelo chamador ou pelo
+comando `rate-memory`, mas o motor de recall hibrido nao o utiliza. Memorias
+de alta confianca semanticamente similares à consulta podem ficar abaixo de
+matches com menos confianca mas mais ruidosos. Fatorar a confianca no score
+final de ranking melhora a qualidade RAG de forma mensuravel sem alterar o
+modelo de dados.
 
 ## Comportamento
 
-- `hippocore tenants list` — listar todos os tenants no diretorio de dados.
-- `hippocore tenants create <id> [--name <n>]` — criar tenant.
-- `hippocore collections list --tenant <tid>` — listar collections do tenant.
-- `hippocore collections create --tenant <tid> <name>` — criar collection.
-- `hippocore memories add --tenant <tid> --collection <col> <text>` — salvar
-  memoria.
-- `hippocore records put --tenant <tid> --collection <col> --table <tbl>
-  [--payload <json>|--file <path>]` — salvar record JSON-first.
-- `hippocore recall --tenant <tid> --collection <col> <query>` — recall hibrido.
-- Todos os comandos leem do diretorio de dados (flag `--db`, padrao
-  `./hippocore-data`).
-- Saida e texto simples ou JSON (flag `--json`).
+- Apos o score hibrido (fusao vetor + texto) ser calculado, multiplicar pelo
+  peso de confianca derivado do campo `confidence` de cada item.
+- Itens sem confianca definida (caso comum) recebem peso neutro (`1.0`) — sem
+  regressoes para dados existentes.
+- Formula: `final_score = hybrid_score * (1.0 + alpha * (confidence - 0.5))`
+  com `alpha = 0.4`. Isso da ±20% de boost/penalidade nos extremos.
+- Apenas itens `Memory` possuem confidence; `DocumentChunk` e `Record` usam
+  peso neutro.
+- A mudanca fica inteiramente no modulo `query`; `storage` e `lib.rs` nao sao
+  alterados.
+- `RecallResult` nao ganha novos campos; confidence e sinal interno de ranking.
 
 ## Arquivos provaveis
 
-- `crates/hippocore-cli/src/main.rs`
-- `crates/hippocore/src/cli.rs`
-- `crates/hippocore/tests/record_crud.rs`
+- `crates/hippocore/src/query.rs`
+- `crates/hippocore/tests/retrieval_quality.rs`
+- `docs/en/SCORE_NORMALIZATION.md`
+- `docs/pt-br/SCORE_NORMALIZATION.md`
 - `docs/en/STATUS.md`
 - `docs/pt-br/STATUS.md`
 - `CHANGELOG.md`
 
 ## Criterios de aceite
 
-- Todos os sub-comandos listados implementados e respondem a `--help`.
-- `hippocore tenants list` lista tenants apos `tenants create`.
-- `hippocore records put` cria record legivel via `hippocore sql`.
-- `hippocore recall` retorna resultados em texto.
-- Isolamento de tenant: comandos falham com erro claro se o tenant nao existe.
+- Uma memoria com `confidence=0.9` que pontua igual a uma memoria com
+  `confidence=0.0` em recall hibrido aparece acima dela nos resultados.
+- Uma memoria com `confidence=0.0` que pontua igual a uma sem confianca
+  definida aparece abaixo dela.
+- Itens sem confianca definda mantem seu ranking relativo original.
+- O fixture de qualidade de retrieval continua passando em todos os limiares.
 - `cargo fmt --all --check`, `cargo test --workspace` e
   `cargo clippy --workspace --all-targets -- -D warnings` passam.
 
 ## Fora do escopo
 
-- TUI interativa.
-- Completacao de shell.
-- Saida em streaming.
-- Import de CSV.
-- CLI de travessia de grafo.
-- Sub-comandos de servidor HTTP (esses ficam em `hippocore serve`).
+- Confianca em `DocumentChunk` ou `Record`.
+- Expor `confidence` como filtro em `RecallRequest`.
+- Tornar `alpha` um parametro configuravel do servidor.
+- Alterar a struct `RecallResult`.
+- Qualquer alteracao em `storage`, `memory` ou `lib.rs`.
