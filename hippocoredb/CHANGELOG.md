@@ -5,6 +5,24 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — eval-quality CLI command
+
+- Added `eval-quality --fixture <file> [--db <path>] [--top-k N] [--json]`
+  subcommand to run retrieval fixture evaluations from the CLI.
+- Reads the same fixture JSON format as the internal `retrieval_quality` test
+  (`version`, `memories`, `cases`, `thresholds`).
+- Seed memories into a fresh temp directory (auto-cleaned) or an existing
+  database (`--db`); runs each query scenario and records hit@1, hit@k, MRR,
+  forbidden-top violations, and required-term coverage.
+- Human output: per-scenario PASS/FAIL + aggregate hit@1/hit@k/MRR + threshold
+  comparison.
+- `--json` output: machine-readable object with `scenarios`, `aggregate`,
+  `thresholds`, `threshold_failures`, `pass`.
+- Exits 0 on full pass; exits 1 with diagnostic message when any threshold or
+  per-case constraint fails.
+- No new crate dependencies.
+- Added 2 CLI smoke tests (`cli_eval_quality`, `cli_eval_quality_fails_on_bad_thresholds`).
+
 ### Changed — RRF Hybrid Fusion
 
 - Replaced `alpha * vector_norm + (1-alpha) * text_norm` with Reciprocal Rank

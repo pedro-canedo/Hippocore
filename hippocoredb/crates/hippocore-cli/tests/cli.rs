@@ -349,6 +349,109 @@ fn cli_import_and_delete_file() {
 }
 
 #[test]
+fn cli_eval_quality() {
+    let dir = TempDir::new().unwrap();
+
+    // Write a minimal fixture.
+    let fixture = serde_json::json!({
+        "version": 1,
+        "memories": [
+            {
+                "id": "pg-port",
+                "text": "PostgreSQL listens on TCP port 5432 by default",
+                "metadata": { "product": "postgresql" }
+            },
+            {
+                "id": "ora-port",
+                "text": "Oracle listener uses port 1521 by default",
+                "metadata": { "product": "oracle" }
+            }
+        ],
+        "cases": [
+            {
+                "name": "postgres_port",
+                "query": "What port does PostgreSQL use?",
+                "relevant_ids": ["pg-port"],
+                "expected_first_ids": ["pg-port"],
+                "forbidden_first_ids": ["ora-port"],
+                "answer_must_include": ["5432"]
+            }
+        ],
+        "thresholds": {
+            "min_hit_at_1": 0.8,
+            "min_hit_at_k": 0.8,
+            "min_mrr": 0.8
+        }
+    });
+    let fixture_path = dir.path().join("fixture.json");
+    std::fs::write(&fixture_path, fixture.to_string()).unwrap();
+
+    // Run eval-quality (temp DB, no --db).
+    let out = bin()
+        .args(["eval-quality", "--fixture", fixture_path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "eval-quality failed: {out:?}");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("PASS"), "expected PASS: {stdout}");
+
+    // Run with --json and check structure.
+    let out = bin()
+        .args([
+            "eval-quality",
+            "--fixture",
+            fixture_path.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8_lossy(&out.stdout)).unwrap();
+    assert_eq!(json["pass"], true);
+    assert!(json["scenarios"].as_array().unwrap().len() == 1);
+    assert_eq!(json["scenarios"][0]["name"], "postgres_port");
+    assert_eq!(json["scenarios"][0]["pass"], true);
+}
+
+#[test]
+fn cli_eval_quality_fails_on_bad_thresholds() {
+    let dir = TempDir::new().unwrap();
+    // Fixture with impossible thresholds to ensure FAIL exit code.
+    let fixture = serde_json::json!({
+        "version": 1,
+        "memories": [
+            { "id": "m1", "text": "generic text about systems", "metadata": {} }
+        ],
+        "cases": [
+            {
+                "name": "impossible",
+                "query": "something completely unrelated to the memories",
+                "relevant_ids": ["never-exists"],
+                "expected_first_ids": [],
+                "forbidden_first_ids": [],
+                "answer_must_include": []
+            }
+        ],
+        "thresholds": {
+            "min_hit_at_1": 1.0,
+            "min_hit_at_k": 1.0,
+            "min_mrr": 1.0
+        }
+    });
+    let fixture_path = dir.path().join("impossible.json");
+    std::fs::write(&fixture_path, fixture.to_string()).unwrap();
+
+    let out = bin()
+        .args(["eval-quality", "--fixture", fixture_path.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!out.status.success(), "should fail when thresholds not met");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("FAIL"), "expected FAIL output: {stdout}");
+}
+
+#[test]
 fn cli_bad_metadata_returns_nonzero() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();

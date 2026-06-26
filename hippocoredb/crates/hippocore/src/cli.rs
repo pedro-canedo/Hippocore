@@ -6,6 +6,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use serde::Deserialize;
 
 use clap::{Args, Parser, Subcommand};
 
@@ -76,6 +79,8 @@ enum Command {
     ShowRecord(ShowRecordArgs),
     /// Show an imported file.
     ShowFile(ShowIdArgs),
+    /// Run a retrieval quality fixture evaluation and report metrics.
+    EvalQuality(EvalQualityArgs),
 }
 
 #[derive(Args)]
@@ -327,6 +332,23 @@ struct ShowRecordArgs {
     json: bool,
 }
 
+#[derive(Args)]
+struct EvalQualityArgs {
+    /// Path to a retrieval fixture JSON file.
+    #[arg(long)]
+    fixture: PathBuf,
+    /// Optional path to an existing database to evaluate against.
+    /// If omitted, memories are seeded into a fresh temp directory.
+    #[arg(long)]
+    db: Option<PathBuf>,
+    /// Number of results to retrieve per scenario.
+    #[arg(long = "top-k", default_value_t = 5)]
+    top_k: usize,
+    /// Emit report as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 /// Parse arguments from the process and run, returning a process exit code.
 pub fn run() -> ExitCode {
     match dispatch(Cli::parse()) {
@@ -363,6 +385,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ShowMemory(a) => cmd_show_memory(a),
         Command::ShowRecord(a) => cmd_show_record(a),
         Command::ShowFile(a) => cmd_show_file(a),
+        Command::EvalQuality(a) => cmd_eval_quality(a),
     }
 }
 
@@ -984,4 +1007,264 @@ fn cmd_show_file(a: ShowIdArgs) -> Result<(), String> {
     println!("  created_at: {}", file.created_at);
     println!("  updated_at: {}", file.updated_at);
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// eval-quality
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct EvalFixture {
+    version: u32,
+    memories: Vec<EvalMemory>,
+    cases: Vec<EvalCase>,
+    thresholds: EvalThresholds,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvalMemory {
+    id: String,
+    text: String,
+    #[serde(default)]
+    metadata: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvalCase {
+    name: String,
+    query: String,
+    #[serde(default)]
+    relevant_ids: Vec<String>,
+    #[serde(default)]
+    expected_first_ids: Vec<String>,
+    #[serde(default)]
+    forbidden_first_ids: Vec<String>,
+    #[serde(default)]
+    answer_must_include: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct EvalThresholds {
+    min_hit_at_1: f32,
+    min_hit_at_k: f32,
+    min_mrr: f32,
+}
+
+#[derive(Debug)]
+struct CaseResult {
+    name: String,
+    hit_at_1: bool,
+    hit_at_k: bool,
+    mrr_contribution: f32,
+    failures: Vec<String>,
+}
+
+fn cmd_eval_quality(a: EvalQualityArgs) -> Result<(), String> {
+    let raw =
+        std::fs::read_to_string(&a.fixture).map_err(|e| format!("cannot read fixture: {e}"))?;
+    let fixture: EvalFixture =
+        serde_json::from_str(&raw).map_err(|e| format!("invalid fixture JSON: {e}"))?;
+    if fixture.version != 1 {
+        return Err(format!(
+            "unsupported fixture version {} (expected 1)",
+            fixture.version
+        ));
+    }
+
+    // Open or create a database to evaluate against.
+    let _tmp_guard: Option<std::path::PathBuf>;
+    let db_path = match &a.db {
+        Some(p) => {
+            _tmp_guard = None;
+            p.clone()
+        }
+        None => {
+            let ts = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0);
+            let p = std::env::temp_dir().join(format!("hippocore-eval-{ts}"));
+            std::fs::create_dir_all(&p).map_err(|e| format!("cannot create temp dir: {e}"))?;
+            _tmp_guard = Some(p.clone());
+            p
+        }
+    };
+
+    let mut cfg = Config::new(&db_path);
+    cfg.sync_writes = false;
+    let mut db = Hippocore::open(cfg).map_err(|e| format!("failed to open database: {e}"))?;
+
+    const TENANT: &str = "eval";
+    const COLLECTION: &str = "fixture";
+    db.create_tenant(TENANT, "Retrieval Eval")
+        .map_err(|e| format!("{e}"))?;
+    db.create_collection(TENANT, COLLECTION, "Eval fixture collection")
+        .map_err(|e| format!("{e}"))?;
+
+    for mem in &fixture.memories {
+        let mut req = RememberRequest::new(
+            TENANT,
+            COLLECTION,
+            crate::model::MemoryType::Semantic,
+            mem.text.clone(),
+        );
+        req.id = Some(mem.id.clone());
+        req.metadata = mem.metadata.clone();
+        db.remember(req).map_err(|e| format!("{e}"))?;
+    }
+
+    let top_k = a.top_k;
+    let mut case_results: Vec<CaseResult> = Vec::new();
+
+    for case in &fixture.cases {
+        let mut req = RecallRequest::new(TENANT, &case.query);
+        req.top_k = top_k;
+        let hits = db.recall(req).map_err(|e| format!("{e}"))?;
+        let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+        let first = ids.first().copied();
+
+        let rank = ids
+            .iter()
+            .position(|id| case.relevant_ids.iter().any(|r| r == id))
+            .map(|i| i + 1);
+
+        let hit_at_1 = rank == Some(1);
+        let hit_at_k = rank.is_some_and(|r| r <= top_k);
+        let mrr_contribution = rank.map(|r| 1.0 / r as f32).unwrap_or(0.0);
+
+        let mut failures = Vec::new();
+
+        if !case.expected_first_ids.is_empty()
+            && !first.is_some_and(|id| case.expected_first_ids.iter().any(|e| e == id))
+        {
+            failures.push(format!(
+                "expected first result in {:?}, got {first:?}",
+                case.expected_first_ids
+            ));
+        }
+        if first.is_some_and(|id| case.forbidden_first_ids.iter().any(|f| f == id)) {
+            failures.push(format!("forbidden result {first:?} at top"));
+        }
+        let retrieved_text = hits
+            .iter()
+            .map(|h| h.text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        for term in &case.answer_must_include {
+            if !retrieved_text.to_lowercase().contains(&term.to_lowercase()) {
+                failures.push(format!("retrieved context missing required term {term:?}"));
+            }
+        }
+
+        case_results.push(CaseResult {
+            name: case.name.clone(),
+            hit_at_1,
+            hit_at_k,
+            mrr_contribution,
+            failures,
+        });
+    }
+
+    // Cleanup temp dir (best-effort).
+    if let Some(ref p) = _tmp_guard {
+        let _ = std::fs::remove_dir_all(p);
+    }
+
+    let n = case_results.len() as f32;
+    let agg_hit_at_1 = case_results.iter().filter(|r| r.hit_at_1).count() as f32 / n;
+    let agg_hit_at_k = case_results.iter().filter(|r| r.hit_at_k).count() as f32 / n;
+    let agg_mrr = case_results.iter().map(|r| r.mrr_contribution).sum::<f32>() / n;
+
+    let t = &fixture.thresholds;
+    let mut threshold_failures: Vec<String> = Vec::new();
+    if agg_hit_at_1 < t.min_hit_at_1 {
+        threshold_failures.push(format!(
+            "hit@1 {agg_hit_at_1:.3} < threshold {:.3}",
+            t.min_hit_at_1
+        ));
+    }
+    if agg_hit_at_k < t.min_hit_at_k {
+        threshold_failures.push(format!(
+            "hit@{top_k} {agg_hit_at_k:.3} < threshold {:.3}",
+            t.min_hit_at_k
+        ));
+    }
+    if agg_mrr < t.min_mrr {
+        threshold_failures.push(format!("mrr {agg_mrr:.3} < threshold {:.3}", t.min_mrr));
+    }
+
+    let overall_pass =
+        threshold_failures.is_empty() && case_results.iter().all(|r| r.failures.is_empty());
+
+    if a.json {
+        let scenarios: Vec<serde_json::Value> = case_results
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "name": r.name,
+                    "hit_at_1": r.hit_at_1,
+                    "hit_at_k": r.hit_at_k,
+                    "mrr": r.mrr_contribution,
+                    "pass": r.failures.is_empty(),
+                    "failures": r.failures
+                })
+            })
+            .collect();
+        let out = serde_json::json!({
+            "scenarios": scenarios,
+            "aggregate": {
+                "hit_at_1": agg_hit_at_1,
+                "hit_at_k": agg_hit_at_k,
+                "mrr": agg_mrr
+            },
+            "thresholds": {
+                "min_hit_at_1": t.min_hit_at_1,
+                "min_hit_at_k": t.min_hit_at_k,
+                "min_mrr": t.min_mrr
+            },
+            "threshold_failures": threshold_failures,
+            "pass": overall_pass
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).map_err(|e| format!("serialization failed: {e}"))?
+        );
+    } else {
+        println!("Eval quality: {} scenario(s)\n", case_results.len());
+        for r in &case_results {
+            let status = if r.failures.is_empty() {
+                "PASS"
+            } else {
+                "FAIL"
+            };
+            println!(
+                "  {}: hit@1={} hit@{top_k}={} mrr={:.3}  {status}",
+                r.name, r.hit_at_1 as u8, r.hit_at_k as u8, r.mrr_contribution
+            );
+            for f in &r.failures {
+                println!("    ✗ {f}");
+            }
+        }
+        println!(
+            "\nAggregate: hit@1={agg_hit_at_1:.3}  hit@{top_k}={agg_hit_at_k:.3}  mrr={agg_mrr:.3}"
+        );
+        println!(
+            "Thresholds: hit@1>={:.3}  hit@{top_k}>={:.3}  mrr>={:.3}",
+            t.min_hit_at_1, t.min_hit_at_k, t.min_mrr
+        );
+        if threshold_failures.is_empty() {
+            println!("Result: PASS");
+        } else {
+            println!("Result: FAIL");
+            for f in &threshold_failures {
+                println!("  ✗ {f}");
+            }
+        }
+    }
+
+    if overall_pass {
+        Ok(())
+    } else {
+        Err("retrieval quality thresholds not met".into())
+    }
 }

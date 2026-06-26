@@ -52,7 +52,8 @@ not a dated commitment.
 
 ## Phase 6 — Admin interface and local Studio
 
-- Expand CLI administration commands.
+- Expand CLI administration commands. ✅
+- Retrieval quality CLI (`eval-quality`). ✅
 - Local management UI for browsing, inserting, editing and deleting context
   data.
 - Retrieval debugging, stats, compaction and quality-evaluation views.

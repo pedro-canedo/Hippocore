@@ -2,65 +2,89 @@
 
 ## Nome
 
-**eval-quality CLI** — permitir que operadores executem avaliações de fixture de
-qualidade contra qualquer banco implantado e obtenham um relatório (hit@k, MRR).
+**Temporal Truth Layer v0.1** — adicionar campos `valid_from` / `valid_until`
+em memórias e documentos, e suportar queries "o que era verdade no instante T?".
 
 ## Por que importa
 
-O Hippocore DB possui um formato de fixture de qualidade de retrieval
-(`tests/fixtures/retrieval_quality_v01.json`) usado internamente pela suíte de
-testes. Mas desenvolvedores e operadores não têm como executar a mesma avaliação
-contra um banco em produção via CLI — eles precisam escrever código ou depender
-da suíte interna de testes, que opera em um banco temporário recém-alimentado.
+Agentes de IA lidam frequentemente com fatos que mudam ao longo do tempo. Sem
+metadados temporais, o Hippocore só consegue responder "o que está armazenado
+agora?" — não "o que era conhecido em uma data específica?" Isso faz com que
+fatos desatualizados contaminem silenciosamente os resultados de retrieval e
+impossibilita auditar o que o agente acreditava em um dado momento.
 
-Um comando `eval-quality` fecha essa lacuna: lê um arquivo de fixture, alimenta
-as memórias do fixture em um banco temporário (ou existente), executa cada query
-e reporta métricas por cenário e agregadas (hit@1, hit@k, MRR). Sai com código
-não-zero se qualquer threshold não for atendido, sendo útil em pipelines de CI.
+Os campos `valid_from` / `valid_until` permitem ao chamador:
+- Marcar fatos como vigentes (`valid_until = None`) ou expirados
+  (`valid_until = Some(epoch_ms)`).
+- Consultar memórias e documentos como estavam em um ponto no tempo via `as_of`.
+- Substituir um fato antigo de forma limpa criando um novo com `valid_from`
+  atualizado, sem deletar o antigo (auditabilidade preservada).
 
 ## Comportamento esperado
 
+### Mudanças no modelo
+
+`Memory` e `Document` ganham dois campos opcionais:
 ```
-hippocore eval-quality --fixture path/to/fixture.json [--json] [--db <path>]
+valid_from:  Option<i64>   // epoch ms; None = válido desde a criação
+valid_until: Option<i64>   // epoch ms; None = ainda válido
 ```
 
-- `--fixture <file>`: caminho para um arquivo de fixture JSON (mesmo formato do
-  fixture interno).
-- `--db <path>` (opcional): se informado, alimenta memórias em um banco
-  existente e avalia contra ele. Se omitido, usa diretório temporário.
-- Saída por cenário: hit@1, hit@k, MRR e ausência de `forbidden_first_ids` no
-  top.
-- Saída agregada: média hit@1, hit@k, MRR em todos os cenários.
-- `--json` emite um relatório JSON legível por máquina.
-- Sai 0 se todos os thresholds passam; sai 1 com mensagem de erro legível.
+### Mudanças na API
 
-## Arquivos afetados
+`RememberRequest` e `StoreDocumentRequest` ganham:
+```
+valid_from:  Option<i64>
+valid_until: Option<i64>
+```
 
-- `crates/hippocore/src/cli.rs` — adicionar comando `EvalQuality` e handler.
-- `crates/hippocore/src/lib.rs` — API de avaliação se necessária.
-- `crates/hippocore-cli/tests/cli.rs` — smoke test via subprocesso.
-- `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
-- `CHANGELOG.md`.
+`RecallRequest` / `SearchRequest` ganham:
+```
+as_of: Option<i64>  // epoch ms; None = agora
+```
+
+Quando `as_of` está definido, o retrieval filtra qualquer entrada onde:
+- `valid_from > as_of` (ainda não válida), ou
+- `valid_until <= as_of` (já expirada).
+
+### Mudanças na CLI
+
+- `remember` ganha `--valid-from <ms>` e `--valid-until <ms>`.
+- `recall` ganha `--as-of <ms>`.
+- `put-document` ganha `--valid-from <ms>` e `--valid-until <ms>`.
+
+### Persistência
+
+`valid_from` e `valid_until` são armazenados no WAL/snapshot como parte do
+modelo JSON existente; entradas legadas sem esses campos são tratadas como
+`valid_from = created_at`, `valid_until = None` (sempre válido).
 
 ## Critérios de aceite
 
-- `eval-quality --fixture <file>` executa e reporta hit@1, hit@k, MRR por
-  cenário e aggregate.
-- `--json` emite relatório JSON parseável.
-- Sai com código não-zero quando threshold não é atendido.
-- Sem novas dependências externas.
-- Todos os 69+ testes passam.
+- `valid_from` / `valid_until` armazenados e recuperados via WAL/snapshot.
+- `recall --as-of <ms>` filtra entradas corretamente (passado válido, presente e
+  futuro).
+- Entradas expiradas não aparecem no recall padrão (`as_of = now` por padrão).
+- Entradas legadas sem campos temporais se recuperam com semântica sempre-válido.
+- Flags de CLI funcionam (`--valid-from`, `--valid-until`, `--as-of`).
+- Novos testes unitários e de integração: sem filtro, as-of-passado,
+  as-of-futuro, entradas expiradas, recuperação de entradas legadas.
+- Todos os 71+ testes passam.
 - `cargo fmt`, `cargo clippy -D warnings` limpos.
 
 ## Fora de escopo
 
-- Armazenamento persistente de fixtures no banco.
-- Dashboard web ou relatório visual.
-- Geração automática de fixture.
+- Relações `supersedes` / `contradicts` (especificação completa da Fase 7 —
+  adiado).
+- Resolução de conflitos entre fatos temporalmente sobrepostos.
+- Otimização de índice para queries de intervalo temporal (brute force aceitável
+  nesta escala).
 - Server mode.
 
 ## Follow-up
 
-Após eval-quality, o próximo passo é Temporal Truth Layer v0.1:
-`valid_from`/`valid_until` em memórias e documentos, permitindo queries "o que
-era verdade no tempo T?" (Fase 7 do roadmap).
+Após o Temporal Truth Layer v0.1, o próximo passo pode ser:
+- Completar o item restante da Fase 5: **benchmark regression guard** para
+  evitar regressões silenciosas de latência no recall.
+- Ou itens da Fase 6: Studio local para navegar e editar dados de contexto
+  (adiado até que a Fase 6 seja agendada).

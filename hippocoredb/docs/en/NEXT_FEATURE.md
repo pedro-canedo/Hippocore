@@ -2,68 +2,89 @@
 
 ## Feature name
 
-**eval-quality CLI command** — let operators run retrieval fixture evaluations
-against any deployed database and get a quality report (hit@k, MRR).
+**Temporal Truth Layer v0.1** — add `valid_from` / `valid_until` fields to
+memories and documents, and support "what was true at time T?" queries.
 
 ## Why it matters
 
-Hippocore DB now has a retrieval quality fixture format
-(`tests/fixtures/retrieval_quality_v01.json`) that is used internally by the
-test suite. But developers and operators have no way to run the same evaluation
-against a live database from the CLI — they must either write code or rely on
-the internal test suite, which operates on a freshly seeded temporary database.
+AI agents frequently deal with facts that change over time. Without temporal
+metadata, Hippocore can only answer "what is currently stored?" — not "what was
+known on a given date?" This means outdated facts silently pollute retrieval
+results, and there is no way to audit what the agent believed at a specific
+moment.
 
-An `eval-quality` command closes this gap: it reads a fixture file, seeds the
-memories from the fixture into a temporary in-memory database (or an existing
-one), runs each query, and reports per-scenario and aggregate metrics (hit@1,
-hit@k, MRR). It exits non-zero if any configured threshold is not met, making
-it useful in CI pipelines.
+`valid_from` / `valid_until` allow callers to:
+- Mark facts as current (open-ended `valid_until = None`) or expired
+  (`valid_until = Some(epoch_ms)`).
+- Query memories and documents as of a specific point in time via `as_of`.
+- Supersede an old fact cleanly by writing a new one with an updated
+  `valid_from`, without deleting the old one (so the old state is auditable).
 
 ## Expected behavior
 
+### Model changes
+
+`Memory` and `Document` gain two optional fields:
 ```
-hippocore eval-quality --fixture path/to/fixture.json [--json] [--db <path>]
+valid_from:  Option<i64>   // epoch ms; None means "always valid from creation"
+valid_until: Option<i64>   // epoch ms; None means "still valid"
 ```
 
-- `--fixture <file>`: path to a fixture JSON file (same format as the internal
-  fixture).
-- `--db <path>` (optional): if given, seeds memories into an existing database
-  and evaluates against it. If omitted, seeds into a fresh temp directory and
-  cleans up after evaluation.
-- Outputs per-scenario: hit@1, hit@k, MRR, and whether forbidden_first_ids are
-  absent from top results.
-- Outputs aggregate: mean hit@1, mean hit@k, mean MRR across all scenarios.
-- `--json` emits a machine-readable JSON report.
-- Exits 0 if all thresholds pass; exits 1 with a human-readable error if any
-  threshold fails.
+### API changes
 
-## Affected modules / files
+`RememberRequest` and `StoreDocumentRequest` gain:
+```
+valid_from:  Option<i64>
+valid_until: Option<i64>
+```
 
-- `crates/hippocore/src/cli.rs` — add `EvalQuality` command and handler.
-- `crates/hippocore/src/lib.rs` — add `eval_quality(fixture)` API if useful.
-- `crates/hippocore-cli/tests/cli.rs` — subprocess smoke test.
-- `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
-- `CHANGELOG.md`.
+`RecallRequest` / `SearchRequest` gain:
+```
+as_of: Option<i64>  // epoch ms; None = now
+```
+
+When `as_of` is set, retrieval filters out any entry where:
+- `valid_from > as_of` (not yet valid), or
+- `valid_until <= as_of` (already expired).
+
+### CLI changes
+
+- `remember` gains `--valid-from <ms>` and `--valid-until <ms>` flags.
+- `recall` gains `--as-of <ms>`.
+- `put-document` gains `--valid-from <ms>` and `--valid-until <ms>`.
+
+### Persistence
+
+`valid_from` and `valid_until` are stored in the WAL/snapshot as part of the
+existing JSON model; legacy entries without these fields are treated as
+`valid_from = created_at`, `valid_until = None` (always valid).
 
 ## Acceptance criteria
 
-- `eval-quality --fixture <file>` runs and reports hit@1, hit@k, MRR per
-  scenario and aggregate.
-- `--json` emits a parseable JSON report.
-- Exits non-zero when a threshold is not met.
-- No new external dependencies.
-- All 69+ tests pass.
+- `valid_from` / `valid_until` stored and recovered through WAL/snapshot.
+- `recall --as-of <ms>` filters entries correctly (past-valid, current, and
+  future-valid scenarios).
+- Expired entries do not appear in default recall (default `as_of = now`).
+- Legacy entries without temporal fields recover correctly with always-valid
+  semantics.
+- CLI flags work (`--valid-from`, `--valid-until`, `--as-of`).
+- New unit + integration tests covering: default no-filter, as-of-past,
+  as-of-future, expired entries, legacy-entry recovery.
+- All 71+ tests still pass.
 - `cargo fmt`, `cargo clippy -D warnings` clean.
 
 ## Non-goals
 
-- Persistent fixture storage in the database.
-- A web dashboard or visual report.
-- Automated fixture generation.
+- `supersedes` / `contradicts` relations (Phase 7 full spec — deferred).
+- Conflict resolution between overlapping temporal facts.
+- Index optimization for time-range queries (brute force acceptable at this
+  scale).
 - Server mode.
 
 ## Follow-up
 
-After eval-quality, the next step is Temporal Truth Layer v0.1:
-`valid_from`/`valid_until` on memories and documents, allowing "what was true
-at time T?" queries (Phase 7 of the roadmap).
+After Temporal Truth Layer v0.1, the next step could be:
+- Filling in the remaining Phase 5 item: **benchmark regression guard** to
+  prevent silent performance regressions in recall latency.
+- Or Phase 6 admin surface items: local Studio for browsing and editing context
+  data (deferred until Phase 6 is scheduled).

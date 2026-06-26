@@ -4,7 +4,23 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**RRF Hybrid Fusion**:
+**eval-quality CLI**:
+
+- Adicionado subcomando `eval-quality`: lê um arquivo JSON de fixture de
+  retrieval, alimenta memórias em um banco temporário (ou indicado via `--db`),
+  executa cada cenário e reporta hit@1, hit@k, MRR por cenário e agregado.
+- `--json` emite relatório legível por máquina com campos `scenarios`,
+  `aggregate`, `thresholds`, `threshold_failures` e `pass`.
+- Sai com código não-zero quando qualquer threshold não é atendido; saída humana
+  marca cenários com falha como `FAIL` e imprime violações de threshold.
+- `--db <path>` permite avaliação contra um banco existente.
+- `--top-k` configura K (padrão 5).
+- Usa o mesmo formato de fixture JSON do teste interno `retrieval_quality`.
+- Sem novas dependências de crate.
+- 2 novos smoke tests CLI (caminho de sucesso + caminho de falha deliberado).
+- 71 testes no total.
+
+Incremento anterior: **RRF Hybrid Fusion**:
 
 - Substituído `alpha * vector_norm + (1-alpha) * text_norm` por Reciprocal Rank
   Fusion (RRF, k=60) em `SearchMode::Hybrid`.
@@ -100,15 +116,16 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 69 testes:
+`cargo test --workspace` passa com 71 testes:
 
-- 16 unit;
+- 18 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL);
 - 39 integração da biblioteca;
-- 1 fixture de qualidade;
-- 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL);
-- 10 smoke tests de CLI (incl. comandos admin `list-*` e `show-*` com `--json`);
+- 1 fixture de qualidade de retrieval;
+- 12 smoke tests de CLI (incl. `compact`, `forget`, `put-record`, `import-file`,
+  comandos admin `list-*` e `show-*` com `--json`, e `eval-quality` caminho de
+  sucesso + falha deliberada);
 - 1 doctest.
 
 ## Próxima feature
 
-**eval-quality CLI** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**Temporal Truth Layer v0.1** — veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

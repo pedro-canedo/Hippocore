@@ -4,7 +4,23 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**RRF Hybrid Fusion**:
+**eval-quality CLI**:
+
+- Added `eval-quality` subcommand: reads a retrieval fixture JSON file, seeds
+  memories into a temp (or specified) database, runs each scenario, and reports
+  hit@1, hit@k, MRR per scenario and aggregate.
+- `--json` emits a machine-readable report with `scenarios`, `aggregate`,
+  `thresholds`, `threshold_failures`, and `pass` fields.
+- Exits non-zero when any threshold is not met; human output marks failing
+  scenarios with `FAIL` and prints threshold violations.
+- `--db <path>` allows evaluation against an existing database.
+- `--top-k` configures K (default 5).
+- Uses the same fixture JSON format as the internal `retrieval_quality` test.
+- No new crate dependencies.
+- 2 new CLI smoke tests (pass + deliberate fail path).
+- 71 tests total.
+
+Previous increment: **RRF Hybrid Fusion**:
 
 - Replaced `alpha * vector_norm + (1-alpha) * text_norm` with Reciprocal Rank
   Fusion (RRF, k=60) in `SearchMode::Hybrid`.
@@ -146,7 +162,7 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 69 tests:
+**All green.** `cargo test --workspace` passes 71 tests:
 - 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode),
 - 39 library integration (store/recall, chunking, retrieval quality layer,
@@ -156,8 +172,9 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
   error paths, dimension-mismatch, torn-WAL recovery),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 10 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
-  `import-file`, admin `list-*` and `show-*` commands with `--json`),
+- 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+  `import-file`, admin `list-*` and `show-*` commands with `--json`, and
+  `eval-quality` pass + fail paths),
 - 1 doctest.
 
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
@@ -180,4 +197,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**eval-quality CLI command** — see NEXT_FEATURE.md.
+**Temporal Truth Layer v0.1** — see NEXT_FEATURE.md.
