@@ -2,39 +2,36 @@
 
 ## Feature name
 
-**WAL Recovery Tests v0.1** — deterministic tests verifying WAL torn-write
-handling on database open.
+**Compact + Reopen Invariant Tests v0.1** — deterministic tests verifying that
+`compact()` followed by a cold reopen produces exactly the same observable state.
 
 ## Why it matters
 
-`CLAUDE.md` and `docs/en/ARCHITECTURE.md` document that "a torn trailing line
-[in the WAL] is skipped, not fatal." This invariant is critical for data safety
-(power loss after a partial write must not corrupt the database), but there are
-no regression tests locking it down. A future refactor of the storage layer
-could accidentally change recovery behavior without any test catching it.
+`compact()` folds all WAL entries into a snapshot and truncates the WAL to zero.
+If this operation introduced any silent loss (e.g. truncating the snapshot before
+the atomic rename completes, or re-indexing from an incomplete state), the
+database would silently degrade without any test catching it. The compact +
+reopen path is exercised incidentally but not explicitly locked.
 
 ## Behaviour
 
 No new production code. The test suite will verify:
 
-1. A fresh database with a clean WAL opens successfully.
-2. A database whose WAL file has been truncated mid-record opens successfully
-   (partial last record is skipped, not fatal).
-3. After a torn-WAL open, operations that preceded the torn entry are intact in
-   the recovered state.
-4. A WAL with an invalid (corrupted) JSON record at the end opens without panic
-   and skips the bad entry.
+1. After `compact()`, `wal_len()` (or equivalent) reports zero entries.
+2. A cold reopen after `compact()` produces the same `collections()` list.
+3. A cold reopen after `compact()` returns the same memories in `recall()`.
+4. Multiple compact → reopen cycles don't lose data.
+5. Documents stored before `compact()` are retrievable after a cold reopen.
 
 ## Files
 
-- `crates/hippocore/tests/wal_recovery.rs` — new dedicated test file.
-- `docs/en/WAL_RECOVERY.md` and `docs/pt-br/WAL_RECOVERY.md`.
+- `crates/hippocore/tests/compact_reopen.rs` — new dedicated test file.
+- `docs/en/COMPACT_REOPEN.md` and `docs/pt-br/COMPACT_REOPEN.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- At least 4 deterministic integration tests using `TempDir` and direct WAL
-  file manipulation (truncate / corrupt via `std::fs`).
+- At least 5 deterministic integration tests using `TempDir`.
 - All quality gates pass:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -42,6 +39,6 @@ No new production code. The test suite will verify:
 
 ## Out of scope
 
-- WAL compaction changes.
+- WAL compaction strategy changes.
 - Server mode.
 - Production code changes.

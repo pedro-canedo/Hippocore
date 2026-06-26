@@ -4,7 +4,18 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Collection CRUD Tests v0.1**:
+**WAL Recovery Tests v0.1**:
+
+- Novo arquivo de testes `crates/hippocore/tests/wal_recovery.rs` com 4 testes.
+- Cobre: reabertura a frio com WAL limpo, linha truncada ignorada (sem panic),
+  checksum incorreto interrompe replay (entrada ruim não aplicada), estado antes
+  do rasgo intacto em `get_memory` e `recall`.
+- Formato WAL: `<crc32-hex>\t<json>\n`.
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/WAL_RECOVERY.md` e `docs/pt-br/WAL_RECOVERY.md`.
+- 4 novos testes. 169 testes no total.
+
+Anterior: **Collection CRUD Tests v0.1**:
 
 - Novo arquivo de testes `crates/hippocore/tests/collection_crud.rs` com 6
   testes.
@@ -462,7 +473,8 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**WAL Recovery Tests v0.1** — testes determinísticos verificando que uma base
-de dados recuperada de uma entrada WAL rasgada ou parcial começa com sucesso e
-a última operação parcial é ignorada, não fatal.
+**Compact + Reopen Invariant Tests v0.1** — testes determinísticos verificando
+que chamar `compact()` e reabrir o banco de dados produz exatamente o mesmo
+estado observável: mesmas memórias, coleções, documentos e resultados de recall,
+com comprimento do WAL zerado.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

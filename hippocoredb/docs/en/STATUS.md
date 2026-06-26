@@ -4,7 +4,18 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Collection CRUD Tests v0.1**:
+**WAL Recovery Tests v0.1**:
+
+- New test file `crates/hippocore/tests/wal_recovery.rs` with 4 tests.
+- Covers: clean WAL cold reopen, truncated trailing line skipped (no panic),
+  checksum mismatch stops replay (corrupt entry not applied), state before torn
+  entry fully intact in both `get_memory` and `recall`.
+- WAL format reminder: `<crc32-hex>\t<json>\n`.
+- No production code changes.
+- Documentation in `docs/en/WAL_RECOVERY.md` and `docs/pt-br/WAL_RECOVERY.md`.
+- 4 new tests. 169 tests total.
+
+Previous: **Collection CRUD Tests v0.1**:
 
 - New test file `crates/hippocore/tests/collection_crud.rs` with 6 tests.
 - Key finding documented: `create_collection` is **idempotent** (returns the
@@ -530,7 +541,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**WAL Recovery Tests v0.1** — deterministic tests verifying that a database
-recovered from a torn or partial WAL entry (simulated by truncating the WAL
-mid-record) starts successfully and the last partial operation is skipped, not
-fatal. See NEXT_FEATURE.md.
+**Compact + Reopen Invariant Tests v0.1** — deterministic tests verifying that
+calling `compact()` and then reopening the database produces exactly the same
+observable state: same memories, same collections, same documents, and same
+recall results, with WAL length reset to zero. See NEXT_FEATURE.md.

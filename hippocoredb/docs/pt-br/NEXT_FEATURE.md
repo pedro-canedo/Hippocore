@@ -2,39 +2,37 @@
 
 ## Nome
 
-**WAL Recovery Tests v0.1** — testes determinísticos verificando o tratamento
-de gravação rasgada no WAL na abertura do banco de dados.
+**Compact + Reopen Invariant Tests v0.1** — testes determinísticos verificando
+que `compact()` seguido de reabertura a frio produz exatamente o mesmo estado
+observável.
 
 ## Por que importa
 
-`CLAUDE.md` e `docs/en/ARCHITECTURE.md` documentam que "uma linha final rasgada
-[no WAL] é ignorada, não fatal". Esse invariante é crítico para a segurança dos
-dados (uma perda de energia após uma gravação parcial não deve corromper o banco),
-mas não há testes de regressão bloqueando isso. Uma refatoração futura da camada
-de armazenamento poderia mudar silenciosamente o comportamento de recuperação.
+`compact()` dobra todas as entradas do WAL em um snapshot e trunca o WAL a zero.
+Se esta operação introduzisse alguma perda silenciosa (ex.: truncar o snapshot
+antes do rename atômico completar, ou re-indexar de um estado incompleto), o
+banco degradaria silenciosamente sem nenhum teste capturar. O caminho compact +
+reabrir é exercido incidentalmente mas não explicitamente bloqueado.
 
 ## Comportamento
 
 Sem novo código de produção. A suite de testes verificará:
 
-1. Um banco de dados novo com WAL limpo abre com sucesso.
-2. Um banco de dados cujo arquivo WAL foi truncado no meio de um registro abre
-   com sucesso (último registro parcial é ignorado, não fatal).
-3. Após abrir com WAL rasgado, operações anteriores à entrada rasgada estão
-   intactas no estado recuperado.
-4. Um WAL com um registro JSON inválido (corrompido) no final abre sem panic
-   e ignora a entrada ruim.
+1. Após `compact()`, `wal_len()` (ou equivalente) reporta zero entradas.
+2. Uma reabertura a frio após `compact()` produz a mesma lista `collections()`.
+3. Uma reabertura a frio após `compact()` retorna as mesmas memórias em `recall()`.
+4. Múltiplos ciclos compact → reabrir não perdem dados.
+5. Documentos armazenados antes de `compact()` são recuperáveis após reabertura.
 
 ## Arquivos
 
-- `crates/hippocore/tests/wal_recovery.rs` — novo arquivo de testes dedicado.
-- `docs/en/WAL_RECOVERY.md` e `docs/pt-br/WAL_RECOVERY.md`.
+- `crates/hippocore/tests/compact_reopen.rs` — novo arquivo de testes dedicado.
+- `docs/en/COMPACT_REOPEN.md` e `docs/pt-br/COMPACT_REOPEN.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- Mínimo de 4 testes de integração determinísticos usando `TempDir` e
-  manipulação direta do arquivo WAL (truncar / corromper via `std::fs`).
+- Mínimo de 5 testes de integração determinísticos usando `TempDir`.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -42,6 +40,6 @@ Sem novo código de produção. A suite de testes verificará:
 
 ## Fora de escopo
 
-- Mudanças na compactação do WAL.
+- Mudanças na estratégia de compactação do WAL.
 - Modo server.
 - Mudanças no código de produção.

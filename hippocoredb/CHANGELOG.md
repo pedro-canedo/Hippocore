@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — WAL Recovery Tests v0.1
+
+- New test file `crates/hippocore/tests/wal_recovery.rs` with 4 tests locking
+  the torn-write safety contract: clean WAL reopens correctly; half-written
+  entry (no newline) is skipped on open without error; checksum-mismatch line
+  stops replay and is not applied; all state before a torn entry survives in
+  both `get_memory` and `recall`. No production code changes. 169 tests total.
+
 ### Added — Collection CRUD Tests v0.1
 
 - New test file `crates/hippocore/tests/collection_crud.rs` with 6 tests
