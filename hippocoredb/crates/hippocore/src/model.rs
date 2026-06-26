@@ -242,6 +242,59 @@ impl Memory {
     }
 }
 
+/// A durable relationship between two retrievable context items.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GraphEdge {
+    /// Edge id, unique within the database.
+    pub id: String,
+    /// Tenant boundary for both endpoints.
+    pub tenant_id: String,
+    /// Source item id.
+    pub from_id: String,
+    /// Source item kind.
+    pub from_kind: ItemKind,
+    /// Target item id.
+    pub to_id: String,
+    /// Target item kind.
+    pub to_kind: ItemKind,
+    /// Relationship label, e.g. `mentions`, `depends_on`, `explains`.
+    pub relation: String,
+    /// Exact-match metadata attached to the edge.
+    #[serde(default)]
+    pub metadata: Metadata,
+    /// Creation time (epoch milliseconds).
+    pub created_at: i64,
+    /// Last update time (epoch milliseconds).
+    pub updated_at: i64,
+}
+
+impl GraphEdge {
+    /// Validate required fields.
+    pub fn validate(&self) -> Result<()> {
+        non_empty("edge id", &self.id)?;
+        non_empty("tenant id", &self.tenant_id)?;
+        non_empty("from id", &self.from_id)?;
+        non_empty("to id", &self.to_id)?;
+        non_empty("relation", &self.relation)
+    }
+
+    /// Whether this edge is incident to an item endpoint.
+    pub fn touches(&self, kind: ItemKind, id: &str) -> bool {
+        (self.from_kind == kind && self.from_id == id) || (self.to_kind == kind && self.to_id == id)
+    }
+
+    /// The opposite endpoint id when `kind/id` is one side of this edge.
+    pub fn neighbor_id(&self, kind: ItemKind, id: &str) -> Option<&str> {
+        if self.from_kind == kind && self.from_id == id {
+            Some(&self.to_id)
+        } else if self.to_kind == kind && self.to_id == id {
+            Some(&self.from_id)
+        } else {
+            None
+        }
+    }
+}
+
 /// A structured JSON record stored in a logical table namespace.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Record {
@@ -352,6 +405,17 @@ pub enum ItemKind {
     Record,
 }
 
+impl ItemKind {
+    /// Stable lowercase string form.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ItemKind::DocumentChunk => "document_chunk",
+            ItemKind::Memory => "memory",
+            ItemKind::Record => "record",
+        }
+    }
+}
+
 /// A single scored recall/search hit, with the reason it was returned.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RecallResult {
@@ -416,6 +480,9 @@ pub struct AuditItem {
     pub token_count: usize,
     /// Whether this item fit inside the final context block.
     pub included: bool,
+    /// Directly related neighbour ids at audit time.
+    #[serde(default)]
+    pub related_item_ids: Vec<String>,
 }
 
 /// A single query-time RAG audit record.

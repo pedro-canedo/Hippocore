@@ -49,8 +49,8 @@ pub use config::Config;
 pub use errors::{HippocoreError, Result};
 pub use index::VectorIndexKind;
 pub use model::{
-    AuditItem, AuditRecord, Chunk, Collection, Document, Embedding, FileObject, ItemKind, Memory,
-    MemoryType, Metadata, RecallResult, Record, Source, Tenant,
+    AuditItem, AuditRecord, Chunk, Collection, Document, Embedding, FileObject, GraphEdge,
+    ItemKind, Memory, MemoryType, Metadata, RecallResult, Record, Source, Tenant,
 };
 pub use query::SearchMode;
 
@@ -86,6 +86,8 @@ pub struct DatabaseStats {
     pub records: usize,
     /// Imported file objects.
     pub files: usize,
+    /// Stored graph relationship edges.
+    pub graph_edges: usize,
     /// Total entries in the retrieval index (chunks + memories + records).
     pub indexed_entries: usize,
     /// Operations currently in the WAL (since the last compaction).
@@ -104,6 +106,7 @@ impl fmt::Display for DatabaseStats {
         writeln!(f, "  memories:        {}", self.memories)?;
         writeln!(f, "  records:         {}", self.records)?;
         writeln!(f, "  files:           {}", self.files)?;
+        writeln!(f, "  graph edges:     {}", self.graph_edges)?;
         writeln!(f, "  indexed entries: {}", self.indexed_entries)?;
         writeln!(f, "  wal entries:     {}", self.wal_entries)?;
         write!(f, "  disk bytes:      {}", self.disk_bytes)
@@ -316,6 +319,50 @@ impl ImportFileRequest {
     }
 }
 
+/// Request to add a durable relationship between two context items.
+#[derive(Debug, Clone)]
+pub struct AddGraphEdgeRequest {
+    /// Owning tenant for both endpoints.
+    pub tenant_id: String,
+    /// Optional explicit id; generated if `None`.
+    pub id: Option<String>,
+    /// Source item id.
+    pub from_id: String,
+    /// Source item kind.
+    pub from_kind: ItemKind,
+    /// Target item id.
+    pub to_id: String,
+    /// Target item kind.
+    pub to_kind: ItemKind,
+    /// Relationship label.
+    pub relation: String,
+    /// Exact-match metadata.
+    pub metadata: Metadata,
+}
+
+impl AddGraphEdgeRequest {
+    /// Build a minimal graph edge request.
+    pub fn new(
+        tenant_id: impl Into<String>,
+        from_kind: ItemKind,
+        from_id: impl Into<String>,
+        to_kind: ItemKind,
+        to_id: impl Into<String>,
+        relation: impl Into<String>,
+    ) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            id: None,
+            from_id: from_id.into(),
+            from_kind,
+            to_id: to_id.into(),
+            to_kind,
+            relation: relation.into(),
+            metadata: Metadata::new(),
+        }
+    }
+}
+
 /// Request to recall/search context.
 #[derive(Debug, Clone)]
 pub struct RecallRequest {
@@ -419,6 +466,8 @@ pub struct ContextItem {
     pub token_count: usize,
     /// First 120 characters of the item's text.
     pub snippet: String,
+    /// Directly related neighbour ids known at context-build time.
+    pub related_item_ids: Vec<String>,
 }
 
 /// The assembled context string and provenance returned by
@@ -882,6 +931,47 @@ impl Hippocore {
         Ok(mem)
     }
 
+    /// Add or overwrite a durable direct relationship between two context items.
+    pub fn add_graph_edge(&mut self, req: AddGraphEdgeRequest) -> Result<GraphEdge> {
+        self.require_tenant(&req.tenant_id)?;
+        self.require_unique_endpoint(&req.tenant_id, req.from_kind, &req.from_id)?;
+        self.require_unique_endpoint(&req.tenant_id, req.to_kind, &req.to_id)?;
+
+        let id = req.id.unwrap_or_else(|| gen_id("edge"));
+        let now = now_millis();
+        let created_at = self
+            .state
+            .graph_edges
+            .iter()
+            .find(|edge| edge.tenant_id == req.tenant_id && edge.id == id)
+            .map(|edge| edge.created_at)
+            .unwrap_or(now);
+        let edge = GraphEdge {
+            id,
+            tenant_id: req.tenant_id,
+            from_id: req.from_id,
+            from_kind: req.from_kind,
+            to_id: req.to_id,
+            to_kind: req.to_kind,
+            relation: req.relation,
+            metadata: req.metadata,
+            created_at,
+            updated_at: now,
+        };
+        edge.validate()?;
+        self.commit(Operation::PutGraphEdge(edge.clone()))?;
+        Ok(edge)
+    }
+
+    /// Delete a graph edge by id. Missing ids are a safe no-op.
+    pub fn delete_graph_edge(&mut self, tenant_id: &str, id: &str) -> Result<()> {
+        self.require_tenant(tenant_id)?;
+        self.commit(Operation::DeleteGraphEdge {
+            tenant_id: tenant_id.to_string(),
+            id: id.to_string(),
+        })
+    }
+
     /// Store multiple memories in a single WAL write + single fsync (group-commit).
     ///
     /// Semantically identical to calling [`remember`] for each request in order,
@@ -1132,6 +1222,7 @@ impl Hippocore {
             }
 
             let snippet: String = hit.text.chars().take(120).collect();
+            let related_item_ids = self.related_item_ids(&hit.tenant_id, hit.kind, &hit.id);
             included.push(ContextItem {
                 id: hit.id.clone(),
                 kind: hit.kind,
@@ -1139,6 +1230,7 @@ impl Hippocore {
                 confidence: hit.confidence,
                 token_count: item_tokens,
                 snippet,
+                related_item_ids,
             });
             budget_used += item_tokens;
         }
@@ -1201,6 +1293,7 @@ impl Hippocore {
                             .items_included
                             .iter()
                             .any(|item| item.id == hit.id && item.kind == hit.kind),
+                        related_item_ids: self.related_item_ids(&hit.tenant_id, hit.kind, &hit.id),
                     }
                 })
                 .collect(),
@@ -1273,6 +1366,17 @@ impl Hippocore {
         Ok(())
     }
 
+    fn related_item_ids(&self, tenant_id: &str, kind: ItemKind, id: &str) -> Vec<String> {
+        let mut ids: Vec<String> = self
+            .graph_neighbors(tenant_id, kind, id)
+            .into_iter()
+            .filter_map(|edge| edge.neighbor_id(kind, id).map(str::to_string))
+            .collect();
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+
     fn run_query(&self, req: RecallRequest) -> Result<Vec<RecallResult>> {
         if req.tenant_id.trim().is_empty() {
             return Err(HippocoreError::validation("recall requires a tenant_id"));
@@ -1324,6 +1428,7 @@ impl Hippocore {
             memories: self.state.memories.len(),
             records: self.state.records.len(),
             files: self.state.files.len(),
+            graph_edges: self.state.graph_edges.len(),
             indexed_entries: self.index.len(),
             wal_entries: self.storage.wal_len,
             disk_bytes: self.storage.disk_bytes()?,
@@ -1395,6 +1500,28 @@ impl Hippocore {
             .files
             .iter()
             .filter(|f| f.tenant_id == tenant_id && collection.map_or(true, |c| f.collection == c))
+            .cloned()
+            .collect()
+    }
+
+    /// List graph edges for a tenant, optionally scoped to a source endpoint id.
+    pub fn list_graph_edges(&self, tenant_id: &str, from_id: Option<&str>) -> Vec<GraphEdge> {
+        self.state
+            .graph_edges
+            .iter()
+            .filter(|edge| {
+                edge.tenant_id == tenant_id && from_id.map_or(true, |id| edge.from_id == id)
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Return direct graph edges touching one endpoint.
+    pub fn graph_neighbors(&self, tenant_id: &str, kind: ItemKind, id: &str) -> Vec<GraphEdge> {
+        self.state
+            .graph_edges
+            .iter()
+            .filter(|edge| edge.tenant_id == tenant_id && edge.touches(kind, id))
             .cloned()
             .collect()
     }
@@ -1550,6 +1677,7 @@ impl Hippocore {
                 self.index.remove_record(tenant_id, collection, table, id);
             }
             Operation::DeleteFile { .. } => {}
+            Operation::PutGraphEdge(_) | Operation::DeleteGraphEdge { .. } => {}
             Operation::CreateTenant(_) | Operation::CreateCollection(_) => {}
         }
     }
@@ -1626,6 +1754,40 @@ impl Hippocore {
                 tenant: tenant_id.to_string(),
                 collection: collection.to_string(),
             })
+        }
+    }
+
+    fn require_unique_endpoint(&self, tenant_id: &str, kind: ItemKind, id: &str) -> Result<()> {
+        let matches = match kind {
+            ItemKind::Memory => self
+                .state
+                .memories
+                .iter()
+                .filter(|m| m.tenant_id == tenant_id && m.id == id)
+                .count(),
+            ItemKind::DocumentChunk => self
+                .state
+                .chunks
+                .iter()
+                .filter(|ch| ch.tenant_id == tenant_id && ch.id == id)
+                .count(),
+            ItemKind::Record => self
+                .state
+                .records
+                .iter()
+                .filter(|r| r.tenant_id == tenant_id && r.id == id)
+                .count(),
+        };
+        match matches {
+            1 => Ok(()),
+            0 => Err(HippocoreError::validation(format!(
+                "{} endpoint {id:?} not found in tenant {tenant_id:?}",
+                kind.as_str()
+            ))),
+            _ => Err(HippocoreError::validation(format!(
+                "{} endpoint {id:?} is ambiguous in tenant {tenant_id:?}",
+                kind.as_str()
+            ))),
         }
     }
 

@@ -30,6 +30,7 @@ Context projection is a native responsibility of Hippocore DB.
 | `Memory` | implemented | Atomic remembered fact/procedure/note/event. |
 | `Record` | implemented | Structured JSON object in a logical table namespace. |
 | `FileObject` | implemented | Imported text-like file metadata linked to a derived document. |
+| `GraphEdge` | implemented | Durable direct relationship between context items. |
 | `IndexedEntry` | implemented internally | In-memory searchable projection of one chunk, memory, or record. |
 | `WAL Entry` | implemented internally | Durable mutation record for recovery. |
 
@@ -77,6 +78,12 @@ FileObject
   path: "./notes.md"
   media_type: "text/markdown"
   → derived Document → chunks → IndexedEntries
+
+GraphEdge
+  from: memory "postgres-policy"
+  to: memory "python-client"
+  relation: "mentions"
+  → provenance/direct-neighbour lookup (not an IndexedEntry)
 ```
 
 ## Structured data direction
@@ -121,6 +128,23 @@ Implemented scope:
 The original file bytes are not copied into a blob store yet. The durable state
 stores metadata and extracted text via the derived document. PDF, OCR and
 multimodal extraction remain future work.
+
+## Graph memory
+
+Graph edges are durable relationship records between retrievable context items.
+They do not create indexed entries by themselves; instead, they let
+`build_context` and audit output expose direct related item ids as provenance.
+
+Implemented scope:
+
+- `GraphEdge` model with tenant, endpoints, relation, metadata and timestamps. ✅
+- `add_graph_edge` / `list_graph_edges` / `delete_graph_edge` /
+  `graph_neighbors` APIs. ✅
+- `add-edge` / `list-edges` / `delete-edge` CLI commands. ✅
+- Deterministic cleanup when an endpoint item is deleted. ✅
+
+Graph-aware ranking, multi-hop traversal and graph query language remain future
+work.
 
 ## SDK context API direction
 

@@ -4,7 +4,28 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 9 — RAG Audit Engine**:
+**Phase 10 — Graph Memory v0.1**:
+
+- New public `GraphEdge` model and `AddGraphEdgeRequest`.
+- New durable APIs: `add_graph_edge`, `list_graph_edges`,
+  `delete_graph_edge`, and `graph_neighbors`.
+- New WAL/snapshot operations: `PutGraphEdge` and `DeleteGraphEdge`.
+- Edge endpoints are validated by tenant, kind and id; missing or ambiguous
+  endpoints are rejected with typed validation errors.
+- Deleting memories, records, documents or imported files removes graph edges
+  touching deleted endpoints deterministically.
+- New CLI commands:
+  - `add-edge --tenant <t> --from-kind <kind> --from-id <id> --to-kind <kind>
+    --to-id <id> --relation <name> [--json]`
+  - `list-edges --tenant <t> [--from-id <id>] [--json]`
+  - `delete-edge --tenant <t> --id <edge_id>`
+- `ContextItem` and `AuditItem` now expose `related_item_ids` for direct graph
+  neighbours at context-build time.
+- Documentation added in `docs/en/GRAPH_MEMORY.md` and
+  `docs/pt-br/GRAPH_MEMORY.md`.
+- 6 new core integration tests and 1 new CLI smoke test. 112 tests total.
+
+Previous: **Phase 9 — RAG Audit Engine**:
 
 - New public audit types: `AuditRecord` and `AuditItem`.
 - Every `Hippocore::build_context(req)` appends one JSON-lines audit record to
@@ -261,6 +282,8 @@ Ollama embeddings + generation, idempotent ingestion).
 
 - Store/recall for documents (chunked), memories, structured records and
   imported text-like files.
+- Durable graph edges between memories, records and document chunks, with
+  direct-neighbour lookup and CLI management.
 - Vector, BM25 text, and hybrid modes; every result carries `score`,
   `vector_score`, `text_score`, and a `reason` that explains the scoring path.
 - Tenant isolation (verified by test).
@@ -278,8 +301,9 @@ Ollama embeddings + generation, idempotent ingestion).
 
 ## What is partial
 
-- Retrieval defaults to exact brute force; optional HNSW exists but graph-aware
-  recall is not implemented yet.
+- Retrieval defaults to exact brute force; optional HNSW exists.
+- Graph edges are provenance-only in v0.1; graph-aware ranking/traversal is not
+  implemented yet.
 - The in-memory index is rebuilt fully on open (incremental during runtime).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
@@ -309,10 +333,10 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 105 tests:
+**All green.** `cargo test --workspace` passes 112 tests:
 - 22 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode, 4 new HNSW unit tests),
-- 67 library integration (store/recall, chunking, retrieval quality layer,
+- 73 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
@@ -320,12 +344,13 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   error paths, dimension-mismatch, torn-WAL recovery, temporal filtering,
   supersedure/contradictions, context compiler, batch writes, confidence-aware
   resolution, HNSW backend store+recall+restart+brute-force comparison, RAG audit
-  write/replay/reopen),
+  write/replay/reopen, Graph Memory add/list/validation/isolation/restart/delete
+  cleanup/context provenance),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 14 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+- 15 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`,
-  `eval-quality` pass + fail paths, `audit --json`, and `studio` non-TTY smoke
-  test),
+  `eval-quality` pass + fail paths, `audit --json`, graph edge flow, and
+  `studio` non-TTY smoke test),
 - 1 doctest (lib.rs quickstart),
 - 1 bench_regression example.
 
@@ -333,9 +358,9 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 is clean.
 
 `cargo bench -p hippocore` completed. Final run:
-- `remember`: 8.9788-9.0850 ms.
-- `recall_hybrid`: 598.92-605.97 us.
-- `search_vector`: 87.258-87.797 us.
+- `remember`: 7.9212-8.0148 ms.
+- `recall_hybrid`: 556.14-563.91 us.
+- `search_vector`: 84.930-85.380 us.
 
 ## Current architectural decisions
 
@@ -347,6 +372,6 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Phase 10 — Graph Memory v0.1** — durable direct relationship edges between
-context items, with tenant-scoped APIs, CLI commands and restart-safe
-persistence. See NEXT_FEATURE.md.
+**Graph-Aware Context v0.1** — use direct graph neighbours as optional context
+expansion/provenance hints without implementing full GraphRAG traversal. See
+NEXT_FEATURE.md.

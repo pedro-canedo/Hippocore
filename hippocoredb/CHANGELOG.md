@@ -5,6 +5,27 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Phase 10: Graph Memory v0.1
+
+- Added public `GraphEdge` model for durable direct relationships between
+  context items (`Memory`, `DocumentChunk`, `Record`).
+- Added `AddGraphEdgeRequest` and public APIs:
+  `add_graph_edge`, `list_graph_edges`, `delete_graph_edge`, and
+  `graph_neighbors`.
+- Persist graph edges through the existing WAL/snapshot model via
+  `PutGraphEdge` and `DeleteGraphEdge` operations.
+- Endpoint validation is tenant-scoped and rejects unknown or ambiguous
+  `(tenant, kind, id)` endpoints.
+- Deleting memories, records, documents or imported files removes graph edges
+  touching deleted endpoints deterministically.
+- Context compiler and RAG audit records now expose `related_item_ids` for
+  directly related neighbours.
+- Added CLI commands: `add-edge`, `list-edges`, and `delete-edge`; `add-edge`
+  and `list-edges` support `--json`.
+- Added 6 core integration tests and 1 CLI smoke test covering happy path,
+  validation, tenant isolation, restart durability, dangling-edge cleanup and
+  context/audit provenance.
+
 ### Added — Phase 9: RAG Audit Engine
 
 - Added public `AuditRecord` and `AuditItem` types for query-time retrieval

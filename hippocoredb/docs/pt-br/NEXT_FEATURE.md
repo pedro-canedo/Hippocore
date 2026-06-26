@@ -2,57 +2,56 @@
 
 ## Nome
 
-**Graph Memory v0.1** — arestas duráveis de relacionamento entre itens de
-contexto.
+**Graph-Aware Context v0.1** — expansão opcional por vizinhos diretos na montagem
+de contexto.
 
 ## Por que importa
 
-O RAG Audit Engine agora explica quais itens foram recuperados para um bloco de
-contexto, mas o Hippocore ainda trata memórias, chunks de documento e records
-como um conjunto plano. Agentes frequentemente precisam saber que um item
-explica, depende, menciona, contradiz ou se relaciona com outro. Uma camada
-pequena de grafo melhora a confiabilidade de contexto sem saltar para GraphRAG
-completo.
+Graph Memory v0.1 armazena relacionamentos diretos duráveis e expõe ids de
+vizinhos na proveniência de contexto/auditoria, mas ainda não usa essas relações
+para melhorar o contexto montado. O próximo incremento de maior valor é permitir
+que chamadores optem por incluir vizinhos diretos do grafo em `build_context`,
+sem implementar travessia GraphRAG completa nem alterar o ranking padrão.
 
-Graph Memory v0.1 deve adicionar:
+Graph-Aware Context v0.1 deve adicionar:
 
-- Modelo tipado `GraphEdge` com `tenant_id`, `from_id`, `from_kind`, `to_id`,
-  `to_kind`, `relation`, metadata e timestamps.
-- APIs duráveis para adicionar, listar e deletar arestas.
-- Helpers de travessia por tenant apenas para vizinhos diretos.
-- Comandos CLI para adicionar/listar/deletar arestas com saída `--json`.
-- Consciência opcional no Context Compiler para incluir ids de vizinhos diretos
-  na proveniência/auditoria.
+- Opção `include_related: bool` em `BuildContextRequest` (default `false`).
+- Opção pequena `related_limit: usize` para limitar expansão por vizinhos
+  diretos.
+- Montagem de contexto capaz de incluir vizinhos diretos dos itens recuperados
+  quando couberem no budget de tokens.
+- Proveniência marcando se um item entrou por recall ou por expansão de grafo.
+- Registros de auditoria que diferenciem itens expandidos por grafo dos
+  candidatos recuperados.
+- Flags no CLI `build-context`: `--include-related` e `--related-limit <n>`.
 
 ## Critérios de aceite
 
-- `GraphEdge` é persistido pelo modelo atual de WAL/snapshot e sobrevive a
-  reopen.
-- APIs de aresta validam isolamento por tenant e rejeitam endpoints
-  desconhecidos.
-- Deletar um item remove ou oculta arestas penduradas de forma determinística.
-- Comandos CLI funcionam:
-  - `add-edge --tenant <t> --from-kind <kind> --from-id <id> --to-kind <kind>
-    --to-id <id> --relation <name>`
-  - `list-edges --tenant <t> [--from-id <id>] [--json]`
-  - `delete-edge --tenant <t> --id <edge_id>`
-- Mínimo de 4 testes determinísticos: caminho feliz add/list, erro de endpoint
-  desconhecido, isolamento por tenant, durabilidade após restart.
+- Comportamento padrão de `build_context` não muda quando
+  `include_related = false`.
+- Quando habilitado, apenas vizinhos diretos de itens recuperados são
+  considerados.
+- Expansão continua isolada por tenant e limitada pelo budget de tokens.
+- Itens expandidos não são duplicados se já vieram pelo recall.
+- Saída de contexto/auditoria distingue claramente recall vs expansão por
+  grafo.
+- Mínimo de 4 testes determinísticos: default inalterado, inclusão de vizinho
+  direto, respeito a budget/limit, isolamento por tenant/sem duplicação.
 - Documentação atualizada em inglês e português.
-- Quality gate completo:
+- Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
   - `cargo clippy --workspace --all-targets -- -D warnings`
 
 ## Fora de escopo
 
-- Travessia ou ranking GraphRAG completo.
-- Linguagem de query para padrões de grafo.
+- Travessia multi-hop.
+- Ranking ou boost ciente de grafo.
 - Extração de entidades.
+- Linguagem de query de grafo.
 - Server/HTTP mode.
-- Armazenamento distribuído de grafo.
 
 ## Follow-up
 
-Após Graph Memory v0.1, decidir se o próximo passo de maior valor é ranking de
-recall ciente de grafo ou retenção/rotação do log de auditoria.
+Após Graph-Aware Context v0.1, avaliar se ranking de recall ciente de grafo vale
+a pena ou se retenção/rotação de auditoria é mais valiosa.

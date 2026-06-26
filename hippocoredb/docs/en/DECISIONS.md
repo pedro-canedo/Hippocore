@@ -122,3 +122,21 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
 - **Tradeoffs**: `audit.log` is not compacted with the state snapshot. That is
   acceptable for Phase 9; retention/rotation can be added later without changing
   recovery semantics.
+
+## ADR-009: Graph Memory v0.1 uses tenant-scoped item ids, not graph queries
+
+- **Decision**: Store `GraphEdge` endpoints as `(tenant_id, ItemKind, id)` and
+  reject endpoint ids that are missing or ambiguous within a tenant.
+- **Context**: Phase 10 needs durable relationships between memories, document
+  chunks and records, but the MVP explicitly avoids a complex query language and
+  full GraphRAG traversal.
+- **Alternatives considered**:
+  - Require collection/table-qualified endpoint references in every CLI command.
+  - Introduce a graph query/reference language.
+  - Store graph edges only as loose strings without validation.
+- **Reason**: Tenant-scoped kind/id endpoints keep the API and CLI small while
+  still enforcing correctness. Rejecting ambiguity is safer than guessing which
+  item an edge should target.
+- **Tradeoffs**: Users with duplicate ids across collections/tables must use
+  unique ids before creating graph edges. A richer endpoint reference can be
+  added later without changing the basic `GraphEdge` persistence model.

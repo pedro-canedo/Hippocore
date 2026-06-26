@@ -4,7 +4,29 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Fase 9 — RAG Audit Engine**:
+**Fase 10 — Graph Memory v0.1**:
+
+- Novo modelo público `GraphEdge` e `AddGraphEdgeRequest`.
+- Novas APIs duráveis: `add_graph_edge`, `list_graph_edges`,
+  `delete_graph_edge` e `graph_neighbors`.
+- Novas operações no WAL/snapshot: `PutGraphEdge` e `DeleteGraphEdge`.
+- Endpoints de aresta são validados por tenant, tipo e id; endpoints ausentes ou
+  ambíguos são rejeitados com erro tipado de validação.
+- Deletar memórias, records, documentos ou arquivos importados remove arestas
+  que tocam endpoints deletados de forma determinística.
+- Novos comandos CLI:
+  - `add-edge --tenant <t> --from-kind <kind> --from-id <id> --to-kind <kind>
+    --to-id <id> --relation <name> [--json]`
+  - `list-edges --tenant <t> [--from-id <id>] [--json]`
+  - `delete-edge --tenant <t> --id <edge_id>`
+- `ContextItem` e `AuditItem` agora expõem `related_item_ids` para vizinhos
+  diretos no momento de `build_context`.
+- Documentação adicionada em `docs/en/GRAPH_MEMORY.md` e
+  `docs/pt-br/GRAPH_MEMORY.md`.
+- 6 novos testes de integração no core e 1 novo smoke test CLI. 112 testes no
+  total.
+
+Anterior: **Fase 9 — RAG Audit Engine**:
 
 - Novos tipos públicos de auditoria: `AuditRecord` e `AuditItem`.
 - Cada `Hippocore::build_context(req)` anexa um registro JSON-lines em
@@ -235,6 +257,8 @@ de qualidade e otimização do caminho vector-only.
 
 - Store/recall para documentos, memórias, records e arquivos textuais
   importados.
+- Arestas duráveis de grafo entre memórias, records e chunks de documento, com
+  consulta de vizinhos diretos e gerenciamento via CLI.
 - Vector, BM25 text e hybrid recall.
 - Tenant isolation.
 - WAL com checksum, snapshot atômico, recovery e compaction.
@@ -244,8 +268,9 @@ de qualidade e otimização do caminho vector-only.
 
 ## Parcial
 
-- Retrieval usa brute-force por padrão; HNSW opcional existe, mas recall ciente
-  de grafo ainda não foi implementado.
+- Retrieval usa brute-force por padrão; HNSW opcional existe.
+- Arestas de grafo são apenas proveniência na v0.1; ranking/travessia ciente de
+  grafo ainda não foi implementado.
 - Estado vivo fica em memória e índice é reconstruído no open.
 - Records não têm schema rico nem índices por campo.
 - Blob storage completo, PDF/OCR e dashboard web admin ainda não foram
@@ -263,19 +288,19 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 105 testes:
+`cargo test --workspace` passa com 112 testes:
 
 - 22 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL, 4 novos testes HNSW);
-- 67 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
-  batch writes, resolução por confiança, HNSW backend e RAG audit);
+- 73 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
+  batch writes, resolução por confiança, HNSW backend, RAG audit e Graph Memory);
 - 1 fixture de qualidade de retrieval;
-- 14 smoke tests de CLI (incl. `audit --json` e `cli_studio_exits_without_panic`);
+- 15 smoke tests de CLI (incl. `audit --json`, fluxo de graph edge e
+  `cli_studio_exits_without_panic`);
 - 1 doctest (lib.rs quickstart);
 - 1 bench_regression example.
 
 ## Próxima feature
 
-**Fase 10 — Graph Memory v0.1** — arestas duráveis de relacionamento direto
-entre itens de contexto, com APIs por tenant, comandos CLI e persistência segura
-após restart.
+**Graph-Aware Context v0.1** — usar vizinhos diretos do grafo como expansão
+opcional/proveniência de contexto sem implementar travessia GraphRAG completa.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

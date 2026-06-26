@@ -30,7 +30,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::{HippocoreError, Result};
-use crate::model::{Chunk, Collection, Document, FileObject, Memory, Record, Tenant};
+use crate::model::{
+    Chunk, Collection, Document, FileObject, GraphEdge, ItemKind, Memory, Record, Tenant,
+};
 
 const WAL_FILE: &str = "wal.log";
 const SNAPSHOT_FILE: &str = "snapshot.json";
@@ -70,6 +72,8 @@ pub enum Operation {
     PutMemory(Memory),
     /// Store (or overwrite) a structured record.
     PutRecord(Record),
+    /// Store (or overwrite) a graph relationship edge.
+    PutGraphEdge(GraphEdge),
     /// Store (or overwrite) a file object and its derived document/chunks.
     PutFile {
         /// Imported file metadata.
@@ -118,6 +122,13 @@ pub enum Operation {
         /// File id.
         id: String,
     },
+    /// Remove a graph edge by id.
+    DeleteGraphEdge {
+        /// Owning tenant.
+        tenant_id: String,
+        /// Edge id.
+        id: String,
+    },
 }
 
 /// The fully materialized database state. Indexes are rebuilt from this.
@@ -140,6 +151,9 @@ pub struct State {
     /// Imported file metadata.
     #[serde(default)]
     pub files: Vec<FileObject>,
+    /// Durable direct relationship edges between context items.
+    #[serde(default)]
+    pub graph_edges: Vec<GraphEdge>,
 }
 
 impl State {
@@ -169,6 +183,7 @@ impl State {
                 });
                 self.documents.push(document);
                 self.chunks.extend(chunks);
+                self.prune_graph_edges_for_existing_items();
             }
             Operation::PutMemory(m) => {
                 self.memories.retain(|x| {
@@ -184,6 +199,11 @@ impl State {
                         && x.id == r.id)
                 });
                 self.records.push(r);
+            }
+            Operation::PutGraphEdge(edge) => {
+                self.graph_edges
+                    .retain(|x| !(x.tenant_id == edge.tenant_id && x.id == edge.id));
+                self.graph_edges.push(edge);
             }
             Operation::PutFile {
                 file,
@@ -208,6 +228,7 @@ impl State {
                 self.files.push(*file);
                 self.documents.push(document);
                 self.chunks.extend(chunks);
+                self.prune_graph_edges_for_existing_items();
             }
             Operation::DeleteMemory {
                 tenant_id,
@@ -217,6 +238,7 @@ impl State {
                 self.memories.retain(|x| {
                     !(x.tenant_id == tenant_id && x.collection == collection && x.id == id)
                 });
+                self.remove_graph_edges_for_item(&tenant_id, ItemKind::Memory, &id);
             }
             Operation::DeleteDocument {
                 tenant_id,
@@ -231,6 +253,14 @@ impl State {
                         && ch.collection == collection
                         && ch.document_id == id)
                 });
+                let chunk_prefix = format!("{id}#");
+                self.graph_edges.retain(|edge| {
+                    edge.tenant_id != tenant_id
+                        || !((edge.from_kind == ItemKind::DocumentChunk
+                            && edge.from_id.starts_with(&chunk_prefix))
+                            || (edge.to_kind == ItemKind::DocumentChunk
+                                && edge.to_id.starts_with(&chunk_prefix)))
+                });
             }
             Operation::DeleteRecord {
                 tenant_id,
@@ -244,6 +274,7 @@ impl State {
                         && x.table == table
                         && x.id == id)
                 });
+                self.remove_graph_edges_for_item(&tenant_id, ItemKind::Record, &id);
             }
             Operation::DeleteFile {
                 tenant_id,
@@ -266,12 +297,73 @@ impl State {
                             && ch.collection == collection
                             && ch.document_id == file.document_id)
                     });
+                    let chunk_prefix = format!("{}#", file.document_id);
+                    self.graph_edges.retain(|edge| {
+                        edge.tenant_id != tenant_id
+                            || !((edge.from_kind == ItemKind::DocumentChunk
+                                && edge.from_id.starts_with(&chunk_prefix))
+                                || (edge.to_kind == ItemKind::DocumentChunk
+                                    && edge.to_id.starts_with(&chunk_prefix)))
+                    });
                 }
                 self.files.retain(|x| {
                     !(x.tenant_id == tenant_id && x.collection == collection && x.id == id)
                 });
             }
+            Operation::DeleteGraphEdge { tenant_id, id } => {
+                self.graph_edges
+                    .retain(|edge| !(edge.tenant_id == tenant_id && edge.id == id));
+            }
         }
+    }
+
+    fn remove_graph_edges_for_item(&mut self, tenant_id: &str, kind: ItemKind, id: &str) {
+        self.graph_edges
+            .retain(|edge| edge.tenant_id != tenant_id || !edge.touches(kind, id));
+    }
+
+    fn prune_graph_edges_for_existing_items(&mut self) {
+        let memories = &self.memories;
+        let chunks = &self.chunks;
+        let records = &self.records;
+        self.graph_edges.retain(|edge| {
+            item_exists(
+                memories,
+                chunks,
+                records,
+                &edge.tenant_id,
+                edge.from_kind,
+                &edge.from_id,
+            ) && item_exists(
+                memories,
+                chunks,
+                records,
+                &edge.tenant_id,
+                edge.to_kind,
+                &edge.to_id,
+            )
+        });
+    }
+}
+
+fn item_exists(
+    memories: &[Memory],
+    chunks: &[Chunk],
+    records: &[Record],
+    tenant_id: &str,
+    kind: ItemKind,
+    id: &str,
+) -> bool {
+    match kind {
+        ItemKind::Memory => memories
+            .iter()
+            .any(|m| m.tenant_id == tenant_id && m.id == id),
+        ItemKind::DocumentChunk => chunks
+            .iter()
+            .any(|ch| ch.tenant_id == tenant_id && ch.id == id),
+        ItemKind::Record => records
+            .iter()
+            .any(|r| r.tenant_id == tenant_id && r.id == id),
     }
 }
 

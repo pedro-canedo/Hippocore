@@ -57,3 +57,22 @@ versão em inglês em `docs/en/DECISIONS.md`.
   inspecionável e local-first, sem inflar snapshot nem rebuild de índice.
 - **Trade-off**: `audit.log` não é compactado junto com o snapshot. Isso é
   aceitável na Fase 9; retenção/rotação pode vir depois sem alterar recovery.
+
+## ADR-009: Graph Memory v0.1 usa ids por tenant, não queries de grafo
+
+- **Decisão**: armazenar endpoints de `GraphEdge` como
+  `(tenant_id, ItemKind, id)` e rejeitar ids de endpoint ausentes ou ambíguos
+  dentro de um tenant.
+- **Contexto**: a Fase 10 precisa de relacionamentos duráveis entre memórias,
+  chunks de documento e records, mas o MVP evita linguagem de query complexa e
+  travessia GraphRAG completa.
+- **Alternativas consideradas**:
+  - exigir referências qualificadas por collection/table em todo comando CLI;
+  - introduzir uma linguagem de referência/query de grafo;
+  - armazenar arestas como strings soltas sem validação.
+- **Motivo**: endpoints por tenant/kind/id mantêm API e CLI pequenos sem abrir
+  mão de correção. Rejeitar ambiguidade é mais seguro do que escolher um item por
+  suposição.
+- **Trade-off**: usuários com ids duplicados entre collections/tables precisam
+  usar ids únicos antes de criar arestas. Uma referência mais rica pode ser
+  adicionada depois sem mudar o modelo básico de persistência de `GraphEdge`.

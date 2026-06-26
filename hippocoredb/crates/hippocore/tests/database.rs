@@ -2,8 +2,9 @@
 
 use hippocore::model::{ItemKind, MemoryType};
 use hippocore::{
-    BuildContextRequest, ChunkInput, Config, Hippocore, HippocoreError, ImportFileRequest,
-    PutRecordRequest, RecallRequest, RememberRequest, SearchMode, StoreDocumentRequest,
+    AddGraphEdgeRequest, BuildContextRequest, ChunkInput, Config, Hippocore, HippocoreError,
+    ImportFileRequest, PutRecordRequest, RecallRequest, RememberRequest, SearchMode,
+    StoreDocumentRequest,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -1510,6 +1511,182 @@ fn query_audit_survives_reopen() {
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].query, "redis cache");
     assert!(!records[0].items.is_empty());
+}
+
+// ── Graph Memory tests ───────────────────────────────────────────────────────
+
+#[test]
+fn graph_edge_adds_and_lists_direct_neighbors() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "python psycopg connection example");
+
+    let edge = db
+        .add_graph_edge(AddGraphEdgeRequest::new(
+            "acme",
+            ItemKind::Memory,
+            "pg",
+            ItemKind::Memory,
+            "py",
+            "mentions",
+        ))
+        .unwrap();
+
+    let edges = db.list_graph_edges("acme", Some("pg"));
+    assert_eq!(edges, vec![edge.clone()]);
+
+    let neighbours = db.graph_neighbors("acme", ItemKind::Memory, "pg");
+    assert_eq!(neighbours, vec![edge]);
+}
+
+#[test]
+fn graph_edge_rejects_unknown_endpoint() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+
+    let err = db
+        .add_graph_edge(AddGraphEdgeRequest::new(
+            "acme",
+            ItemKind::Memory,
+            "pg",
+            ItemKind::Memory,
+            "missing",
+            "mentions",
+        ))
+        .unwrap_err();
+    assert!(matches!(err, HippocoreError::Validation(_)));
+}
+
+#[test]
+fn graph_edges_are_tenant_isolated() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    db.create_tenant("other", "Other").unwrap();
+    db.create_collection("other", "support", "").unwrap();
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "python psycopg connection example");
+    db.remember(RememberRequest {
+        id: Some("pg".into()),
+        ..RememberRequest::new(
+            "other",
+            "support",
+            MemoryType::Semantic,
+            "other tenant postgresql setup",
+        )
+    })
+    .unwrap();
+    db.remember(RememberRequest {
+        id: Some("py".into()),
+        ..RememberRequest::new(
+            "other",
+            "support",
+            MemoryType::Semantic,
+            "other tenant python setup",
+        )
+    })
+    .unwrap();
+
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    assert_eq!(db.list_graph_edges("acme", None).len(), 1);
+    assert!(db.list_graph_edges("other", None).is_empty());
+}
+
+#[test]
+fn graph_edges_survive_restart() {
+    let dir = TempDir::new().unwrap();
+    {
+        let mut db = seeded(&dir);
+        remember_id(&mut db, "pg", "postgresql connection setup");
+        remember_id(&mut db, "py", "python psycopg connection example");
+        db.add_graph_edge(AddGraphEdgeRequest::new(
+            "acme",
+            ItemKind::Memory,
+            "pg",
+            ItemKind::Memory,
+            "py",
+            "mentions",
+        ))
+        .unwrap();
+        db.close().unwrap();
+    }
+
+    let db = open(&dir);
+    let edges = db.list_graph_edges("acme", Some("pg"));
+    assert_eq!(edges.len(), 1);
+    assert_eq!(edges[0].relation, "mentions");
+}
+
+#[test]
+fn deleting_item_removes_dangling_graph_edges() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "python psycopg connection example");
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    db.forget("acme", "support", "py").unwrap();
+    assert!(
+        db.list_graph_edges("acme", None).is_empty(),
+        "edges touching a deleted item must be removed"
+    );
+}
+
+#[test]
+fn build_context_and_audit_include_related_item_ids() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember_id(&mut db, "pg", "postgresql connection setup");
+    remember_id(&mut db, "py", "python psycopg connection example");
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "mentions",
+    ))
+    .unwrap();
+
+    let block = db
+        .build_context(BuildContextRequest::new(
+            "acme",
+            "postgresql connection",
+            2048,
+        ))
+        .unwrap();
+    let pg_item = block
+        .items_included
+        .iter()
+        .find(|item| item.id == "pg")
+        .expect("pg item must be included");
+    assert_eq!(pg_item.related_item_ids, vec!["py".to_string()]);
+
+    let audit = db.query_audit(0, i64::MAX, "acme").unwrap();
+    let pg_audit_item = audit[0]
+        .items
+        .iter()
+        .find(|item| item.id == "pg")
+        .expect("pg audit item must be present");
+    assert_eq!(pg_audit_item.related_item_ids, vec!["py".to_string()]);
 }
 
 // ── Batch write / group-commit tests ─────────────────────────────────────────

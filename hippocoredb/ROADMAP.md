@@ -87,7 +87,11 @@ not a dated commitment.
 ## Phase 10 — Graph Memory
 
 - Entities and relations.
-- GraphRAG-style traversal over the knowledge graph.
+- Durable direct `GraphEdge` relations between memories, document chunks and
+  records. ✅
+- Tenant-scoped direct-neighbour APIs and CLI commands. ✅
+- Context/audit provenance exposes direct related item ids. ✅
+- Graph-aware ranking and GraphRAG-style traversal over the knowledge graph.
 
 ## Phase 11 — Server mode
 

@@ -146,6 +146,97 @@ fn cli_audit_json_reports_build_context_records() {
 }
 
 #[test]
+fn cli_graph_edge_flow_json() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    for (id, text) in [
+        ("pg", "PostgreSQL connection setup"),
+        ("py", "Python psycopg connection example"),
+    ] {
+        let out = bin()
+            .args([
+                "remember",
+                "--db",
+                db,
+                "--tenant",
+                "acme",
+                "--collection",
+                "support",
+                "--type",
+                "semantic",
+                "--id",
+                id,
+                "--text",
+                text,
+            ])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "remember failed: {out:?}");
+    }
+
+    let add = bin()
+        .args([
+            "add-edge",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--id",
+            "e1",
+            "--from-kind",
+            "memory",
+            "--from-id",
+            "pg",
+            "--to-kind",
+            "memory",
+            "--to-id",
+            "py",
+            "--relation",
+            "mentions",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(add.status.success(), "add-edge failed: {add:?}");
+    let edge: serde_json::Value = serde_json::from_slice(&add.stdout).unwrap();
+    assert_eq!(edge["id"], "e1");
+    assert_eq!(edge["relation"], "mentions");
+
+    let list = bin()
+        .args([
+            "list-edges",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--from-id",
+            "pg",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(list.status.success(), "list-edges failed: {list:?}");
+    let edges: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
+    assert_eq!(edges.as_array().unwrap().len(), 1);
+    assert_eq!(edges[0]["to_id"], "py");
+
+    let delete = bin()
+        .args(["delete-edge", "--db", db, "--tenant", "acme", "--id", "e1"])
+        .output()
+        .unwrap();
+    assert!(delete.status.success(), "delete-edge failed: {delete:?}");
+
+    let list = bin()
+        .args(["list-edges", "--db", db, "--tenant", "acme", "--json"])
+        .output()
+        .unwrap();
+    assert!(list.status.success());
+    let edges: serde_json::Value = serde_json::from_slice(&list.stdout).unwrap();
+    assert!(edges.as_array().unwrap().is_empty());
+}
+
+#[test]
 fn cli_compact_preserves_data() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();

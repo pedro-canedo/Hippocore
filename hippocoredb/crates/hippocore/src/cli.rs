@@ -15,8 +15,8 @@ use clap::{Args, Parser, Subcommand};
 use crate::model::{ItemKind, MemoryType, Source};
 use crate::query::SearchMode;
 use crate::{
-    BuildContextRequest, Config, Hippocore, ImportFileRequest, PutRecordRequest, RecallRequest,
-    RememberRequest, StoreDocumentRequest,
+    AddGraphEdgeRequest, BuildContextRequest, Config, Hippocore, ImportFileRequest,
+    PutRecordRequest, RecallRequest, RememberRequest, StoreDocumentRequest,
 };
 
 /// Hippocore DB command-line interface.
@@ -71,6 +71,12 @@ enum Command {
     ListRecords(ListRecordsArgs),
     /// List imported files in a tenant.
     ListFiles(ListObjectsArgs),
+    /// Add a durable graph edge between context items.
+    AddEdge(AddEdgeArgs),
+    /// List graph edges in a tenant.
+    ListEdges(ListEdgesArgs),
+    /// Delete a graph edge by id.
+    DeleteEdge(DeleteEdgeArgs),
     /// Show a document and its chunks.
     ShowDocument(ShowIdArgs),
     /// Show a memory.
@@ -336,6 +342,56 @@ struct ListRecordsArgs {
     json: bool,
 }
 
+#[derive(Args)]
+struct AddEdgeArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    id: Option<String>,
+    /// Source kind: chunk | memory | record.
+    #[arg(long = "from-kind")]
+    from_kind: String,
+    #[arg(long = "from-id")]
+    from_id: String,
+    /// Target kind: chunk | memory | record.
+    #[arg(long = "to-kind")]
+    to_kind: String,
+    #[arg(long = "to-id")]
+    to_id: String,
+    #[arg(long)]
+    relation: String,
+    #[arg(long = "meta", value_name = "KEY=VALUE")]
+    meta: Vec<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct ListEdgesArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long = "from-id")]
+    from_id: Option<String>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(Args)]
+struct DeleteEdgeArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    id: String,
+}
+
 /// Shared args for show-document / show-memory / show-file.
 #[derive(Args)]
 struct ShowIdArgs {
@@ -478,6 +534,9 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ListMemories(a) => cmd_list_memories(a),
         Command::ListRecords(a) => cmd_list_records(a),
         Command::ListFiles(a) => cmd_list_files(a),
+        Command::AddEdge(a) => cmd_add_edge(a),
+        Command::ListEdges(a) => cmd_list_edges(a),
+        Command::DeleteEdge(a) => cmd_delete_edge(a),
         Command::ShowDocument(a) => cmd_show_document(a),
         Command::ShowMemory(a) => cmd_show_memory(a),
         Command::ShowRecord(a) => cmd_show_record(a),
@@ -516,6 +575,17 @@ fn parse_embedding(raw: &str) -> Result<Vec<f32>, String> {
                 .map_err(|_| format!("invalid embedding component: {s:?}"))
         })
         .collect()
+}
+
+fn parse_item_kind(raw: &str) -> Result<ItemKind, String> {
+    match raw {
+        "chunk" | "document" | "document_chunk" => Ok(ItemKind::DocumentChunk),
+        "memory" => Ok(ItemKind::Memory),
+        "record" => Ok(ItemKind::Record),
+        other => Err(format!(
+            "invalid kind: {other:?} (expected chunk|memory|record)"
+        )),
+    }
 }
 
 fn cmd_init(a: DbArg) -> Result<(), String> {
@@ -647,14 +717,7 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     };
     let kind = match a.kind.as_deref() {
         None => None,
-        Some("chunk") | Some("document") => Some(ItemKind::DocumentChunk),
-        Some("memory") => Some(ItemKind::Memory),
-        Some("record") => Some(ItemKind::Record),
-        Some(other) => {
-            return Err(format!(
-                "invalid kind: {other:?} (expected chunk|memory|record)"
-            ))
-        }
+        Some(raw) => Some(parse_item_kind(raw)?),
     };
     let metadata = parse_meta(&a.meta)?;
     let embedding = match &a.embedding {
@@ -947,6 +1010,77 @@ fn cmd_list_files(a: ListObjectsArgs) -> Result<(), String> {
             f.tenant_id, f.collection, f.id, f.name, f.size_bytes
         );
     }
+    Ok(())
+}
+
+fn cmd_add_edge(a: AddEdgeArgs) -> Result<(), String> {
+    let metadata = parse_meta(&a.meta)?;
+    let from_kind = parse_item_kind(&a.from_kind)?;
+    let to_kind = parse_item_kind(&a.to_kind)?;
+    let mut db = open(&a.db)?;
+    let mut req = AddGraphEdgeRequest::new(
+        &a.tenant, from_kind, a.from_id, to_kind, a.to_id, a.relation,
+    );
+    req.id = a.id;
+    req.metadata = metadata;
+    let edge = db.add_graph_edge(req).map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&edge)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+    } else {
+        println!(
+            "added edge {} {}:{} -{}-> {}:{}",
+            edge.id,
+            edge.from_kind.as_str(),
+            edge.from_id,
+            edge.relation,
+            edge.to_kind.as_str(),
+            edge.to_id
+        );
+    }
+    Ok(())
+}
+
+fn cmd_list_edges(a: ListEdgesArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let edges = db.list_graph_edges(&a.tenant, a.from_id.as_deref());
+    if a.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&edges)
+                .map_err(|e| format!("serialization failed: {e}"))?
+        );
+        return Ok(());
+    }
+    if edges.is_empty() {
+        println!("no graph edges");
+        return Ok(());
+    }
+    for edge in &edges {
+        println!(
+            "{}\t{}:{} -{}-> {}:{}",
+            edge.id,
+            edge.from_kind.as_str(),
+            edge.from_id,
+            edge.relation,
+            edge.to_kind.as_str(),
+            edge.to_id
+        );
+    }
+    Ok(())
+}
+
+fn cmd_delete_edge(a: DeleteEdgeArgs) -> Result<(), String> {
+    let mut db = open(&a.db)?;
+    db.delete_graph_edge(&a.tenant, &a.id)
+        .map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!("deleted edge {}/{}", a.tenant, a.id);
     Ok(())
 }
 
@@ -1405,8 +1539,10 @@ fn cmd_build_context(a: BuildContextArgs) -> Result<(), String> {
                     "id": item.id,
                     "kind": format!("{:?}", item.kind).to_lowercase(),
                     "score": item.score,
+                    "confidence": item.confidence,
                     "token_count": item.token_count,
                     "snippet": item.snippet,
+                    "related_item_ids": item.related_item_ids,
                 })
             })
             .collect();
