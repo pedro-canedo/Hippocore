@@ -37,13 +37,10 @@ Earlier increment: RAG Quality Layer v0.1:
 - Query normalization maps common PostgreSQL typos/aliases (`postgress`,
   `postgres`) to `postgresql` and connection variants (`conexão`, `conexao`,
   `connection`) to a shared lexical signal.
-- The query layer detects simple technology/entity tags (`oracle`,
-  `postgresql`, `python`, `listener`, `vacuum`, `connection`) on queries and
-  indexed entries.
-- Hybrid/text/vector final scores receive small explainable boosts/penalties
-  when a query clearly targets Oracle or PostgreSQL, preventing Oracle listener
-  memories from outranking Python/PostgreSQL connection memories unless Oracle
-  is explicitly mentioned.
+- The query layer normalizes common PostgreSQL typos/aliases and connection
+  variants before lexical scoring and built-in query embedding.
+- Query ranking stays generic: it relies on normalized text, BM25 and vector
+  similarity, without hard-coded Oracle/PostgreSQL entity boosts in the core.
 - The TypeScript Ollama RAG example now seeds PostgreSQL service, port, `pg_ctl`,
   Python `psycopg`/`psycopg2`, and "not Oracle listener/lsnrctl" memories; it
   also prunes obsolete demo memory ids, prints retrieval debug details, and uses
@@ -67,8 +64,7 @@ Ollama embeddings + generation, idempotent ingestion).
 - Store/recall for documents (chunked), memories, structured records and
   imported text-like files.
 - Vector, BM25 text, and hybrid modes; every result carries `score`,
-  `vector_score`, `text_score`, and a `reason` that includes entity tags and
-  boost/penalty explanations when applied.
+  `vector_score`, `text_score`, and a `reason` that explains the scoring path.
 - Tenant isolation (verified by test).
 - Durable restart: snapshot + WAL replay; torn trailing line AND checksum
   mismatch both recover safely (no panic, no silently-loaded corruption).

@@ -276,7 +276,6 @@ fn postgres_query_prefers_postgres_memories() {
         .unwrap();
     assert!(!hits.is_empty());
     assert_eq!(hits[0].id, "postgres-start");
-    assert!(hits[0].reason.contains("boost: query targets postgresql"));
 }
 
 #[test]
@@ -302,7 +301,6 @@ fn oracle_query_prefers_oracle_memories() {
         .unwrap();
     assert!(!hits.is_empty());
     assert_eq!(hits[0].id, "oracle-listener");
-    assert!(hits[0].reason.contains("boost: query targets oracle"));
 }
 
 #[test]
@@ -352,9 +350,6 @@ fn python_postgres_connection_does_not_rank_oracle_first() {
     assert!(!hits.is_empty());
     assert_eq!(hits[0].id, "postgres-python");
     assert_ne!(hits[0].id, "oracle-listener");
-    assert!(hits
-        .iter()
-        .any(|h| h.reason.contains("python+postgresql connection")));
 }
 
 #[test]

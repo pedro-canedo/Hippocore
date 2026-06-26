@@ -49,11 +49,9 @@ caller → Hippocore.run_query
        → query::execute(index, embedder, request)
            → normalize query text (for typo/entity handling)
            → filter entries (tenant/collection/user/type/kind/metadata)
-           → score: cosine (vector) and/or BM25 (text)
+       → score: cosine (vector) and/or BM25 (text)
            → min-max normalize each signal across candidates → [0,1]
            → fuse: hybrid = alpha*vec + (1-alpha)*text
-           → apply small entity boost/penalty when query clearly targets
-             Oracle or PostgreSQL
            → sort desc, truncate top_k, build RecallResult (+ reason)
 ```
 

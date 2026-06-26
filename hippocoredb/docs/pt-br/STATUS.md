@@ -31,9 +31,8 @@ Incremento anterior: Context data model v0.1:
 - A documentação dentro de `docs/` agora é bilíngue por regra: todo arquivo deve
   existir em `docs/en/` e `docs/pt-br/`.
 
-Incremento anterior: RAG Quality Layer v0.1 com normalização de query, tags,
-boost/penalty de Oracle/PostgreSQL, fixture de qualidade e otimização do caminho
-vector-only.
+Incremento anterior: RAG Quality Layer v0.1 com normalização de query, fixture
+de qualidade e otimização do caminho vector-only.
 
 ## Funcionando
 

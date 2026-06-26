@@ -45,7 +45,6 @@ caller → run_query
            → score vetorial e/ou BM25
            → normalização min-max
            → fusão híbrida
-           → boost/penalty simples por entidade
            → sort + top-k + RecallResult
 ```
 

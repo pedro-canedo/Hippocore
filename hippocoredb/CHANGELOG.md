@@ -38,12 +38,8 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 - Query normalization for PostgreSQL aliases/typos (`postgres`, `postgress`) and
   connection variants (`conexão`, `conexao`, `connection`) before lexical
   scoring and built-in query embedding.
-- Simple technology/entity detection for Oracle, PostgreSQL, Python, listener,
-  vacuum, and connection signals.
-- Explainable retrieval boosts/penalties so clearly PostgreSQL queries rank
-  PostgreSQL memories over Oracle memories, clearly Oracle queries rank Oracle
-  memories over PostgreSQL memories, and mixed Oracle/PostgreSQL queries can
-  still retrieve both.
+- Query ranking stays generic: it relies on normalized text, BM25 and vector
+  similarity, without hard-coded Oracle/PostgreSQL entity boosts in the core.
 - Regression tests for PostgreSQL, Oracle, mixed Oracle/PostgreSQL, typo
   normalization, Python/PostgreSQL connection ranking, and vector dimension
   mismatch safety.
@@ -58,9 +54,8 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ### Changed — retrieval performance hygiene
 
-- Pure vector search now skips query normalization and entity/tag detection.
-  Entity detection no longer allocates a set for query tags, keeping the RAG
-  quality layer out of the vector-only hot path.
+- Pure vector search now skips query normalization, keeping the quality layer
+  out of the vector-only hot path.
 
 ### Documentation — product direction
 

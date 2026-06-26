@@ -112,50 +112,6 @@ struct Scored<'a> {
     entry: &'a IndexEntry,
     raw_vec: Option<f32>,
     raw_text: f32,
-    tags: Option<EntityTags>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct EntityTags {
-    oracle: bool,
-    postgresql: bool,
-    python: bool,
-    listener: bool,
-    vacuum: bool,
-    connection: bool,
-}
-
-impl EntityTags {
-    fn has_exclusive_postgresql(&self) -> bool {
-        self.postgresql && !self.oracle
-    }
-
-    fn has_exclusive_oracle(&self) -> bool {
-        self.oracle && !self.postgresql
-    }
-
-    fn names(&self) -> Vec<&'static str> {
-        let mut out = Vec::new();
-        if self.oracle {
-            out.push("oracle");
-        }
-        if self.postgresql {
-            out.push("postgresql");
-        }
-        if self.python {
-            out.push("python");
-        }
-        if self.listener {
-            out.push("listener");
-        }
-        if self.vacuum {
-            out.push("vacuum");
-        }
-        if self.connection {
-            out.push("connection");
-        }
-        out
-    }
 }
 
 /// Execute `request` against `index`, returning ranked results.
@@ -176,13 +132,6 @@ pub fn execute(
         SearchMode::Vector => Vec::new(),
         SearchMode::Text | SearchMode::Hybrid => tokenize(&normalized_query),
     };
-    let query_tags = if request.mode == SearchMode::Vector {
-        EntityTags::default()
-    } else {
-        detect_entity_tags(&normalized_query)
-    };
-    let should_adjust_scores =
-        request.mode != SearchMode::Vector && (query_tags.oracle || query_tags.postgresql);
 
     let query_embedding: Option<Vec<f32>> = match request.mode {
         SearchMode::Text => None,
@@ -201,7 +150,6 @@ pub fn execute(
         .entries()
         .filter(|e| request.filter.matches(e))
         .map(|e| {
-            let tags = should_adjust_scores.then(|| detect_entry_tags(e));
             let raw_vec = query_embedding
                 .as_ref()
                 .and_then(|q| cosine_similarity(q, &e.embedding));
@@ -214,7 +162,6 @@ pub fn execute(
                 entry: e,
                 raw_vec,
                 raw_text,
-                tags,
             }
         })
         .filter(|s| match request.mode {
@@ -253,14 +200,7 @@ pub fn execute(
                     format!("hybrid(vector={vnorm:.3}, text={tnorm:.3})"),
                 ),
             };
-            let adjustment = s
-                .tags
-                .as_ref()
-                .map(|tags| score_adjustment(&query_tags, tags))
-                .unwrap_or_default();
-            let final_score = (score + adjustment.delta).clamp(0.0, 1.0);
-            let reason = explain_score(reason, s.tags.as_ref(), &adjustment);
-            build_result(s.entry, final_score, vnorm, tnorm, reason)
+            build_result(s.entry, score, vnorm, tnorm, reason)
         })
         .collect();
 
@@ -318,113 +258,6 @@ fn normalize_token(token: &str) -> &str {
     }
 }
 
-fn detect_entry_tags(entry: &IndexEntry) -> EntityTags {
-    let mut tags = EntityTags::default();
-    for token in entry.tf.keys() {
-        mark_tag(&mut tags, normalize_token(token));
-    }
-    for (key, value) in &entry.metadata {
-        for token in tokenize(key) {
-            mark_tag(&mut tags, normalize_token(&token));
-        }
-        for token in tokenize(value) {
-            mark_tag(&mut tags, normalize_token(&token));
-        }
-    }
-    tags
-}
-
-fn detect_entity_tags(text: &str) -> EntityTags {
-    let mut tags = EntityTags::default();
-    for token in tokenize(text) {
-        mark_tag(&mut tags, normalize_token(&token));
-    }
-    tags
-}
-
-fn mark_tag(tags: &mut EntityTags, token: &str) {
-    match token {
-        "oracle" => tags.oracle = true,
-        "postgresql" => tags.postgresql = true,
-        "python" => tags.python = true,
-        "listener" => tags.listener = true,
-        "vacuum" | "autovacuum" => tags.vacuum = true,
-        "connection" => tags.connection = true,
-        "lsnrctl" => {
-            tags.oracle = true;
-            tags.listener = true;
-        }
-        "psycopg" | "psycopg2" => {
-            tags.postgresql = true;
-            tags.python = true;
-            tags.connection = true;
-        }
-        _ => {}
-    }
-}
-
-#[derive(Default)]
-struct ScoreAdjustment {
-    delta: f32,
-    explanation: Option<&'static str>,
-}
-
-fn score_adjustment(query: &EntityTags, entry: &EntityTags) -> ScoreAdjustment {
-    if query.has_exclusive_postgresql() {
-        if entry.postgresql {
-            return ScoreAdjustment {
-                delta: 0.20,
-                explanation: Some("boost: query targets postgresql"),
-            };
-        }
-        if entry.oracle {
-            let explanation = if query.python && query.connection {
-                "penalty: python+postgresql connection query without oracle"
-            } else {
-                "penalty: query targets postgresql, entry is oracle"
-            };
-            return ScoreAdjustment {
-                delta: -0.45,
-                explanation: Some(explanation),
-            };
-        }
-    }
-
-    if query.has_exclusive_oracle() {
-        if entry.oracle {
-            return ScoreAdjustment {
-                delta: 0.20,
-                explanation: Some("boost: query targets oracle"),
-            };
-        }
-        if entry.postgresql {
-            return ScoreAdjustment {
-                delta: -0.45,
-                explanation: Some("penalty: query targets oracle, entry is postgresql"),
-            };
-        }
-    }
-
-    ScoreAdjustment {
-        delta: 0.0,
-        explanation: None,
-    }
-}
-
-fn explain_score(base: String, tags: Option<&EntityTags>, adjustment: &ScoreAdjustment) -> String {
-    let mut parts = vec![base];
-    if let Some(tags) = tags {
-        let tag_names = tags.names();
-        if !tag_names.is_empty() {
-            parts.push(format!("tags={}", tag_names.join(",")));
-        }
-    }
-    if let Some(explanation) = adjustment.explanation {
-        parts.push(format!("{explanation} ({:+.2})", adjustment.delta));
-    }
-    parts.join("; ")
-}
-
 fn min_max(iter: impl Iterator<Item = f32>) -> (f32, f32) {
     let mut lo = f32::INFINITY;
     let mut hi = f32::NEG_INFINITY;
@@ -459,9 +292,5 @@ mod tests {
             normalize_query_text("Como postgress funciona?"),
             "como postgresql funciona"
         );
-        let tags = detect_entity_tags(&normalize_query_text("conexão python no postgress"));
-        assert!(tags.postgresql);
-        assert!(tags.python);
-        assert!(tags.connection);
     }
 }
