@@ -383,6 +383,55 @@ impl AddGraphEdgeRequest {
     }
 }
 
+/// Request for multi-hop BFS graph traversal (GraphRAG-style).
+///
+/// Starting from `seed_ids`, the traversal follows `GraphEdge` links up to
+/// `max_hops` levels deep and collects at most `max_nodes` discovered items.
+/// Useful for building a sub-graph of related context around a recalled set.
+#[derive(Debug, Clone)]
+pub struct TraverseGraphRequest {
+    /// Tenant scope. Only edges and items belonging to this tenant are visited.
+    pub tenant_id: String,
+    /// Starting points for the BFS. Each entry is `(kind, id)`.
+    pub seed_ids: Vec<(ItemKind, String)>,
+    /// Maximum hop depth to explore (default 2).
+    pub max_hops: usize,
+    /// Hard cap on the number of nodes collected (default 50).
+    pub max_nodes: usize,
+    /// When `Some`, only follow edges whose `relation` matches this string.
+    pub relation_filter: Option<String>,
+}
+
+impl TraverseGraphRequest {
+    /// Build a request with sensible defaults (2 hops, 50 nodes, no relation
+    /// filter).
+    pub fn new(
+        tenant_id: impl Into<String>,
+        seed_ids: impl IntoIterator<Item = (ItemKind, String)>,
+    ) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            seed_ids: seed_ids.into_iter().collect(),
+            max_hops: 2,
+            max_nodes: 50,
+            relation_filter: None,
+        }
+    }
+}
+
+/// A node discovered during a [`Hippocore::traverse_graph`] BFS traversal.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraversalNode {
+    /// Id of the discovered item.
+    pub id: String,
+    /// Kind of the discovered item.
+    pub kind: ItemKind,
+    /// Number of hops from the nearest seed.
+    pub hop: usize,
+    /// Id of the graph edge that introduced this node.
+    pub via_edge_id: String,
+}
+
 /// Request to recall/search context.
 #[derive(Debug, Clone)]
 pub struct RecallRequest {
@@ -1013,6 +1062,67 @@ impl Hippocore {
             tenant_id: tenant_id.to_string(),
             id: id.to_string(),
         })
+    }
+
+    /// Multi-hop BFS traversal of the graph (GraphRAG-style).
+    ///
+    /// Starts from the items listed in `req.seed_ids` and follows `GraphEdge`
+    /// links breadth-first up to `req.max_hops` levels deep, collecting at most
+    /// `req.max_nodes` [`TraversalNode`] entries. Seed items are not included in
+    /// the result set.
+    ///
+    /// The returned nodes are ordered by discovery (BFS order, i.e. all hop-1
+    /// nodes before any hop-2 nodes). Useful for expanding a recalled seed set
+    /// into a richer neighbourhood for GraphRAG prompts.
+    pub fn traverse_graph(&self, req: TraverseGraphRequest) -> Vec<TraversalNode> {
+        use std::collections::VecDeque;
+
+        let mut visited: HashSet<(ItemKind, String)> = req
+            .seed_ids
+            .iter()
+            .map(|(k, id)| (*k, id.clone()))
+            .collect();
+
+        // Queue entries: (kind, id, current_hop)
+        let mut queue: VecDeque<(ItemKind, String, usize)> =
+            req.seed_ids.into_iter().map(|(k, id)| (k, id, 0)).collect();
+
+        let mut result = Vec::new();
+
+        while let Some((kind, id, hop)) = queue.pop_front() {
+            if hop >= req.max_hops {
+                continue;
+            }
+            for edge in self.graph_neighbors(&req.tenant_id, kind, &id) {
+                if let Some(ref filter) = req.relation_filter {
+                    if &edge.relation != filter {
+                        continue;
+                    }
+                }
+                let (neighbor_kind, neighbor_id) = if edge.from_kind == kind && edge.from_id == id {
+                    (edge.to_kind, edge.to_id.clone())
+                } else {
+                    (edge.from_kind, edge.from_id.clone())
+                };
+                let key = (neighbor_kind, neighbor_id.clone());
+                if visited.contains(&key) {
+                    continue;
+                }
+                visited.insert(key);
+                result.push(TraversalNode {
+                    id: neighbor_id.clone(),
+                    kind: neighbor_kind,
+                    hop: hop + 1,
+                    via_edge_id: edge.id.clone(),
+                });
+                if result.len() >= req.max_nodes {
+                    return result;
+                }
+                queue.push_back((neighbor_kind, neighbor_id, hop + 1));
+            }
+        }
+
+        result
     }
 
     /// Store multiple memories in a single WAL write + single fsync (group-commit).

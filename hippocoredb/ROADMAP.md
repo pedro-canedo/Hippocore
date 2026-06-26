@@ -92,7 +92,10 @@ not a dated commitment.
 - Tenant-scoped direct-neighbour APIs and CLI commands. ✅
 - Context/audit provenance exposes direct related item ids. ✅
 - Optional direct-neighbour context expansion in `build_context`. ✅
-- Graph-aware ranking and GraphRAG-style traversal over the knowledge graph.
+- Graph-aware ranking and GraphRAG-style traversal over the knowledge graph. ✅
+  - `graph_rank_weight` blend in `build_context` (connectivity bonus). ✅
+  - `traverse_graph(TraverseGraphRequest)` multi-hop BFS: max_hops, max_nodes,
+    relation_filter, tenant isolation. ✅
 
 ## Phase 11 — Server mode
 

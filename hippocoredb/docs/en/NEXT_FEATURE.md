@@ -2,47 +2,65 @@
 
 ## Feature name
 
-**Hybrid Search Ranking Tests v0.1** — deterministic tests verifying that
-`SearchMode::Hybrid` blends vector and text scores correctly.
+**Phase 11 — HTTP Server** (`crates/hippocore-server`)
 
 ## Why it matters
 
-The hybrid search path fuses TF-IDF text scores with cosine vector scores. If
-the fusion weight or normalisation is wrong, either purely textual matches or
-purely semantic matches can be silently suppressed. No test currently locks the
-relative ordering guarantee: a memory that matches both text and vector should
-rank above one that matches only text.
+Hippocore DB is currently usable only as an embedded Rust library or via the
+CLI. Phase 11 makes it accessible to any language or runtime: a lightweight
+HTTP server exposes the full core API over REST/JSON. This is the foundation
+for SDKs in Python, TypeScript, and other languages.
 
-## Behaviour
+## Architecture
 
-No new production code. The test suite will verify:
+A new workspace crate `crates/hippocore-server`:
+- **Framework**: `axum` 0.7 (pure async, tokio-based, no C deps).
+- **Runtime**: `tokio` 1.
+- **Auth**: `X-Api-Key` header checked against a key loaded from an env var
+  (`HIPPOCORE_API_KEY`) or CLI flag. Unauthenticated requests return 401.
+- **State**: `Arc<Mutex<Hippocore>>` shared across handlers.
+- **Config**: data dir and port from env vars or CLI flags.
 
-1. `SearchMode::Vector` returns a semantically-close memory that doesn't share
-   exact keywords with the query.
-2. `SearchMode::Text` returns a memory that shares exact words with the query.
-3. `SearchMode::Hybrid` returns both kinds; the result set is a superset of
-   `Vector`-only and `Text`-only hits when those hits exist.
-4. A memory that exactly matches the query appears in the top 3 results under
-   `Hybrid` mode.
-5. Changing from `Hybrid` to `Vector` does not return a result whose text is
-   exactly the query but semantically unrelated.
+## Endpoints (MVP set)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness check (no auth required) |
+| `GET` | `/stats` | `DatabaseStats` as JSON |
+| `POST` | `/tenants` | `create_tenant` |
+| `POST` | `/tenants/:tid/collections` | `create_collection` |
+| `POST` | `/tenants/:tid/memories` | `remember` |
+| `POST` | `/tenants/:tid/recall` | `recall` |
+| `POST` | `/tenants/:tid/context` | `build_context` |
+| `POST` | `/tenants/:tid/documents` | `store_document` |
+| `DELETE` | `/tenants/:tid/memories/:id` | `forget` |
+| `POST` | `/tenants/:tid/graph/traverse` | `traverse_graph` |
+
+## CLI integration
+
+Add `hippocore serve [--port 8080] [--data-dir ./data] [--api-key KEY]` to the
+existing CLI binary via `hippocore-cli`.
 
 ## Files
 
-- `crates/hippocore/tests/hybrid_search.rs` — new dedicated test file.
-- `docs/en/HYBRID_SEARCH.md` and `docs/pt-br/HYBRID_SEARCH.md`.
+- `crates/hippocore-server/` — new crate (lib + optional binary).
+- `Cargo.toml` — add `crates/hippocore-server` to workspace members.
+- `crates/hippocore-cli/` — add `serve` subcommand.
+- `docs/en/SERVER.md` and `docs/pt-br/SERVER.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
+- ROADMAP.md Phase 11 ✅.
 
 ## Acceptance criteria
 
-- At least 5 deterministic integration tests using `TempDir`.
-- All quality gates pass:
-  - `cargo fmt --all --check`
-  - `cargo test --workspace`
-  - `cargo clippy --workspace --all-targets -- -D warnings`
+- Server starts, `/health` returns 200 without auth.
+- All listed endpoints return correct HTTP status codes.
+- Requests without `X-Api-Key` return 401.
+- At least 6 integration tests using `reqwest` or `axum::test`.
+- All quality gates pass.
 
 ## Out of scope
 
-- Tuning fusion weights.
-- Server mode.
-- Production code changes.
+- gRPC / WebSocket.
+- TLS (handled externally by a reverse proxy).
+- Production-grade auth (OAuth, RBAC).
+- Clustering / distributed state.

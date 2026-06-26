@@ -2,49 +2,65 @@
 
 ## Nome
 
-**Hybrid Search Ranking Tests v0.1** — testes determinísticos verificando que
-`SearchMode::Hybrid` mistura corretamente scores vetoriais e textuais.
+**Phase 11 — HTTP Server** (`crates/hippocore-server`)
 
 ## Por que importa
 
-O caminho de busca híbrida funde scores TF-IDF com scores de cosseno vetorial.
-Se a fusão ou normalização estiver errada, correspondências puramente textuais
-ou puramente semânticas podem ser suprimidas silenciosamente. Nenhum teste
-atualmente bloqueia a garantia de ordenação relativa: uma memory que corresponde
-tanto ao texto quanto ao vetor deve classificar acima de uma que só corresponde
-ao texto.
+Hippocore DB é atualmente utilizável apenas como biblioteca Rust embedded ou via
+CLI. A Phase 11 o torna acessível a qualquer linguagem ou runtime: um servidor
+HTTP leve expõe toda a API core via REST/JSON. Esta é a base para SDKs em
+Python, TypeScript e outras linguagens.
 
-## Comportamento
+## Arquitetura
 
-Sem novo código de produção. A suite de testes verificará:
+Novo crate de workspace `crates/hippocore-server`:
+- **Framework**: `axum` 0.7 (async puro, baseado em tokio, sem deps C).
+- **Runtime**: `tokio` 1.
+- **Auth**: header `X-Api-Key` verificado contra chave carregada de env var
+  (`HIPPOCORE_API_KEY`) ou flag CLI. Requisições não autenticadas retornam 401.
+- **State**: `Arc<Mutex<Hippocore>>` compartilhado entre handlers.
+- **Config**: data dir e porta de env vars ou flags CLI.
 
-1. `SearchMode::Vector` retorna uma memory semanticamente próxima que não
-   compartilha palavras-chave exatas com a query.
-2. `SearchMode::Text` retorna uma memory que compartilha palavras exatas com a
-   query.
-3. `SearchMode::Hybrid` retorna ambos os tipos; o conjunto de resultados é um
-   superconjunto dos hits de `Vector` e `Text` quando esses hits existem.
-4. Uma memory que corresponde exatamente à query aparece nos 3 primeiros
-   resultados em modo `Hybrid`.
-5. Mudar de `Hybrid` para `Vector` não retorna um resultado cujo texto é
-   exatamente a query mas semanticamente não relacionado.
+## Endpoints (conjunto MVP)
+
+| Método | Path | Descrição |
+|---|---|---|
+| `GET` | `/health` | Liveness check (sem auth) |
+| `GET` | `/stats` | `DatabaseStats` como JSON |
+| `POST` | `/tenants` | `create_tenant` |
+| `POST` | `/tenants/:tid/collections` | `create_collection` |
+| `POST` | `/tenants/:tid/memories` | `remember` |
+| `POST` | `/tenants/:tid/recall` | `recall` |
+| `POST` | `/tenants/:tid/context` | `build_context` |
+| `POST` | `/tenants/:tid/documents` | `store_document` |
+| `DELETE` | `/tenants/:tid/memories/:id` | `forget` |
+| `POST` | `/tenants/:tid/graph/traverse` | `traverse_graph` |
+
+## Integração CLI
+
+Adicionar `hippocore serve [--port 8080] [--data-dir ./data] [--api-key KEY]`
+ao binário CLI existente via `hippocore-cli`.
 
 ## Arquivos
 
-- `crates/hippocore/tests/hybrid_search.rs` — novo arquivo de testes dedicado.
-- `docs/en/HYBRID_SEARCH.md` e `docs/pt-br/HYBRID_SEARCH.md`.
+- `crates/hippocore-server/` — novo crate (lib + binário opcional).
+- `Cargo.toml` — adicionar `crates/hippocore-server` aos members do workspace.
+- `crates/hippocore-cli/` — adicionar subcomando `serve`.
+- `docs/en/SERVER.md` e `docs/pt-br/SERVER.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
+- ROADMAP.md Phase 11 ✅.
 
 ## Critérios de aceite
 
-- Mínimo de 5 testes de integração determinísticos usando `TempDir`.
-- Quality gate:
-  - `cargo fmt --all --check`
-  - `cargo test --workspace`
-  - `cargo clippy --workspace --all-targets -- -D warnings`
+- Servidor inicia, `/health` retorna 200 sem auth.
+- Todos os endpoints listados retornam status HTTP corretos.
+- Requisições sem `X-Api-Key` retornam 401.
+- Pelo menos 6 testes de integração.
+- Todos os quality gates passam.
 
 ## Fora de escopo
 
-- Ajuste de pesos de fusão.
-- Modo server.
-- Mudanças no código de produção.
+- gRPC / WebSocket.
+- TLS (tratado externamente por reverse proxy).
+- Auth de produção (OAuth, RBAC).
+- Clustering / estado distribuído.

@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**build_context Smoke Tests v0.1**:
+**GraphRAG Multi-hop Traversal — Phase 10 ✅**:
+
+- New public API: `traverse_graph(TraverseGraphRequest) -> Vec<TraversalNode>`
+- BFS traversal from seed items up to `max_hops` deep (default 2).
+- Fields: `tenant_id`, `seed_ids`, `max_hops`, `max_nodes`, `relation_filter`.
+- `TraversalNode` returns `id`, `kind`, `hop`, `via_edge_id`.
+- Tenant-isolated: edges from other tenants are never followed.
+- 6 new integration tests in `crates/hippocore/tests/graph_traversal.rs`.
+- **Phase 10 — Graph Memory is now 100% complete.**
+- Documentation in `docs/en/GRAPH_TRAVERSAL.md` and `docs/pt-br/`.
+- 6 new tests. 201 tests total.
+
+Previous: **build_context Smoke Tests v0.1**:
 
 - New test file `crates/hippocore/tests/build_context_smoke.rs` with 5 tests.
 - Covers: non-empty text output, snippet in context string, `max_tokens`
@@ -597,7 +609,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Hybrid Search Ranking Tests v0.1** — deterministic tests verifying that
-`SearchMode::Hybrid` blends vector and text scores correctly: vector-only hits
-outrank pure-text hits when semantically close, and text-only hits surface when
-the query is an exact substring. See NEXT_FEATURE.md.
+**Phase 11 — HTTP Server** (`crates/hippocore-server`): axum-based REST API
+exposing the full core library over HTTP, with API-key authentication, JSON
+request/response bodies, and a `hippocore serve` CLI subcommand.
+See NEXT_FEATURE.md.

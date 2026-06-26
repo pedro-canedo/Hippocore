@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — GraphRAG Multi-hop Traversal (Phase 10 complete)
+
+- `TraverseGraphRequest` / `TraversalNode` public types.
+- `Hippocore::traverse_graph(req)` — BFS over GraphEdge links; supports
+  `max_hops` (default 2), `max_nodes` (default 50), optional `relation_filter`,
+  tenant isolation. Returns nodes in BFS order; seeds excluded from result.
+- 6 new integration tests in `crates/hippocore/tests/graph_traversal.rs`.
+- Phase 10 — Graph Memory is now 100% complete. 201 tests total.
+
 ### Added — build_context Smoke Tests v0.1
 
 - New test file `crates/hippocore/tests/build_context_smoke.rs` with 5 tests:
