@@ -163,6 +163,7 @@ const state = {
   collections: [],
   lists: {},
   providers: [],
+  providerResult: null,
   sqlResult: null,
   sqlError: '',
   detail: null,
@@ -468,7 +469,7 @@ function TenantsPage() {
 
 function ServiceKeysPage() {
   const providers = annotateRows(state.providers || [], 'providers');
-  return `${PageHeader('Service Keys', t('providerLead'), ActionButton(t('rotateKey'), 'rotate-key', 'danger'))}<section class="grid cols-2"><div class="panel"><h3>Service API key</h3>${StatusBadge(state.bootstrap?.config?.api_key_set ? 'Configured' : 'Missing', state.bootstrap?.config?.api_key_set ? 'ok' : 'error')}<p class="muted">Length: ${esc(state.bootstrap?.config?.api_key_length ?? '-')}</p><div class="page-actions">${ActionButton(t('rotateKey'), 'rotate-key', 'danger')}</div></div><div class="panel"><h3>LLM Providers</h3>${DataTable(providers, [{ key: 'id', label: 'id' }, { key: 'kind', label: 'kind' }, { key: 'model', label: 'model' }, { key: 'api_key_set', label: 'key' }], 'No providers')}</div></section>`;
+  return `${PageHeader('Service Keys', t('providerLead'), ActionButton(t('rotateKey'), 'rotate-key', 'danger'))}<section class="grid cols-2"><div class="panel"><h3>Service API key</h3>${StatusBadge(state.bootstrap?.config?.api_key_set ? 'Configured' : 'Missing', state.bootstrap?.config?.api_key_set ? 'ok' : 'error')}<p class="muted">Length: ${esc(state.bootstrap?.config?.api_key_length ?? '-')}</p><div class="page-actions">${ActionButton(t('rotateKey'), 'rotate-key', 'danger')}</div></div><div class="panel"><h3>LLM Providers</h3>${DataTable(providers, [{ key: 'id', label: 'id' }, { key: 'kind', label: 'kind' }, { key: 'model', label: 'model' }, { key: 'api_key_set', label: 'key' }], 'No providers')}</div></section><section class="grid cols-2"><div class="panel"><h3>Provider registry</h3><div class="form-grid">${FormField('Provider id', 'providerId', 'ollama')}${FormField('Kind', 'providerKind', 'ollama')}${FormField('Base URL', 'providerUrl', 'http://localhost:11434')}${FormField('Model', 'providerModel', 'llama3.2')}${FormField('API key', 'providerKey', '', 'password')}</div><div class="page-actions">${ActionButton(t('save'), 'save-provider', 'primary')}${ActionButton('Validate', 'validate-provider')}</div></div><div class="panel"><h3>Provider result</h3>${JsonViewer(state.providerResult || { status: 'ready' })}</div></section>`;
 }
 
 function ObservabilityPage() {
@@ -676,6 +677,35 @@ async function rotateKey() {
   await hydratePage();
 }
 
+function providerBody() {
+  return {
+    id: document.getElementById('providerId')?.value.trim(),
+    kind: document.getElementById('providerKind')?.value.trim(),
+    base_url: document.getElementById('providerUrl')?.value.trim(),
+    model: document.getElementById('providerModel')?.value.trim(),
+    api_key: document.getElementById('providerKey')?.value.trim() || null,
+    is_default: true,
+  };
+}
+
+async function saveProvider() {
+  state.providerResult = await request('/admin/llm-providers', {
+    method: 'POST',
+    body: JSON.stringify(providerBody()),
+  });
+  state.lastOperation = 'Saved provider configuration.';
+  await hydratePage();
+}
+
+async function validateProvider() {
+  state.providerResult = await request('/admin/llm-providers/validate', {
+    method: 'POST',
+    body: JSON.stringify(providerBody()),
+  });
+  state.lastOperation = 'Validated provider configuration locally.';
+  render();
+}
+
 function openDetail(list, index) {
   const rows = list === 'sql'
     ? state.sqlResult?.rows || []
@@ -738,6 +768,8 @@ async function handleAction(target) {
   if (action === 'run-recall') await runRecall('recall');
   if (action === 'build-context') await runRecall('context');
   if (action === 'rotate-key') await rotateKey();
+  if (action === 'save-provider') await saveProvider();
+  if (action === 'validate-provider') await validateProvider();
   if (action === 'detail') openDetail(target.dataset.list, target.dataset.index);
   if (action === 'close-detail') {
     state.detail = null;

@@ -19,6 +19,9 @@ All notable changes to Hippocore DB are documented here. This project adheres to
   for current versus future backend flows.
 - Added static asset integration assertions for the Control Plane navigation and
   reusable UI component foundation.
+- Restored provider registry save/validate workflows in the Service Keys page,
+  wired to existing `POST /admin/llm-providers` and
+  `POST /admin/llm-providers/validate` endpoints.
 - Updated admin, server, status, and architecture-decision docs.
 
 ### Added — Web Admin Console v0.1

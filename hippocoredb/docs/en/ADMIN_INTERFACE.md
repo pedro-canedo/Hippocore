@@ -143,7 +143,8 @@ screen:
 - API Reference grouped by domain with Implemented/Planned status;
 - Observability page separating health, stats, WAL, snapshot, audit, chunks, and
   index status;
-- Service Keys page for active API key rotation and provider registry viewing.
+- Service Keys page for active API key rotation plus provider registry
+  save/validate workflows.
 
 Missing backend flows, such as admin file upload and record insert, are shown as
 Planned rather than simulated. The Control Plane complements the CLI; it does

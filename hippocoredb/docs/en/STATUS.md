@@ -21,6 +21,8 @@ _Last updated: 2026-06-26._
 - Physical/internal objects are separated through Records/Memories/Documents/
   Files/Graph pages plus Observability placeholders for chunks, WAL, snapshot,
   audit, logs, and index status.
+- Existing provider registry save/validate workflows remain available from the
+  Service Keys page.
 - Static admin asset tests now assert the Control Plane navigation and reusable
   component foundation.
 
