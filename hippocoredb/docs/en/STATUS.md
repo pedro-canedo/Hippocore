@@ -4,7 +4,16 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Document Chunk Deduplication v0.1**:
+**Matched Terms v0.1**:
+
+- Added `matched_terms: Vec<String>` to `RecallResult` (serde default `[]`).
+- For hybrid and text recall modes, the field contains the intersection of
+  tokenized query terms and result text tokens (lowercase, deduplicated, sorted).
+- Pure vector recall always produces an empty list (no text token comparison).
+- Existing serialized results that omit the field deserialize without error.
+- Two unit tests: intersection is correct, no-overlap yields empty list.
+
+Previous: **Document Chunk Deduplication v0.1**:
 
 - Added `dedup_chunks: bool` to `RecallRequest` (default `false`).
 - When enabled, only the highest-scoring chunk per parent document is returned.

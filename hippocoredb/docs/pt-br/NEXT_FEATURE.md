@@ -1,51 +1,49 @@
 # Próxima Feature
 
-## Nome
+## Nome da feature
 
-**Recall Min-Score Filter v0.1**
+**Matched Terms v0.1**
 
 ## Por que importa
 
-Após o confidence-weighted recall, a faixa de scores pode variar muito entre
-candidatos. Um contexto LLM montado com `top_k=10` pode incluir varios itens
-com scores próximos de zero — ruido que desperdiça tokens e pode confundir o
-modelo. Permitir que o chamador defina um limiar mínimo de score troca cobertura
-por precisão sem alterar `top_k`.
+Ao depurar qualidade de recall, operadores precisam saber quais tokens da
+query de fato apareceram em cada resultado retornado. O campo `reason` expoe
+decomposicao de score mas nao cobertura textual. Adicionar `matched_terms`
+permite que o LLM cite quais termos motivaram o match e que desenvolvedores
+identifiquem se baixo recall se deve a incompatibilidade vocabular ou a
+distancia vetorial.
 
 ## Comportamento
 
-- Adicionar `min_score: Option<f32>` a `RecallRequest` (padrão `None`).
-- Após confidence weighting e ordenação final, filtrar resultados com
-  `score < min_score`. A truncagem a `top_k` ocorre após a filtragem.
-- Itens exatamente em `min_score` são incluídos (limite inferior inclusivo).
-- Adicionar flag `--min-score <f32>` ao comando `hippocore recall`.
-- Endpoints HTTP de recall aceitam `{"min_score": 0.5}` no body.
+- Adicionar `matched_terms: Vec<String>` em `RecallResult` (serde default `[]`).
+- Populado em `query.rs`: intersecao dos tokens da query com os tokens do
+  texto do resultado. Apenas termos presentes nos dois conjuntos sao listados;
+  duplicatas removidas; vazio quando modo for vector puro (sem tokens de query).
+- O campo e puramente informativo; nunca afeta ranking ou filtragem.
+- Callers existentes que omitem o campo na deserializacao nao sao afetados
+  por causa de `#[serde(default)]`.
 
-## Arquivos prováveis
+## Arquivos provaveis
 
-- `crates/hippocore/src/lib.rs`
-- `crates/hippocore/src/query.rs`
-- `crates/hippocore/src/cli.rs`
-- `crates/hippocore-server/src/handlers/recall.rs`
-- `crates/hippocore/tests/retrieval_quality.rs`
+- `crates/hippocore/src/model.rs` (RecallResult)
+- `crates/hippocore/src/query.rs` (build_result / execute)
 - `docs/en/STATUS.md`
 - `docs/pt-br/STATUS.md`
 - `CHANGELOG.md`
 
-## Critérios de aceite
+## Criterios de aceitacao
 
-- `RecallRequest` tem `min_score: Option<f32>` com padrão `None`.
-- Com `min_score = Some(0.5)`, nenhum resultado com `score < 0.5` é retornado.
-- Com `min_score = None`, o comportamento existente é preservado.
-- `hippocore recall --min-score 0.3 ...` passa o limiar para o core.
-- Body HTTP aceita `{"min_score": 0.5}` sem quebrar chamadas existentes.
-- Testes cobrem: limiar remove itens de baixo score, `None` retorna todos,
-  itens exatamente no limiar são incluídos.
-- Portão verde passa.
+- `RecallResult` tem `matched_terms: Vec<String>` com default `[]`.
+- Para recall hibrido ou textual, termos presentes em query e texto do
+  resultado sao listados (minusculo, deduplicados).
+- Para recall puramente vetorial, `matched_terms` e vazio.
+- Resultados serializados que omitem o campo deserializam sem erro.
+- `cargo fmt --all --check`, `cargo test --workspace`, e
+  `cargo clippy --workspace --all-targets -- -D warnings` passam.
 
-## Fora do escopo
+## Fora de escopo
 
-- Limiares por modo (vector vs text).
-- Calibração dinâmica de threshold.
-- Expor `min_score` em `BuildContextRequest`.
-- Qualquer alteração em storage ou index.
+- Offsets ou posicoes de caracteres.
+- Pesos de termos ou scores IDF na lista.
+- Passar matched_terms como metadado estruturado para o LLM (escolha do caller).
+- Qualquer mudanca em storage ou index.

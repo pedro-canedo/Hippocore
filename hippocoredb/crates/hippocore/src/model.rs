@@ -456,6 +456,10 @@ pub struct RecallResult {
     /// unrated. Useful for surfacing reliability signals to the caller.
     #[serde(default)]
     pub confidence: Option<f32>,
+    /// Query tokens that appeared in the result text (lowercase, deduplicated).
+    /// Empty for pure-vector recall or when query tokenization is skipped.
+    #[serde(default)]
+    pub matched_terms: Vec<String>,
 }
 
 /// One retrieved item captured in the RAG audit log.

@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Matched Terms v0.1
+
+- `RecallResult` gains `matched_terms: Vec<String>` (serde default `[]`).
+  Contains the intersection of tokenized query terms with tokenized result text,
+  lowercase, deduplicated, and sorted. Empty for pure-vector recall.
+  Enables LLM attribution ("matched on: rust, database") and vocabulary-mismatch
+  debugging without affecting ranking or storage.
+
 ### Added — Document Chunk Deduplication v0.1
 
 - `RecallRequest` gains `dedup_chunks: bool` (default `false`). When `true`,

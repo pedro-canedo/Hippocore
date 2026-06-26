@@ -4,7 +4,16 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Document Chunk Deduplication v0.1**:
+**Matched Terms v0.1**:
+
+- Adicionado `matched_terms: Vec<String>` em `RecallResult` (serde default `[]`).
+- Para modos hybrid e text, o campo contem a intersecao dos tokens da query com
+  os tokens do texto do resultado (minusculo, deduplicado, ordenado).
+- Recall puramente vetorial sempre retorna lista vazia (sem comparacao textual).
+- Resultados serializados que omitem o campo deserializam sem erro.
+- Dois testes unitarios: intersecao correta; sem sobreposicao retorna vazio.
+
+Anterior: **Document Chunk Deduplication v0.1**:
 
 - Adicionado `dedup_chunks: bool` em `RecallRequest` (padrao `false`).
 - Quando ativado, apenas o chunk com maior score por documento pai e retornado.

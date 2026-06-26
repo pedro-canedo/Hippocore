@@ -290,6 +290,25 @@ pub fn execute(
         return Vec::new();
     }
 
+    // Build a lowercase token set for the query to support matched_terms.
+    let query_token_set: std::collections::HashSet<String> =
+        query_tokens.iter().map(|t| t.to_lowercase()).collect();
+
+    // Compute which query tokens appear in a result's text (for matched_terms).
+    let compute_matched = |text: &str| -> Vec<String> {
+        if query_token_set.is_empty() {
+            return Vec::new();
+        }
+        let mut terms: Vec<String> = tokenize(text)
+            .into_iter()
+            .map(|t| t.to_lowercase())
+            .filter(|t| query_token_set.contains(t))
+            .collect();
+        terms.sort();
+        terms.dedup();
+        terms
+    };
+
     let mut results: Vec<RecallResult> = match request.mode {
         SearchMode::Vector => {
             // Min-max normalize cosine scores.
@@ -299,7 +318,8 @@ pub fn execute(
                 .map(|s| {
                     let vnorm = s.raw_vec.map(|v| normalize(v, vmin, vmax)).unwrap_or(0.0);
                     let reason = format!("vector match (cosine={:.3})", s.raw_vec.unwrap_or(0.0));
-                    build_result(s.entry, vnorm, vnorm, 0.0, reason)
+                    // Pure vector: no text token comparison → matched_terms is empty.
+                    build_result(s.entry, vnorm, vnorm, 0.0, reason, Vec::new())
                 })
                 .collect()
         }
@@ -314,7 +334,15 @@ pub fn execute(
                     } else {
                         0.0
                     };
-                    build_result(s.entry, tnorm, 0.0, tnorm, "text match (bm25)".into())
+                    let matched = compute_matched(&s.entry.text);
+                    build_result(
+                        s.entry,
+                        tnorm,
+                        0.0,
+                        tnorm,
+                        "text match (bm25)".into(),
+                        matched,
+                    )
                 })
                 .collect()
         }
@@ -363,8 +391,16 @@ pub fn execute(
                         "hybrid/rrf(vector_rank={}, text_rank={})",
                         vec_rank[i], text_rank[i]
                     );
+                    let matched = compute_matched(&s.entry.text);
                     // Carry raw scores for transparency; rrf is the fused score.
-                    build_result(s.entry, rrf, s.raw_vec.unwrap_or(0.0), s.raw_text, reason)
+                    build_result(
+                        s.entry,
+                        rrf,
+                        s.raw_vec.unwrap_or(0.0),
+                        s.raw_text,
+                        reason,
+                        matched,
+                    )
                 })
                 .collect()
         }
@@ -427,6 +463,7 @@ fn build_result(
     vector_score: f32,
     text_score: f32,
     reason: String,
+    matched_terms: Vec<String>,
 ) -> RecallResult {
     RecallResult {
         id: e.id.clone(),
@@ -446,6 +483,7 @@ fn build_result(
         reason,
         contradictions: e.contradicts.clone(),
         confidence: e.confidence,
+        matched_terms,
     }
 }
 
@@ -621,5 +659,43 @@ mod tests {
             items.to_vec()
         };
         assert_eq!(kept.len(), 3, "all items must be kept when dedup is false");
+    }
+
+    #[test]
+    fn matched_terms_intersection_is_correct() {
+        // Simulate the intersection logic used in compute_matched.
+        let query_tokens: std::collections::HashSet<String> = ["rust", "memory", "database"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let result_text = "rust is great for building database systems";
+        let mut terms: Vec<String> = crate::memory::tokenize(result_text)
+            .into_iter()
+            .map(|t| t.to_lowercase())
+            .filter(|t| query_tokens.contains(t))
+            .collect();
+        terms.sort();
+        terms.dedup();
+        assert!(terms.contains(&"rust".to_string()), "rust must match");
+        assert!(
+            terms.contains(&"database".to_string()),
+            "database must match"
+        );
+        assert!(!terms.contains(&"memory".to_string()), "memory not in text");
+    }
+
+    #[test]
+    fn matched_terms_empty_when_no_overlap() {
+        let query_tokens: std::collections::HashSet<String> = ["elephant", "jupiter"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let result_text = "rust is great for building memory systems";
+        let terms: Vec<String> = crate::memory::tokenize(result_text)
+            .into_iter()
+            .map(|t| t.to_lowercase())
+            .filter(|t| query_tokens.contains(t))
+            .collect();
+        assert!(terms.is_empty(), "no overlap means empty matched_terms");
     }
 }
