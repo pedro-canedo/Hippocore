@@ -93,6 +93,8 @@ enum Command {
     Audit(AuditArgs),
     /// Update the confidence score of a stored memory (human-in-the-loop rating).
     RateMemory(RateMemoryArgs),
+    /// Compact the audit log, keeping only the newest records within a retention limit.
+    CompactAudit(CompactAuditArgs),
 }
 
 #[derive(Args)]
@@ -508,6 +510,23 @@ struct AuditArgs {
     json: bool,
 }
 
+#[derive(Args)]
+struct CompactAuditArgs {
+    #[arg(long)]
+    db: PathBuf,
+    /// Keep at most this many audit records. Overrides config for this call;
+    /// 0 disables this constraint (config still applies to the other dimension).
+    #[arg(long = "max-records")]
+    max_records: Option<usize>,
+    /// Keep at most this many bytes in audit.log. Overrides config for this
+    /// call; 0 disables this constraint.
+    #[arg(long = "max-bytes")]
+    max_bytes: Option<u64>,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 /// Parse arguments from the process and run, returning a process exit code.
 pub fn run() -> ExitCode {
     match dispatch(Cli::parse()) {
@@ -551,6 +570,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::BuildContext(a) => cmd_build_context(a),
         Command::Audit(a) => cmd_audit(a),
         Command::RateMemory(a) => cmd_rate_memory(a),
+        Command::CompactAudit(a) => cmd_compact_audit(a),
     }
 }
 
@@ -1627,5 +1647,34 @@ fn cmd_rate_memory(a: RateMemoryArgs) -> Result<(), String> {
         "rated memory {}/{}/{}: confidence={:.3}",
         mem.tenant_id, mem.collection, mem.id, a.confidence
     );
+    Ok(())
+}
+
+fn cmd_compact_audit(a: CompactAuditArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let summary = db
+        .compact_audit(a.max_records, a.max_bytes)
+        .map_err(|e| format!("compact-audit failed: {e}"))?;
+
+    if a.json {
+        let out = serde_json::json!({
+            "records_kept": summary.records_kept,
+            "records_removed": summary.records_removed,
+            "bytes_before": summary.bytes_before,
+            "bytes_after": summary.bytes_after,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&out).map_err(|e| format!("serialization failed: {e}"))?
+        );
+    } else {
+        println!(
+            "audit compacted: {} kept, {} removed ({} → {} bytes)",
+            summary.records_kept,
+            summary.records_removed,
+            summary.bytes_before,
+            summary.bytes_after
+        );
+    }
     Ok(())
 }

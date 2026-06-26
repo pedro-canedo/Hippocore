@@ -19,6 +19,12 @@ pub const DEFAULT_AUTO_COMPACT_OPS: usize = 1000;
 /// Default auto-compaction threshold in WAL bytes (0 disables).
 pub const DEFAULT_AUTO_COMPACT_BYTES: u64 = 8 * 1024 * 1024;
 
+/// Default audit log max records kept (0 = unlimited, no auto-retention).
+pub const DEFAULT_AUDIT_MAX_RECORDS: usize = 0;
+
+/// Default audit log max bytes kept (0 = unlimited, no auto-retention).
+pub const DEFAULT_AUDIT_MAX_BYTES: u64 = 0;
+
 /// Options controlling how a database is opened and persists data.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -40,6 +46,12 @@ pub struct Config {
     /// Set to `VectorIndexKind::Hnsw` for approximate sub-linear search over
     /// large collections (trades a small recall penalty for speed).
     pub vector_index: VectorIndexKind,
+    /// Keep at most this many records in `audit.log` (`0` = unlimited).
+    /// Enforced automatically after every `build_context` append when non-zero.
+    pub audit_max_records: usize,
+    /// Keep at most this many bytes in `audit.log` (`0` = unlimited).
+    /// Enforced automatically after every `build_context` append when non-zero.
+    pub audit_max_bytes: u64,
 }
 
 impl Config {
@@ -63,6 +75,8 @@ impl Default for Config {
             auto_compact_after_ops: DEFAULT_AUTO_COMPACT_OPS,
             auto_compact_after_bytes: DEFAULT_AUTO_COMPACT_BYTES,
             vector_index: VectorIndexKind::BruteForce,
+            audit_max_records: DEFAULT_AUDIT_MAX_RECORDS,
+            audit_max_bytes: DEFAULT_AUDIT_MAX_BYTES,
         }
     }
 }

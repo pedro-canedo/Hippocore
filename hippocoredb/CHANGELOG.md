@@ -5,6 +5,26 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Audit Retention v0.1
+
+- Added `audit_max_records: usize` and `audit_max_bytes: u64` to `Config`
+  (`0` = unlimited by default; no behavior change when unset).
+- Added public `AuditRetentionSummary` struct with `records_kept`,
+  `records_removed`, `bytes_before`, and `bytes_after` fields.
+- Added `Hippocore::compact_audit(max_records, max_bytes)` — rewrites
+  `audit.log` atomically (temp file → fsync → rename), keeping only the newest
+  records that satisfy both constraints. Caller values override config;
+  `Some(0)` disables that constraint for the call.
+- `append_audit_record` auto-enforces retention after every `build_context`
+  append when `audit_max_records > 0` or `audit_max_bytes > 0` (best-effort;
+  append still succeeds even if compaction fails).
+- Added `audit_log_bytes: u64` and `audit_records: usize` to `DatabaseStats`.
+- `DatabaseStats::Display` now prints audit log bytes and audit record count.
+- CLI: new `compact-audit --db <path> [--max-records <n>] [--max-bytes <n>]
+  [--json]` subcommand.
+- Added 5 core integration tests (default unchanged, max-records, max-bytes,
+  query-after-compaction, auto-retention from config) and 1 new CLI smoke test.
+
 ### Added — Graph-Aware Context v0.1
 
 - Added `include_related: bool` and `related_limit: usize` to

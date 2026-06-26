@@ -2,39 +2,51 @@
 
 ## Nome
 
-**Audit Retention v0.1** — retenção local limitada para `audit.log`.
+**Graph-Aware Ranking v0.1** — aumentar scores de recall usando densidade de
+arestas no grafo.
 
 ## Por que importa
 
-O RAG Audit Engine registra cada chamada de `build_context`, e Graph-Aware
-Context adiciona entradas de auditoria mais ricas. Sem política de retenção,
-`audit.log` pode crescer sem limite em aplicações embedded de longa duração. O
-próximo incremento de maior valor é manter auditabilidade local e determinística
-com uma forma simples de limitar uso de disco.
+O Graph-Aware Context v0.1 já expande o conjunto de candidatos via vizinhos
+diretos no grafo, e o Audit Retention v0.1 limita o crescimento do audit log.
+A lacuna remanescente na qualidade de retrieval é que itens conectados por
+muitas arestas a outros itens de alta pontuação recuperados ainda não são
+preferidos em relação a itens isolados de alta pontuação. Um passo de ranking
+ciente de grafo pode elevar contexto genuinamente conectado acima de coincidências
+léxicas.
 
-Audit Retention v0.1 deve adicionar:
+## Comportamento
 
-- Opções de configuração para retenção por máximo de registros e/ou máximo de
-  bytes.
-- API `compact_audit()` ou `rotate_audit()` que reescreve `audit.log`
-  atomicamente preservando os registros mais novos.
-- Aplicação automática da retenção após append de auditoria quando configurada.
-- Comando CLI `compact-audit --db <path> [--json]`.
-- Visibilidade em status/stats para bytes do audit log e quantidade de registros
-  retidos.
+Após o passo de recall híbrido produzir uma lista de candidatos ranqueada,
+aplica um bônus de conectividade de grafo:
+
+- Para cada candidato, conta quantos de seus vizinhos diretos também estão no
+  conjunto de candidatos.
+- Escala o bônus por um `graph_rank_weight` configurável (padrão `0.1`).
+- `effective_score = recall_score * (1 - graph_rank_weight) + connectivity_bonus * graph_rank_weight`.
+- Itens sem vizinhos no conjunto de candidatos não são afetados.
+
+Isso mantém o ranking genérico (sem boost de entidade ou domínio hard-coded) e
+respeita o re-ranking por confiança/contradição já existente em `build_context`.
+
+## Arquivos
+
+- `crates/hippocore/src/lib.rs` — re-ranking ciente de grafo em `build_context`
+  após `run_query`.
+- `crates/hippocore/src/config.rs` — novo campo `graph_rank_weight: f32`
+  (padrão `0.1`).
+- `crates/hippocore/tests/database.rs` — testes determinísticos.
+- `docs/en/GRAPH_AWARE_RANKING.md` e `docs/pt-br/GRAPH_AWARE_RANKING.md`.
+- `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- Comportamento default permanece igual: nenhum registro é removido sem política
-  configurada ou chamada explícita a `compact-audit`.
-- Retenção mantém os registros mais novos e preserva JSON-lines válido.
-- Reescrita é atômica: arquivo temporário, fsync, rename.
-- `query_audit` continua funcionando após retenção.
-- CLI `compact-audit --json` emite resumo parseável.
-- Mínimo de 4 testes determinísticos: default inalterado, retenção por máximo de
-  registros, retenção por máximo de bytes ou compactação manual, query após
-  compactação.
-- Documentação atualizada em inglês e português.
+- `recall_score` não muda quando `graph_rank_weight = 0.0`.
+- Um item com mais vizinhos no conjunto de candidatos é ranqueado acima de um
+  item de score igual sem nenhum vizinho.
+- `graph_rank_weight = 0.0` na config mantém a ordenação atual exatamente.
+- Definir `graph_rank_weight` fora do range `[0.0, 1.0]` retorna erro tipado.
+- Mínimo de 3 testes de integração determinísticos.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -42,13 +54,7 @@ Audit Retention v0.1 deve adicionar:
 
 ## Fora de escopo
 
-- Export remoto de auditoria.
-- Compressão.
-- Criptografia.
-- Server/HTTP mode.
-- Busca cruzando múltiplos arquivos de auditoria.
-
-## Follow-up
-
-Após Audit Retention v0.1, avaliar ranking de recall ciente de grafo versus
-controles admin/studio mais amplos para dados de grafo e auditoria.
+- Travessia multi-hop.
+- Clustering de grafo ou detecção de comunidade.
+- Modo server.
+- Ranking por ML/learning-to-rank.

@@ -2297,3 +2297,130 @@ fn bruteforce_and_hnsw_both_recall_relevant_item() {
             .collect::<Vec<_>>()
     );
 }
+
+// ── Audit Retention tests ─────────────────────────────────────────────────────
+
+fn seed_audit_records(db: &Hippocore, n: usize) {
+    for _ in 0..n {
+        let req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+        db.build_context(req).unwrap();
+    }
+}
+
+#[test]
+fn audit_retention_default_unchanged() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    seed_audit_records(&db, 3);
+
+    let summary = db.compact_audit(None, None).unwrap();
+    assert_eq!(summary.records_removed, 0);
+    assert_eq!(summary.records_kept, 3);
+
+    let records = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert_eq!(records.len(), 3);
+}
+
+#[test]
+fn audit_retention_by_max_records() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    seed_audit_records(&db, 5);
+
+    // Keep only the 2 newest records.
+    let summary = db.compact_audit(Some(2), None).unwrap();
+    assert_eq!(summary.records_removed, 3);
+    assert_eq!(summary.records_kept, 2);
+    assert!(summary.bytes_after < summary.bytes_before);
+
+    // query_audit still works and only the 2 newest records remain.
+    let records = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert_eq!(records.len(), 2);
+}
+
+#[test]
+fn audit_retention_by_max_bytes() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    seed_audit_records(&db, 5);
+
+    // Compute the current file size and use half of it as the limit so that
+    // at least one record is removed.
+    let audit_path = dir.path().join("audit.log");
+    let file_size = std::fs::metadata(&audit_path).unwrap().len();
+    let limit = file_size / 2;
+
+    let summary = db.compact_audit(None, Some(limit)).unwrap();
+    assert!(
+        summary.records_removed >= 1,
+        "at least one record should be removed"
+    );
+    assert!(summary.bytes_after <= limit + 512);
+
+    let records = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert!(
+        records.len() < 5,
+        "fewer records than written should remain"
+    );
+}
+
+#[test]
+fn audit_query_after_compaction() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    // Write 4 records, compact to 2, verify the survivors are valid.
+    seed_audit_records(&db, 4);
+    let summary = db.compact_audit(Some(2), None).unwrap();
+    assert_eq!(summary.records_kept, 2);
+
+    // Remaining records are parseable and have the right tenant.
+    let records = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert_eq!(records.len(), 2);
+    for rec in &records {
+        assert_eq!(rec.tenant_id, "acme");
+        assert_eq!(rec.query, "postgresql connection");
+    }
+
+    // Appending a new record after compaction still works.
+    db.build_context(BuildContextRequest::new(
+        "acme",
+        "postgresql connection",
+        2048,
+    ))
+    .unwrap();
+    let records_after = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert_eq!(records_after.len(), 3);
+}
+
+#[test]
+fn audit_auto_retention_from_config() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.audit_max_records = 2; // auto-compact after every append
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    // Write 5 records; auto-compaction keeps only the 2 newest after each append.
+    seed_audit_records(&db, 5);
+
+    let records = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert!(
+        records.len() <= 2,
+        "auto-retention should cap records at 2, got {}",
+        records.len()
+    );
+    assert!(!records.is_empty());
+    let stats = db.stats().unwrap();
+    assert!(stats.audit_records <= 2);
+    assert!(stats.audit_log_bytes > 0);
+}

@@ -95,6 +95,10 @@ pub struct DatabaseStats {
     pub wal_entries: usize,
     /// Bytes used on disk by WAL + snapshot.
     pub disk_bytes: u64,
+    /// Current size of the audit log on disk in bytes.
+    pub audit_log_bytes: u64,
+    /// Number of audit records currently in the audit log.
+    pub audit_records: usize,
 }
 
 impl fmt::Display for DatabaseStats {
@@ -110,8 +114,23 @@ impl fmt::Display for DatabaseStats {
         writeln!(f, "  graph edges:     {}", self.graph_edges)?;
         writeln!(f, "  indexed entries: {}", self.indexed_entries)?;
         writeln!(f, "  wal entries:     {}", self.wal_entries)?;
-        write!(f, "  disk bytes:      {}", self.disk_bytes)
+        writeln!(f, "  disk bytes:      {}", self.disk_bytes)?;
+        writeln!(f, "  audit records:   {}", self.audit_records)?;
+        write!(f, "  audit log bytes: {}", self.audit_log_bytes)
     }
+}
+
+/// Summary returned by [`Hippocore::compact_audit`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditRetentionSummary {
+    /// Number of audit records retained after compaction.
+    pub records_kept: usize,
+    /// Number of audit records removed.
+    pub records_removed: usize,
+    /// Bytes in `audit.log` before compaction.
+    pub bytes_before: u64,
+    /// Bytes in `audit.log` after compaction.
+    pub bytes_after: u64,
 }
 
 /// A caller-supplied chunk: text plus its precomputed embedding.
@@ -1389,7 +1408,30 @@ impl Hippocore {
         if self.config.sync_writes {
             file.sync_all()?;
         }
+
+        // Auto-enforce retention when configured (best-effort; don't fail the append).
+        if self.config.audit_max_records > 0 || self.config.audit_max_bytes > 0 {
+            let _ = self.compact_audit(None, None);
+        }
+
         Ok(())
+    }
+
+    fn audit_log_stats(&self) -> (u64, usize) {
+        let path = self.storage.data_dir().join(AUDIT_FILE);
+        if !path.exists() {
+            return (0, 0);
+        }
+        let bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        let records = std::fs::File::open(&path)
+            .map(|f| {
+                BufReader::new(f)
+                    .lines()
+                    .filter(|l| l.as_ref().is_ok_and(|s| !s.trim().is_empty()))
+                    .count()
+            })
+            .unwrap_or(0);
+        (bytes, records)
     }
 
     fn related_item_ids(&self, tenant_id: &str, kind: ItemKind, id: &str) -> Vec<String> {
@@ -1543,6 +1585,7 @@ impl Hippocore {
 
     /// A snapshot of database metrics.
     pub fn stats(&self) -> Result<DatabaseStats> {
+        let (audit_log_bytes, audit_records) = self.audit_log_stats();
         Ok(DatabaseStats {
             tenants: self.state.tenants.len(),
             collections: self.state.collections.len(),
@@ -1555,6 +1598,119 @@ impl Hippocore {
             indexed_entries: self.index.len(),
             wal_entries: self.storage.wal_len,
             disk_bytes: self.storage.disk_bytes()?,
+            audit_log_bytes,
+            audit_records,
+        })
+    }
+
+    /// Compact the audit log by keeping only the newest records within the
+    /// supplied or configured retention limits.
+    ///
+    /// - `max_records`: override `config.audit_max_records` for this call.
+    ///   Pass `None` to use the configured value; `Some(0)` to disable that
+    ///   constraint for this call.
+    /// - `max_bytes`: override `config.audit_max_bytes` for this call.
+    ///   Pass `None` to use the configured value; `Some(0)` to disable that
+    ///   constraint for this call.
+    ///
+    /// When neither constraint eliminates any records the log is left untouched
+    /// and the summary reflects the current state. The rewrite is atomic: a
+    /// temporary file is written and fsynced, then renamed over `audit.log`.
+    pub fn compact_audit(
+        &self,
+        max_records: Option<usize>,
+        max_bytes: Option<u64>,
+    ) -> Result<AuditRetentionSummary> {
+        let path = self.storage.data_dir().join(AUDIT_FILE);
+        if !path.exists() {
+            return Ok(AuditRetentionSummary {
+                records_kept: 0,
+                records_removed: 0,
+                bytes_before: 0,
+                bytes_after: 0,
+            });
+        }
+
+        let content = std::fs::read_to_string(&path)?;
+        let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+        let records_total = lines.len();
+        let bytes_before = content.len() as u64;
+
+        // Resolve effective constraints: caller value takes priority; None falls
+        // back to config; Some(0) explicitly disables that constraint.
+        let effective_max_records = match max_records {
+            None if self.config.audit_max_records > 0 => Some(self.config.audit_max_records),
+            None => None,
+            Some(0) => None,
+            Some(n) => Some(n),
+        };
+        let effective_max_bytes = match max_bytes {
+            None if self.config.audit_max_bytes > 0 => Some(self.config.audit_max_bytes),
+            None => None,
+            Some(0) => None,
+            Some(n) => Some(n),
+        };
+
+        // Determine the first index to keep (keep records from keep_start..end).
+        let keep_start_by_records = effective_max_records
+            .map(|n| records_total.saturating_sub(n))
+            .unwrap_or(0);
+
+        let keep_start_by_bytes = if let Some(max_b) = effective_max_bytes {
+            let mut accumulated: u64 = 0;
+            let mut start = records_total;
+            for i in (0..records_total).rev() {
+                let line_bytes = (lines[i].len() + 1) as u64; // +1 for the newline
+                if accumulated + line_bytes > max_b {
+                    break;
+                }
+                accumulated += line_bytes;
+                start = i;
+            }
+            start
+        } else {
+            0
+        };
+
+        let keep_start = keep_start_by_records.max(keep_start_by_bytes);
+
+        if keep_start == 0 {
+            return Ok(AuditRetentionSummary {
+                records_kept: records_total,
+                records_removed: 0,
+                bytes_before,
+                bytes_after: bytes_before,
+            });
+        }
+
+        let kept_lines = &lines[keep_start..];
+        let mut new_content = String::with_capacity(bytes_before as usize);
+        for line in kept_lines {
+            new_content.push_str(line);
+            new_content.push('\n');
+        }
+        let bytes_after = new_content.len() as u64;
+        let records_kept = kept_lines.len();
+        let records_removed = records_total - records_kept;
+
+        // Atomic write: temp file → fsync → rename.
+        let tmp_path = self.storage.data_dir().join("audit.tmp");
+        {
+            use std::io::Write as _;
+            let mut file = std::fs::File::create(&tmp_path)?;
+            file.write_all(new_content.as_bytes())?;
+            file.flush()?;
+            if self.config.sync_writes {
+                file.sync_all()?;
+            }
+        }
+        std::fs::rename(&tmp_path, &path)?;
+
+        Ok(AuditRetentionSummary {
+            records_kept,
+            records_removed,
+            bytes_before,
+            bytes_after,
         })
     }
 

@@ -4,7 +4,29 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Graph-Aware Context v0.1**:
+**Audit Retention v0.1**:
+
+- `Config` ganha `audit_max_records: usize` e `audit_max_bytes: u64` (ambos
+  com default `0` = ilimitado; sem mudança para bancos existentes).
+- Novo struct público `AuditRetentionSummary`: `records_kept`, `records_removed`,
+  `bytes_before`, `bytes_after`.
+- Novo `Hippocore::compact_audit(max_records, max_bytes)` — lê `audit.log`,
+  mantém os registros mais recentes que satisfazem ambas as restrições, escreve
+  em `audit.tmp`, fsync, renomeia atomicamente. `Some(0)` desativa aquela
+  restrição para a chamada; `None` usa o valor configurado.
+- `append_audit_record` agora aplica retenção automaticamente após cada append
+  de `build_context` quando `audit_max_records > 0` ou `audit_max_bytes > 0`
+  (best-effort).
+- `DatabaseStats` ganha `audit_log_bytes: u64` e `audit_records: usize`;
+  `Display` os imprime.
+- CLI: novo subcomando `compact-audit --db <path> [--max-records <n>]
+  [--max-bytes <n>] [--json]`.
+- Documentação em `docs/en/AUDIT_RETENTION.md` e
+  `docs/pt-br/AUDIT_RETENTION.md`.
+- 5 novos testes de integração no core + 1 novo smoke test CLI. 123 testes no
+  total.
+
+Anterior: **Graph-Aware Context v0.1**:
 
 - `BuildContextRequest` ganha `include_related: bool` e
   `related_limit: usize`; defaults mantêm o comportamento existente.
@@ -306,20 +328,22 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 117 testes:
+`cargo test --workspace` passa com 123 testes:
 
 - 22 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL, 4 novos testes HNSW);
-- 78 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
-  batch writes, resolução por confiança, HNSW backend, RAG audit, Graph Memory e
-  Graph-Aware Context);
+- 83 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
+  batch writes, resolução por confiança, HNSW backend, RAG audit, Graph Memory,
+  Graph-Aware Context e Audit Retention default/max-records/max-bytes/
+  query-after-compaction/auto-retention-from-config);
 - 1 fixture de qualidade de retrieval;
-- 15 smoke tests de CLI (incl. `audit --json`, fluxo de graph edge e
-  `cli_studio_exits_without_panic`);
+- 16 smoke tests de CLI (incl. `audit --json`, fluxo de graph edge,
+  `compact-audit --json` e `cli_studio_exits_without_panic`);
 - 1 doctest (lib.rs quickstart);
 - 1 bench_regression example.
 
 ## Próxima feature
 
-**Audit Retention v0.1** — retenção/rotação local limitada de `audit.log`, com
-replay de auditoria ainda determinístico e local-first.
+**Graph-Aware Ranking v0.1** — usar a estrutura de arestas do grafo para
+aumentar os scores de recall de itens densamente conectados a outros itens de
+alta pontuação recuperados.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

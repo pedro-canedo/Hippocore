@@ -4,7 +4,27 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Graph-Aware Context v0.1**:
+**Audit Retention v0.1**:
+
+- `Config` gains `audit_max_records: usize` and `audit_max_bytes: u64` (both
+  default to `0` = unlimited; zero-change for existing databases).
+- New public `AuditRetentionSummary` struct: `records_kept`, `records_removed`,
+  `bytes_before`, `bytes_after`.
+- New `Hippocore::compact_audit(max_records, max_bytes)` — reads `audit.log`,
+  keeps the newest records satisfying both constraints, writes to `audit.tmp`,
+  fsyncs, renames atomically. `Some(0)` disables that constraint for the call;
+  `None` falls back to the configured value.
+- `append_audit_record` now auto-enforces retention after every `build_context`
+  append when `audit_max_records > 0` or `audit_max_bytes > 0` (best-effort).
+- `DatabaseStats` gains `audit_log_bytes: u64` and `audit_records: usize`;
+  `Display` prints them.
+- CLI: new `compact-audit --db <path> [--max-records <n>] [--max-bytes <n>]
+  [--json]` subcommand.
+- Documentation in `docs/en/AUDIT_RETENTION.md` and
+  `docs/pt-br/AUDIT_RETENTION.md`.
+- 5 new core integration tests + 1 new CLI smoke test. 123 tests total.
+
+Previous: **Graph-Aware Context v0.1**:
 
 - `BuildContextRequest` gains `include_related: bool` and
   `related_limit: usize`; defaults keep existing behavior unchanged.
@@ -352,10 +372,10 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 117 tests:
+**All green.** `cargo test --workspace` passes 123 tests:
 - 22 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode, 4 new HNSW unit tests),
-- 78 library integration (store/recall, chunking, retrieval quality layer,
+- 83 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
@@ -365,12 +385,13 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
   resolution, HNSW backend store+recall+restart+brute-force comparison, RAG audit
   write/replay/reopen, Graph Memory add/list/validation/isolation/restart/delete
   cleanup/context provenance, Graph-Aware Context expansion/limit/budget/no
-  duplication/default behavior),
+  duplication/default behavior, Audit Retention default/max-records/max-bytes/
+  query-after-compaction/auto-retention-from-config),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 15 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+- 16 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`,
-  `eval-quality` pass + fail paths, `audit --json`, graph edge flow, and
-  `studio` non-TTY smoke test),
+  `eval-quality` pass + fail paths, `audit --json`, graph edge flow,
+  `compact-audit --json`, and `studio` non-TTY smoke test),
 - 1 doctest (lib.rs quickstart),
 - 1 bench_regression example.
 
@@ -392,5 +413,6 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Audit Retention v0.1** — bounded local `audit.log` retention/rotation with
-query replay still deterministic and local-first. See NEXT_FEATURE.md.
+**Graph-Aware Ranking v0.1** — use graph edge structure to boost recall scores
+of items that are densely connected to other high-scoring recalled items.
+See NEXT_FEATURE.md.

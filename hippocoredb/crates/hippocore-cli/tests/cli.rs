@@ -1037,6 +1037,79 @@ fn cli_bad_memory_type_returns_nonzero() {
 }
 
 #[test]
+fn cli_compact_audit_json() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    // Seed a memory and call build-context to produce audit records.
+    let remember = bin()
+        .args([
+            "remember",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "support",
+            "--type",
+            "semantic",
+            "--text",
+            "PostgreSQL listens on port 5432",
+        ])
+        .output()
+        .unwrap();
+    assert!(remember.status.success(), "remember failed: {remember:?}");
+
+    for _ in 0..3 {
+        let build = bin()
+            .args([
+                "build-context",
+                "--db",
+                db,
+                "--tenant",
+                "acme",
+                "--query",
+                "postgresql port",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(build.status.success(), "build-context failed: {build:?}");
+    }
+
+    // compact-audit --max-records 1 --json should keep 1, remove 2.
+    let out = bin()
+        .args(["compact-audit", "--db", db, "--max-records", "1", "--json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "compact-audit failed: {out:?}");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(json["records_kept"], 1);
+    assert_eq!(json["records_removed"], 2);
+    assert!(json["bytes_before"].as_u64().unwrap() > json["bytes_after"].as_u64().unwrap());
+
+    // After compaction, audit still returns 1 record.
+    let audit = bin()
+        .args([
+            "audit",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--from",
+            "0",
+            "--to",
+            "9223372036854775807",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(audit.status.success(), "audit failed: {audit:?}");
+    let records: serde_json::Value = serde_json::from_slice(&audit.stdout).unwrap();
+    assert_eq!(records.as_array().unwrap().len(), 1);
+}
+
+#[test]
 fn cli_studio_exits_without_panic() {
     // The TUI cannot be driven headlessly, but we verify the binary doesn't
     // panic when `studio` is invoked without a real terminal. It will fail at
