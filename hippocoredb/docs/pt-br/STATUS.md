@@ -4,7 +4,23 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Audit Retention v0.1**:
+**Graph-Aware Ranking v0.1**:
+
+- `Config` ganha `graph_rank_weight: f32` (default `0.0` = desativado; sem
+  mudança de comportamento para bancos existentes).
+- `build_context` aplica um bônus de conectividade opcional após o recall
+  híbrido: para cada candidato, conta quantos de seus vizinhos diretos no
+  grafo também aparecem no conjunto de candidatos, normaliza para `[0.0, 1.0]`
+  e mescla ao score efetivo (`recall × (1−w) + connectivity × w`).
+- Candidatos são re-ordenados pelo score efetivo após o passo.
+- `w = 0.0` (padrão) produz ordenação idêntica ao recall simples.
+- Passar `graph_rank_weight` fora de `[0.0, 1.0]` retorna
+  `HippocoreError::Validation` antes de qualquer I/O.
+- Documentação em `docs/en/GRAPH_AWARE_RANKING.md` e
+  `docs/pt-br/GRAPH_AWARE_RANKING.md`.
+- 3 novos testes de integração. 126 testes no total.
+
+Anterior: **Audit Retention v0.1**:
 
 - `Config` ganha `audit_max_records: usize` e `audit_max_bytes: u64` (ambos
   com default `0` = ilimitado; sem mudança para bancos existentes).
@@ -343,7 +359,7 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Graph-Aware Ranking v0.1** — usar a estrutura de arestas do grafo para
-aumentar os scores de recall de itens densamente conectados a outros itens de
-alta pontuação recuperados.
+**Temporal Decay v0.1** — aplicar um viés de recência aos scores de recall
+para que memórias armazenadas ou atualizadas recentemente sejam preferidas em
+relação a memórias semanticamente similares mas desatualizadas.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

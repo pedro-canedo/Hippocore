@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Graph-Aware Ranking v0.1
+
+- Added `graph_rank_weight: f32` to `Config` (default `0.0`; zero means
+  disabled — no behavior change for existing databases).
+- `build_context` now applies an optional graph-connectivity bonus after
+  hybrid recall: for each candidate, the fraction of its direct graph
+  neighbours that also appear in the candidate set is blended into the
+  effective score (`recall × (1−w) + connectivity × w`). Candidates are
+  re-sorted by effective score before the token-budget allocation pass.
+- Passing `graph_rank_weight` outside `[0.0, 1.0]` returns a typed
+  `HippocoreError::Validation` error before any I/O.
+- 3 new integration tests. 126 tests total.
+
 ### Added — Audit Retention v0.1
 
 - Added `audit_max_records: usize` and `audit_max_bytes: u64` to `Config`

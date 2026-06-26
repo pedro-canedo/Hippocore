@@ -2,48 +2,46 @@
 
 ## Feature name
 
-**Graph-Aware Ranking v0.1** — boost recall scores using graph edge density.
+**Temporal Decay v0.1** — apply a recency bias to recall scores.
 
 ## Why it matters
 
-Graph-Aware Context v0.1 already expands the candidate set via direct graph
-neighbours, and Audit Retention v0.1 bounds the audit log. The remaining gap
-in retrieval quality is that items connected by many edges to other high-scoring
-recalled items are not yet preferred over isolated high-scoring items. A
-graph-aware ranking pass can lift genuinely connected context above coincidental
-lexical matches.
+Graph-Aware Ranking v0.1 rewards connectivity; the remaining gap is staleness.
+A memory about "the staging config" stored six months ago should score lower
+than an equivalent memory added yesterday, because recent context is more likely
+to be accurate and actionable. Without recency weighting, semantic similarity
+alone determines rank — a stale but highly similar memory can displace a
+fresher, slightly less similar one.
 
 ## Behaviour
 
-After the hybrid recall pass produces a ranked candidate list, apply a
-graph-connectivity bonus:
+After hybrid recall produces scored candidates, apply a time-decay multiplier
+before graph-aware re-ranking and the token-budget pass:
 
-- For each candidate, count how many of its direct neighbours are also in the
-  candidate set.
-- Scale the bonus by a configurable `graph_rank_weight` (default `0.1`).
-- `effective_score = recall_score * (1 - graph_rank_weight) + connectivity_bonus * graph_rank_weight`.
-- Items with zero neighbours in the candidate set are unaffected.
+- `age_seconds = now_ms - item.updated_at_ms / 1000`.
+- `decay = exp(-decay_rate × age_seconds / 86400)` (exponential, per day).
+- `effective_score = recall_score * (1 - temporal_weight) + decay * temporal_weight`.
 
-This keeps the ranking generic (no hard-coded entity or domain knowledge) and
-respects the existing confidence/contradiction re-ranking already in
-`build_context`.
+When `temporal_weight = 0.0` (default) the multiplier is a no-op and ordering
+is unchanged. When `temporal_weight = 1.0` only recency matters.
 
 ## Files
 
-- `crates/hippocore/src/lib.rs` — graph-aware re-ranking in `build_context` after `run_query`.
-- `crates/hippocore/src/config.rs` — new `graph_rank_weight: f32` field (default `0.1`).
+- `crates/hippocore/src/lib.rs` — temporal decay blend in `build_context`
+  after `run_query` and before graph-aware ranking.
+- `crates/hippocore/src/config.rs` — new `temporal_weight: f32` (default `0.0`)
+  and `temporal_decay_days: f32` (default `30.0`).
 - `crates/hippocore/tests/database.rs` — deterministic tests.
-- `docs/en/GRAPH_AWARE_RANKING.md` and `docs/pt-br/GRAPH_AWARE_RANKING.md`.
+- `docs/en/TEMPORAL_DECAY.md` and `docs/pt-br/TEMPORAL_DECAY.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- `recall_score` is unchanged when `graph_rank_weight = 0.0`.
-- An item with more neighbours in the candidate set is ranked above an equally-
-  scored item with none.
-- `graph_rank_weight = 0.0` in config keeps the current ordering exactly.
-- Setting `graph_rank_weight` out of range `[0.0, 1.0]` returns a typed
-  validation error.
+- `temporal_weight = 0.0` keeps the exact same ordering as plain recall.
+- A memory updated recently ranks above an otherwise identical (content,
+  vector) memory that is older when `temporal_weight > 0`.
+- `temporal_weight` or `temporal_decay_days` outside valid range returns a
+  typed validation error.
 - At least 3 deterministic integration tests.
 - All quality gates pass:
   - `cargo fmt --all --check`
@@ -52,7 +50,7 @@ respects the existing confidence/contradiction re-ranking already in
 
 ## Out of scope
 
-- Multi-hop traversal.
-- Graph-based clustering or community detection.
+- Periodic background reindexing based on age.
 - Server mode.
-- Learning-to-rank / ML-based ranking.
+- Automatic eviction of stale memories.
+- Multi-hop graph traversal.

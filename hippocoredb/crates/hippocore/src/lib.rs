@@ -1200,7 +1200,19 @@ impl Hippocore {
     /// Items are ranked by recall score (highest first). Each item is added
     /// greedily until the next item would exceed `max_tokens`. The token budget
     /// uses the approximation 1 token ≈ 4 UTF-8 bytes.
+    ///
+    /// When `config.graph_rank_weight > 0`, an additional graph-connectivity
+    /// bonus is applied after recall: candidates whose direct neighbours are
+    /// also in the candidate set receive a small score boost proportional to
+    /// the fraction of the candidate set they overlap with. This lifts
+    /// densely-connected context above coincidental lexical matches.
     pub fn build_context(&self, req: BuildContextRequest) -> Result<ContextBlock> {
+        if !(0.0..=1.0).contains(&self.config.graph_rank_weight) {
+            return Err(HippocoreError::validation(format!(
+                "graph_rank_weight must be in [0.0, 1.0], got {}",
+                self.config.graph_rank_weight
+            )));
+        }
         let started = Instant::now();
         let tenant_id = req.tenant_id.clone();
         let query = req.query.clone();
@@ -1262,6 +1274,41 @@ impl Hippocore {
             .collect();
         if req.include_related && req.related_limit > 0 {
             candidates.extend(self.graph_expanded_candidates(&hits, req.related_limit));
+        }
+
+        // Graph-aware ranking: candidates whose direct neighbours also appear in
+        // the candidate set receive a connectivity bonus.
+        //
+        // connectivity_score = neighbours_in_set / (total_candidates - 1)
+        // effective_score    = recall_score * (1 - w) + connectivity_score * w
+        //
+        // When w = 0 (default) this is a no-op and original ordering is preserved.
+        if self.config.graph_rank_weight > 0.0 && candidates.len() > 1 {
+            let connectivity = {
+                let candidate_ids: HashSet<&str> =
+                    candidates.iter().map(|c| c.id.as_str()).collect();
+                let max_possible = (candidates.len() - 1) as f32;
+                candidates
+                    .iter()
+                    .map(|c| {
+                        let count = c
+                            .related_item_ids
+                            .iter()
+                            .filter(|id| candidate_ids.contains(id.as_str()))
+                            .count() as f32;
+                        (count / max_possible).min(1.0)
+                    })
+                    .collect::<Vec<f32>>()
+            };
+            let w = self.config.graph_rank_weight;
+            for (candidate, conn) in candidates.iter_mut().zip(connectivity) {
+                candidate.score = candidate.score * (1.0 - w) + conn * w;
+            }
+            candidates.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
         }
 
         let mut included: Vec<ContextItem> = Vec::new();

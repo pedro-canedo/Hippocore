@@ -2424,3 +2424,126 @@ fn audit_auto_retention_from_config() {
     assert!(stats.audit_records <= 2);
     assert!(stats.audit_log_bytes > 0);
 }
+
+// ── Graph-Aware Ranking tests ─────────────────────────────────────────────────
+
+#[test]
+fn graph_rank_weight_zero_preserves_recall_ordering() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.graph_rank_weight = 0.0;
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+
+    remember_id(
+        &mut db,
+        "pg",
+        "postgresql connection setup and configuration",
+    );
+    remember_id(&mut db, "py", "python psycopg database client library");
+    // Add an edge so pg has a neighbour (py) in the candidate set.
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "related",
+    ))
+    .unwrap();
+
+    // With weight=0, pg and py should be ranked by recall score only.
+    let plain_hits = db
+        .recall(RecallRequest::new("acme", "postgresql connection"))
+        .unwrap();
+
+    let mut ctx_req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+    ctx_req.top_k_candidates = 10;
+    let block = db.build_context(ctx_req).unwrap();
+
+    // Order in the context block should match recall order.
+    let ctx_order: Vec<&str> = block.items_included.iter().map(|i| i.id.as_str()).collect();
+    let recall_order: Vec<&str> = plain_hits.iter().map(|h| h.id.as_str()).collect();
+    assert_eq!(
+        ctx_order, recall_order,
+        "weight=0 must produce same order as plain recall"
+    );
+}
+
+#[test]
+fn graph_rank_weight_boosts_connected_item() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.graph_rank_weight = 0.5; // strong weight to make the effect measurable
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+
+    // "pg" is the primary relevant memory.
+    // "py" is slightly less relevant but connected to "pg" via a graph edge.
+    // "ora" is unrelated and unconnected.
+    remember_id(
+        &mut db,
+        "pg",
+        "postgresql database connection configuration",
+    );
+    remember_id(
+        &mut db,
+        "py",
+        "psycopg python client for database connections",
+    );
+    remember_id(&mut db, "ora", "oracle listener lsnrctl startup procedures");
+    db.add_graph_edge(AddGraphEdgeRequest::new(
+        "acme",
+        ItemKind::Memory,
+        "pg",
+        ItemKind::Memory,
+        "py",
+        "related",
+    ))
+    .unwrap();
+
+    let mut ctx_req = BuildContextRequest::new("acme", "postgresql connection", 2048);
+    ctx_req.top_k_candidates = 10;
+    let block = db.build_context(ctx_req).unwrap();
+
+    let ids: Vec<&str> = block.items_included.iter().map(|i| i.id.as_str()).collect();
+
+    // "pg" and "py" are connected to each other, so both get a connectivity
+    // bonus; "ora" gets none. Both connected items should appear before "ora".
+    let ora_pos = ids.iter().position(|id| *id == "ora");
+    let pg_pos = ids.iter().position(|id| *id == "pg");
+    let py_pos = ids.iter().position(|id| *id == "py");
+
+    if let (Some(ora), Some(pg)) = (ora_pos, pg_pos) {
+        assert!(
+            pg < ora,
+            "pg (connected) should rank above ora (unconnected)"
+        );
+    }
+    if let (Some(ora), Some(py)) = (ora_pos, py_pos) {
+        assert!(
+            py < ora,
+            "py (connected) should rank above ora (unconnected)"
+        );
+    }
+}
+
+#[test]
+fn graph_rank_weight_out_of_range_returns_error() {
+    let dir = TempDir::new().unwrap();
+    let mut cfg = Config::new(dir.path());
+    cfg.graph_rank_weight = 1.5; // out of range
+    let mut db = Hippocore::open(cfg).expect("open");
+    db.create_tenant("acme", "Acme").unwrap();
+    db.create_collection("acme", "support", "").unwrap();
+    remember(&mut db, "support", "PostgreSQL listens on port 5432");
+
+    let req = BuildContextRequest::new("acme", "postgresql", 2048);
+    let err = db.build_context(req).unwrap_err();
+    assert!(
+        matches!(err, HippocoreError::Validation(_)),
+        "expected Validation error, got {err:?}"
+    );
+}

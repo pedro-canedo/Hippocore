@@ -4,7 +4,23 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Audit Retention v0.1**:
+**Graph-Aware Ranking v0.1**:
+
+- `Config` gains `graph_rank_weight: f32` (default `0.0` = disabled; no
+  behavior change for existing databases).
+- `build_context` applies an optional connectivity bonus after hybrid recall:
+  for each candidate, counts how many of its direct graph neighbours also
+  appear in the candidate set, normalises to `[0.0, 1.0]`, and blends into
+  the effective score (`recall × (1−w) + connectivity × w`).
+- Candidates are re-sorted by effective score after the pass.
+- `w = 0.0` (default) produces identical ordering to plain recall.
+- Passing `graph_rank_weight` outside `[0.0, 1.0]` returns a typed
+  `HippocoreError::Validation` before any I/O.
+- Documentation in `docs/en/GRAPH_AWARE_RANKING.md` and
+  `docs/pt-br/GRAPH_AWARE_RANKING.md`.
+- 3 new integration tests. 126 tests total.
+
+Previous: **Audit Retention v0.1**:
 
 - `Config` gains `audit_max_records: usize` and `audit_max_bytes: u64` (both
   default to `0` = unlimited; zero-change for existing databases).
@@ -413,6 +429,6 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Graph-Aware Ranking v0.1** — use graph edge structure to boost recall scores
-of items that are densely connected to other high-scoring recalled items.
-See NEXT_FEATURE.md.
+**Temporal Decay v0.1** — apply a recency bias to recall scores so that
+recently stored or updated memories are preferred over semantically similar
+but stale ones. See NEXT_FEATURE.md.

@@ -52,6 +52,13 @@ pub struct Config {
     /// Keep at most this many bytes in `audit.log` (`0` = unlimited).
     /// Enforced automatically after every `build_context` append when non-zero.
     pub audit_max_bytes: u64,
+    /// Weight in `[0.0, 1.0]` for graph-connectivity bonus in `build_context`.
+    ///
+    /// When non-zero, candidates whose direct graph neighbours also appear in the
+    /// recalled candidate set receive a small score boost:
+    /// `effective = recall_score * (1 - w) + connectivity_score * w`.
+    /// `0.0` (default) disables the bonus; ordering is identical to plain recall.
+    pub graph_rank_weight: f32,
 }
 
 impl Config {
@@ -77,6 +84,7 @@ impl Default for Config {
             vector_index: VectorIndexKind::BruteForce,
             audit_max_records: DEFAULT_AUDIT_MAX_RECORDS,
             audit_max_bytes: DEFAULT_AUDIT_MAX_BYTES,
+            graph_rank_weight: 0.0,
         }
     }
 }
