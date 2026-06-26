@@ -2,65 +2,30 @@
 
 ## Feature name
 
-**Phase 11 — HTTP Server** (`crates/hippocore-server`)
+**Phase 12 — Multimodal Storage** (text, PDF, code, images)
 
 ## Why it matters
 
-Hippocore DB is currently usable only as an embedded Rust library or via the
-CLI. Phase 11 makes it accessible to any language or runtime: a lightweight
-HTTP server exposes the full core API over REST/JSON. This is the foundation
-for SDKs in Python, TypeScript, and other languages.
+Phase 11 (HTTP server) made Hippocore accessible to any language. Phase 12
+extends the document model to handle richer content types: PDFs, source code
+files, and eventually images. This closes the gap between Hippocore and
+production RAG pipelines that must process real-world inputs.
 
-## Architecture
+## Minimum viable scope for Phase 12
 
-A new workspace crate `crates/hippocore-server`:
-- **Framework**: `axum` 0.7 (pure async, tokio-based, no C deps).
-- **Runtime**: `tokio` 1.
-- **Auth**: `X-Api-Key` header checked against a key loaded from an env var
-  (`HIPPOCORE_API_KEY`) or CLI flag. Unauthenticated requests return 401.
-- **State**: `Arc<Mutex<Hippocore>>` shared across handlers.
-- **Config**: data dir and port from env vars or CLI flags.
+1. **PDF ingestion**: accept a PDF byte payload, extract text per-page, chunk
+   and embed each page. Store page number in metadata.
+2. **Code file ingestion**: accept source files with a `language` hint; use
+   token-aware chunking that respects function boundaries (heuristic, no tree-
+   sitter required).
+3. **MIME-type routing**: `StoreDocumentRequest` gains a `content_type` field;
+   the core library dispatches to the appropriate extractor.
+4. **Tests**: at least one PDF round-trip test and one code-file round-trip test.
+5. **Docs**: bilingual documentation for the new `content_type` API.
 
-## Endpoints (MVP set)
+## Out of scope for Phase 12
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Liveness check (no auth required) |
-| `GET` | `/stats` | `DatabaseStats` as JSON |
-| `POST` | `/tenants` | `create_tenant` |
-| `POST` | `/tenants/:tid/collections` | `create_collection` |
-| `POST` | `/tenants/:tid/memories` | `remember` |
-| `POST` | `/tenants/:tid/recall` | `recall` |
-| `POST` | `/tenants/:tid/context` | `build_context` |
-| `POST` | `/tenants/:tid/documents` | `store_document` |
-| `DELETE` | `/tenants/:tid/memories/:id` | `forget` |
-| `POST` | `/tenants/:tid/graph/traverse` | `traverse_graph` |
-
-## CLI integration
-
-Add `hippocore serve [--port 8080] [--data-dir ./data] [--api-key KEY]` to the
-existing CLI binary via `hippocore-cli`.
-
-## Files
-
-- `crates/hippocore-server/` — new crate (lib + optional binary).
-- `Cargo.toml` — add `crates/hippocore-server` to workspace members.
-- `crates/hippocore-cli/` — add `serve` subcommand.
-- `docs/en/SERVER.md` and `docs/pt-br/SERVER.md`.
-- `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
-- ROADMAP.md Phase 11 ✅.
-
-## Acceptance criteria
-
-- Server starts, `/health` returns 200 without auth.
-- All listed endpoints return correct HTTP status codes.
-- Requests without `X-Api-Key` return 401.
-- At least 6 integration tests using `reqwest` or `axum::test`.
-- All quality gates pass.
-
-## Out of scope
-
-- gRPC / WebSocket.
-- TLS (handled externally by a reverse proxy).
-- Production-grade auth (OAuth, RBAC).
-- Clustering / distributed state.
+- Image / audio / video (later phases).
+- GPU acceleration.
+- Tree-sitter AST parsing.
+- Cloud-hosted extractors.

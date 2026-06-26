@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/hippocore", "crates/hippocore-cli"]
+members = ["crates/hippocore", "crates/hippocore-cli", "crates/hippocore-server"]
 
 [workspace.package]
 version = "0.1.0"

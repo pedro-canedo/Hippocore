@@ -97,10 +97,19 @@ not a dated commitment.
   - `traverse_graph(TraverseGraphRequest)` multi-hop BFS: max_hops, max_nodes,
     relation_filter, tenant isolation. ✅
 
-## Phase 11 — Server mode
+## Phase 11 — Server mode ✅
 
-- HTTP / gRPC server.
-- Authentication, multitenancy and permissions.
+- New crate `crates/hippocore-server` — axum 0.8 REST/JSON HTTP server. ✅
+  - Shared `Arc<Mutex<Hippocore>>` state; single-process. ✅
+  - `X-Api-Key` header authentication (configurable via CLI flag or env var). ✅
+  - `GET /health` — unauthenticated liveness probe. ✅
+  - `GET /stats`, `POST /tenants`, `POST /tenants/:tid/collections`. ✅
+  - `POST /tenants/:tid/memories`, `DELETE /tenants/:tid/memories/:id`. ✅
+  - `POST /tenants/:tid/recall`, `POST /tenants/:tid/context`. ✅
+  - `POST /tenants/:tid/documents`. ✅
+  - `POST /tenants/:tid/graph/traverse`. ✅
+  - 7 integration tests (health, auth×2, stats, full flow, document, context). ✅
+- `hippocore serve [--port 8080] [--db ./data] [--api-key KEY]` CLI subcommand. ✅
 
 ## Phase 12 — Multimodal storage
 

@@ -17,8 +17,10 @@ path = "src/main.rs"
 
 [dependencies]
 hippocore = { workspace = true }
+hippocore-server = { path = "../hippocore-server" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

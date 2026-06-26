@@ -4,7 +4,23 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**GraphRAG Multi-hop Traversal — Phase 10 ✅**:
+**Phase 11 — HTTP Server ✅**:
+
+- New crate `crates/hippocore-server`: axum 0.8 REST/JSON server over the
+  full core API. Shared `Arc<Mutex<Hippocore>>` state.
+- `GET /health` (no auth), `GET /stats`, `POST /tenants`,
+  `POST /tenants/:tid/collections`, `POST /tenants/:tid/memories`,
+  `DELETE /tenants/:tid/memories/:id`, `POST /tenants/:tid/recall`,
+  `POST /tenants/:tid/context`, `POST /tenants/:tid/documents`,
+  `POST /tenants/:tid/graph/traverse`.
+- `X-Api-Key` header auth; unauthenticated requests return 401.
+- `hippocore serve [--port 8080] [--db ./data] [--api-key KEY]` CLI subcommand.
+- 7 integration tests in `crates/hippocore-server/tests/server_integration.rs`.
+- **Phase 11 — Server mode is now 100% complete.**
+- Documentation in `docs/en/SERVER.md` and `docs/pt-br/SERVER.md`.
+- 8 new tests (7 integration + 1 doc-test). **209 tests total.**
+
+Previous: **GraphRAG Multi-hop Traversal — Phase 10 ✅**:
 
 - New public API: `traverse_graph(TraverseGraphRequest) -> Vec<TraversalNode>`
 - BFS traversal from seed items up to `max_hops` deep (default 2).

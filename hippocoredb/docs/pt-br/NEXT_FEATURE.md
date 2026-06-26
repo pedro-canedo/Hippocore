@@ -2,65 +2,30 @@
 
 ## Nome
 
-**Phase 11 — HTTP Server** (`crates/hippocore-server`)
+**Phase 12 — Armazenamento Multimodal** (texto, PDF, código, imagens)
 
 ## Por que importa
 
-Hippocore DB é atualmente utilizável apenas como biblioteca Rust embedded ou via
-CLI. A Phase 11 o torna acessível a qualquer linguagem ou runtime: um servidor
-HTTP leve expõe toda a API core via REST/JSON. Esta é a base para SDKs em
-Python, TypeScript e outras linguagens.
+A Phase 11 (servidor HTTP) tornou o Hippocore acessível a qualquer linguagem.
+A Phase 12 estende o modelo de documento para suportar tipos de conteúdo mais
+ricos: PDFs, arquivos de código-fonte e futuramente imagens. Isso fecha a
+lacuna entre o Hippocore e pipelines RAG de produção que processam inputs reais.
 
-## Arquitetura
+## Escopo mínimo para a Phase 12
 
-Novo crate de workspace `crates/hippocore-server`:
-- **Framework**: `axum` 0.7 (async puro, baseado em tokio, sem deps C).
-- **Runtime**: `tokio` 1.
-- **Auth**: header `X-Api-Key` verificado contra chave carregada de env var
-  (`HIPPOCORE_API_KEY`) ou flag CLI. Requisições não autenticadas retornam 401.
-- **State**: `Arc<Mutex<Hippocore>>` compartilhado entre handlers.
-- **Config**: data dir e porta de env vars ou flags CLI.
+1. **Ingestão de PDF**: aceitar payload de bytes PDF, extrair texto por página,
+   chunkar e embeder cada página. Armazenar número de página nos metadados.
+2. **Ingestão de arquivo de código**: aceitar arquivos fonte com hint de
+   `language`; usar chunking com awareness de tokens respeitando limites de
+   função (heurístico, sem tree-sitter).
+3. **Roteamento por MIME type**: `StoreDocumentRequest` ganha campo
+   `content_type`; a biblioteca core despacha para o extrator apropriado.
+4. **Testes**: pelo menos um teste round-trip de PDF e um de arquivo de código.
+5. **Docs**: documentação bilíngue para a nova API `content_type`.
 
-## Endpoints (conjunto MVP)
+## Fora de escopo para a Phase 12
 
-| Método | Path | Descrição |
-|---|---|---|
-| `GET` | `/health` | Liveness check (sem auth) |
-| `GET` | `/stats` | `DatabaseStats` como JSON |
-| `POST` | `/tenants` | `create_tenant` |
-| `POST` | `/tenants/:tid/collections` | `create_collection` |
-| `POST` | `/tenants/:tid/memories` | `remember` |
-| `POST` | `/tenants/:tid/recall` | `recall` |
-| `POST` | `/tenants/:tid/context` | `build_context` |
-| `POST` | `/tenants/:tid/documents` | `store_document` |
-| `DELETE` | `/tenants/:tid/memories/:id` | `forget` |
-| `POST` | `/tenants/:tid/graph/traverse` | `traverse_graph` |
-
-## Integração CLI
-
-Adicionar `hippocore serve [--port 8080] [--data-dir ./data] [--api-key KEY]`
-ao binário CLI existente via `hippocore-cli`.
-
-## Arquivos
-
-- `crates/hippocore-server/` — novo crate (lib + binário opcional).
-- `Cargo.toml` — adicionar `crates/hippocore-server` aos members do workspace.
-- `crates/hippocore-cli/` — adicionar subcomando `serve`.
-- `docs/en/SERVER.md` e `docs/pt-br/SERVER.md`.
-- `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
-- ROADMAP.md Phase 11 ✅.
-
-## Critérios de aceite
-
-- Servidor inicia, `/health` retorna 200 sem auth.
-- Todos os endpoints listados retornam status HTTP corretos.
-- Requisições sem `X-Api-Key` retornam 401.
-- Pelo menos 6 testes de integração.
-- Todos os quality gates passam.
-
-## Fora de escopo
-
-- gRPC / WebSocket.
-- TLS (tratado externamente por reverse proxy).
-- Auth de produção (OAuth, RBAC).
-- Clustering / estado distribuído.
+- Imagem / áudio / vídeo (fases posteriores).
+- Aceleração GPU.
+- Parsing de AST com tree-sitter.
+- Extratores hospedados na nuvem.

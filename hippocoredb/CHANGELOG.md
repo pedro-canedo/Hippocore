@@ -5,6 +5,20 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — HTTP Server (Phase 11 complete)
+
+- New crate `crates/hippocore-server`: axum 0.8 REST/JSON HTTP server.
+- `AppState::new(db, api_key)` — public constructor; state shared via
+  `Arc<Mutex<Hippocore>>`.
+- `build_router(state)` — returns `axum::Router` (usable in tests without a port).
+- `serve(ServerConfig)` — binds a TCP port and serves until process exit.
+- `ServerConfig { data_dir, port, api_key }` — server configuration type.
+- 10 REST endpoints: `/health`, `/stats`, tenant/collection/memory/recall/
+  context/document/graph management.
+- `X-Api-Key` header authentication middleware (401 on mismatch).
+- `hippocore serve` CLI subcommand added to `hippocore-cli`.
+- 7 integration tests + 1 doc-test. 209 tests total.
+
 ### Added — GraphRAG Multi-hop Traversal (Phase 10 complete)
 
 - `TraverseGraphRequest` / `TraversalNode` public types.
