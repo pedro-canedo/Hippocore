@@ -4,7 +4,27 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Benchmark regression guard**:
+**Temporal Truth Layer full spec** — supersedes / contradicts relations:
+
+- `Memory` gains `supersedes: Vec<String>`, `contradicts: Vec<String>`, and
+  `superseded_by: Option<String>` (all `#[serde(default)]` for WAL compatibility).
+- `RecallResult` gains `contradictions: Vec<String>` (advisory ids surfaced in results).
+- `RememberRequest` gains `supersedes` and `contradicts` lists; `RecallRequest`
+  gains `include_superseded: bool` (default `false`).
+- `remember` validates that every supersedes/contradicts id exists in the same
+  tenant and marks each superseded memory with `superseded_by = Some(new_id)` in
+  the WAL immediately (durable).
+- `Filter::matches` skips superseded memories unless `include_superseded = true`.
+- `IndexEntry` carries `superseded: bool` and `contradicts: Vec<String>` for
+  fast filtering without loading the full memory.
+- CLI: `remember --supersedes <id>...`, `remember --contradicts <id>...`,
+  `recall --include-superseded`.
+- 5 new integration tests: supersedure exclusion, include-superseded flag,
+  contradictions surface in result, unknown-id validation error, durability
+  across restart.
+- No new crate dependencies. 82 tests total.
+
+Previous: **Benchmark regression guard**:
 
 - Added `examples/bench_regression.rs`: a standalone latency guard for hybrid,
   vector, and text recall over 500 memories (50 measured iterations after 5
@@ -197,20 +217,22 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 76 tests:
+**All green.** `cargo test --workspace` passes 82 tests:
 - 18 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode),
-- 44 library integration (store/recall, chunking, retrieval quality layer,
+- 49 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
-  error paths, dimension-mismatch, torn-WAL recovery, temporal filtering),
+  error paths, dimension-mismatch, torn-WAL recovery, temporal filtering,
+  supersedure/contradictions),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
 - 12 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`, and
   `eval-quality` pass + fail paths),
-- 1 doctest.
+- 1 doctest (lib.rs quickstart),
+- 1 bench_regression example.
 
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
 is clean.
@@ -232,4 +254,4 @@ isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Temporal Truth Layer full spec** — `supersedes` / `contradicts` relations, conflict resolution (Phase 7). See NEXT_FEATURE.md.
+**Context Compiler** — `build_context(query, user, max_tokens)` that selects and trims recalled items into a prompt-ready string (Phase 8). See NEXT_FEATURE.md.

@@ -1141,3 +1141,176 @@ fn temporal_document_chunks_inherit_validity() {
         "document chunks should appear before expiry: {hits_past:?}"
     );
 }
+
+#[test]
+fn supersedes_excludes_old_memory_from_default_recall() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    // Store an original memory.
+    let mut old_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "old fact about servers version one",
+    );
+    old_req.id = Some("srv-v1".into());
+    db.remember(old_req).unwrap();
+
+    // Store a replacement that supersedes it.
+    let mut new_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "new fact about servers version two",
+    );
+    new_req.id = Some("srv-v2".into());
+    new_req.supersedes = vec!["srv-v1".into()];
+    db.remember(new_req).unwrap();
+
+    // Default recall: only the new version should appear.
+    let hits = db.recall(RecallRequest::new("acme", "servers")).unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(
+        ids.contains(&"srv-v2"),
+        "new version should appear: {ids:?}"
+    );
+    assert!(
+        !ids.contains(&"srv-v1"),
+        "superseded old version should not appear: {ids:?}"
+    );
+}
+
+#[test]
+fn include_superseded_surfaces_history() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mut old_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "old fact about routers",
+    );
+    old_req.id = Some("rtr-v1".into());
+    db.remember(old_req).unwrap();
+
+    let mut new_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "new fact about routers",
+    );
+    new_req.id = Some("rtr-v2".into());
+    new_req.supersedes = vec!["rtr-v1".into()];
+    db.remember(new_req).unwrap();
+
+    // With include_superseded=true both should appear.
+    let mut req = RecallRequest::new("acme", "routers");
+    req.include_superseded = true;
+    let hits = db.recall(req).unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(
+        ids.contains(&"rtr-v2"),
+        "new version should appear: {ids:?}"
+    );
+    assert!(
+        ids.contains(&"rtr-v1"),
+        "superseded version should appear with include_superseded: {ids:?}"
+    );
+}
+
+#[test]
+fn contradicts_surfaces_in_recall_result() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mut a_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "fact A about databases: they use port 5432",
+    );
+    a_req.id = Some("db-a".into());
+    db.remember(a_req).unwrap();
+
+    let mut b_req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "fact B about databases: they use port 3306",
+    );
+    b_req.id = Some("db-b".into());
+    b_req.contradicts = vec!["db-a".into()];
+    db.remember(b_req).unwrap();
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "databases port"))
+        .unwrap();
+    let b_hit = hits.iter().find(|h| h.id == "db-b");
+    assert!(b_hit.is_some(), "db-b should appear in results");
+    assert!(
+        b_hit.unwrap().contradictions.contains(&"db-a".to_string()),
+        "db-b result should carry db-a as contradiction: {:?}",
+        b_hit.unwrap().contradictions
+    );
+}
+
+#[test]
+fn supersedes_unknown_id_returns_error() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+
+    let mut req = RememberRequest::new(
+        "acme",
+        "support",
+        MemoryType::Semantic,
+        "memory with invalid supersede",
+    );
+    req.supersedes = vec!["nonexistent-id".into()];
+    assert!(
+        db.remember(req).is_err(),
+        "superseding a nonexistent id should fail"
+    );
+}
+
+#[test]
+fn supersedes_survives_restart() {
+    let dir = TempDir::new().unwrap();
+    {
+        let mut db = seeded(&dir);
+        let mut old = RememberRequest::new(
+            "acme",
+            "support",
+            MemoryType::Semantic,
+            "old network config",
+        );
+        old.id = Some("net-v1".into());
+        db.remember(old).unwrap();
+
+        let mut new = RememberRequest::new(
+            "acme",
+            "support",
+            MemoryType::Semantic,
+            "new network config",
+        );
+        new.id = Some("net-v2".into());
+        new.supersedes = vec!["net-v1".into()];
+        db.remember(new).unwrap();
+        db.close().unwrap();
+    }
+    // After recovery, superseded memory must still be excluded.
+    let db = open(&dir);
+    let hits = db
+        .recall(RecallRequest::new("acme", "network config"))
+        .unwrap();
+    let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
+    assert!(
+        ids.contains(&"net-v2"),
+        "net-v2 should appear after restart: {ids:?}"
+    );
+    assert!(
+        !ids.contains(&"net-v1"),
+        "superseded net-v1 should not appear after restart: {ids:?}"
+    );
+}

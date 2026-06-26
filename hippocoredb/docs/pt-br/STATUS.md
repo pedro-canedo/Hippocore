@@ -4,7 +4,29 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Benchmark regression guard**:
+**Temporal Truth Layer spec completa** — relações supersedes / contradicts:
+
+- `Memory` ganha `supersedes: Vec<String>`, `contradicts: Vec<String>` e
+  `superseded_by: Option<String>` (todos com `#[serde(default)]` para compatibilidade
+  retroativa com o WAL existente).
+- `RecallResult` ganha `contradictions: Vec<String>` (ids de contradições retornados
+  como aviso nos resultados de recall).
+- `RememberRequest` ganha os campos `supersedes` e `contradicts`; `RecallRequest`
+  ganha `include_superseded: bool` (padrão `false`).
+- `remember` valida que cada id em `supersedes`/`contradicts` existe no mesmo tenant
+  e marca cada memória substituída com `superseded_by = Some(new_id)` no WAL
+  imediatamente (durável).
+- `Filter::matches` exclui memórias supersedidas salvo `include_superseded = true`.
+- `IndexEntry` carrega `superseded: bool` e `contradicts: Vec<String>` para filtragem
+  rápida sem carregar a memória completa.
+- CLI: `remember --supersedes <id>...`, `remember --contradicts <id>...`,
+  `recall --include-superseded`.
+- 5 novos testes de integração: exclusão por supersedure, flag include-superseded,
+  contradições no resultado, erro de validação para id desconhecido, durabilidade
+  após restart.
+- Sem novas dependências de crate. 82 testes no total.
+
+Incremento anterior: **Benchmark regression guard**:
 
 - Adicionado `examples/bench_regression.rs`: guard de latência autônomo para
   recall híbrido, vetorial e textual com 500 memórias (50 iterações medidas após
@@ -149,14 +171,16 @@ cargo bench -p hippocore
 
 ## Status de testes
 
-`cargo test --workspace` passa com 76 testes:
+`cargo test --workspace` passa com 82 testes:
 
 - 18 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL);
-- 44 integração da biblioteca (incl. 5 novos testes de temporal truth);
+- 49 integração da biblioteca (incl. 5 temporal truth v0.1 + 5 supersedure/contradictions);
 - 1 fixture de qualidade de retrieval;
 - 12 smoke tests de CLI;
-- 1 doctest.
+- 1 doctest (lib.rs quickstart);
+- 1 bench_regression example.
 
 ## Próxima feature
 
-**Temporal Truth Layer spec completa** — relações `supersedes` / `contradicts`, resolução de conflitos (Fase 7). Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).
+**Context Compiler** — `build_context(query, user, max_tokens)` que seleciona e ajusta
+itens recuperados em uma string pronta para prompt (Fase 8). Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

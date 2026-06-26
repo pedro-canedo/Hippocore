@@ -2,79 +2,99 @@
 
 ## Nome
 
-**Temporal Truth Layer spec completa** — relações `supersedes` e `contradicts`
-entre memórias, detecção de conflitos no recall e resolução com confiança.
+**Context Compiler** — `build_context(query, user, max_tokens)`
 
 ## Por que importa
 
-A Fase 7 v0.1 adicionou `valid_from`/`valid_until` e filtro `as_of` básico.
-A spec completa do Temporal Truth Layer adiciona a camada semântica: agentes de
-IA frequentemente armazenam fatos que se contradizem ou se atualizam, e sem
-metadados explícitos de `supersedes`/`contradicts` o Hippocore não consegue
-surfaçar ou resolver esses conflitos. Sem isso, um conjunto de resultados de
-recall pode conter tanto uma crença antiga quanto um fato mais novo que a
-contradiz, deixando para o agente resolver — ou pior, usando informação obsoleta
-silenciosamente.
+Após armazenar memórias, documentos e registros, o caso de uso mais comum de
+agentes de IA é montar uma string de contexto pronta para prompt: pegar os
+top-k resultados de recall de todos os tipos de itens, ranqueá-los, cortar para
+um budget de tokens e formatá-los para que um LLM possa raciocinar sobre eles.
+Hoje cada aplicação precisa fazer isso manualmente — escolher quais itens incluir,
+quantos tokens cada um ocupa e em que ordem devem aparecer.
 
-Relações explícitas de supersedura/contradição permitem:
-- Marcar uma nova memória como substituindo uma mais antiga.
-- Sinalizar duas memórias como conflitantes (revisão necessária por humano ou
-  agente).
-- Excluir memórias supersedidas dos resultados padrão de recall.
-- Retornar avisos de contradição junto aos resultados de recall.
+Um Context Compiler integrado remove esse código repetitivo e fornece:
+- Um seletor com budget de tokens que preenche o budget greedy por score.
+- Uma chamada de API única que substitui o loop recall + format na maioria dos agentes.
+- Um valor `ContextBlock` com a string montada e metadados de proveniência (itens
+  incluídos, tokens usados, itens descartados).
 
 ## Comportamento esperado
 
-### Mudanças no modelo
+### Nova API
 
-`Memory` ganha dois campos opcionais:
+```rust
+pub struct BuildContextRequest {
+    pub tenant_id: String,
+    pub query: String,
+    pub user_id: Option<String>,
+    pub max_tokens: usize,           // teto rígido; padrão 2048
+    pub top_k_candidates: usize,     // recall de até este número; padrão 20
+    pub mode: SearchMode,            // padrão Hybrid
+    pub collection: Option<String>,
+    pub metadata_filter: Metadata,
+}
+
+pub struct ContextBlock {
+    pub text: String,                // contexto montado, pronto para LLM
+    pub token_count: usize,
+    pub items_included: Vec<ContextItem>,
+    pub items_dropped: usize,
+}
+
+pub struct ContextItem {
+    pub id: String,
+    pub kind: ItemKind,
+    pub score: f32,
+    pub token_count: usize,
+    pub snippet: String,             // primeiros 120 chars do conteúdo
+}
 ```
-supersedes:   Vec<String>  // ids de memórias que esta substitui
-contradicts:  Vec<String>  // ids de memórias que esta contradiz
+
+### Algoritmo
+
+1. Executa recall (híbrido por padrão) para até `top_k_candidates` itens.
+2. Ordena por score decrescente.
+3. Adiciona itens greedily (maior score primeiro) até que `max_tokens` seria
+   excedido.
+4. Formata: cada item incluído vira `[<kind>:<id>] <text>` separado por `\n\n`.
+5. Retorna `ContextBlock` com texto montado, proveniência e contagem de
+   descartados.
+
+### Contagem de tokens
+
+Aproximação integrada: 1 token ≈ 4 bytes UTF-8. Quem precisar de tokenização
+exata pode pós-processar; a aproximação é suficiente para enforcement de budget
+sem dependência de tokenizador.
+
+### CLI
+
 ```
-
-### Comportamento na escrita
-
-`remember` valida que qualquer id listado em `supersedes`/`contradicts` existe
-no mesmo tenant. Se uma memória é supersedida, ela recebe `superseded_by = <id>`
-(armazenado na memória antiga) e é excluída do recall padrão.
-
-### Comportamento na query
-
-- Memórias supersedidas são excluídas do recall padrão (exceto se
-  `include_superseded = true` estiver no request).
-- Quando uma memória recall tem `contradicts` não vazio, o `RecallResult`
-  carrega um campo `contradictions: Vec<String>` informativo.
-
-### Mudanças na CLI
-
-- `remember` ganha `--supersedes <id>` (repetível) e `--contradicts <id>`
-  (repetível).
-- `recall` ganha `--include-superseded` para surfaçar o histórico completo.
+hippocore build-context --tenant <t> --query "..." [--max-tokens 2048]
+  [--top-k 20] [--mode hybrid] [--collection c] [--json]
+```
 
 ## Critérios de aceite
 
-- `supersedes` e `contradicts` armazenados e recuperados via WAL/snapshot.
-- Memórias supersedidas excluídas do recall padrão; surfaçadas via
-  `--include-superseded`.
-- Ids de contradição aparecem no `RecallResult` quando presentes.
-- Novos testes de integração: exclusão por supersedura, surfacing de
-  contradições, override com include-superseded, validação de ids desconhecidos.
-- Todos os 76+ testes passam.
-- `cargo fmt`, `cargo clippy -D warnings` limpos.
-- Sem novas dependências externas.
+- `Hippocore::build_context(req)` retorna `ContextBlock`.
+- Budget de tokens respeitado (texto nunca excede `max_tokens * 4` bytes além
+  do tamanho do último item incluído).
+- Itens ranqueados por score de recall (maior primeiro).
+- `ContextBlock.items_included` lista cada item com id, kind, score, token
+  count e snippet.
+- `ContextBlock.items_dropped` conta itens buscados mas que não couberam.
+- Subcomando CLI `build-context` funciona; saída `--json` é parseável.
+- Mínimo 3 testes de integração: enforcement de budget, montagem multi-item,
+  round-trip de saída JSON.
+- Todos os 82+ testes passam; sem novas dependências externas.
 
 ## Fora de escopo
 
-- Resolução automática de conflitos (responsabilidade do loop humano/agente,
-  não do engine).
-- Grafos de proveniência ou traversal de grafo de conhecimento (Fase 10 —
-  Graph Memory).
-- Server mode.
+- Integração com tokenizador externo (tiktoken etc.) — usar aproximação por bytes.
+- Templating de prompt ou injeção de few-shot.
+- Server/HTTP mode.
 
 ## Follow-up
 
-Após o Temporal Truth Layer completo, a Fase 7 estará concluída. A Fase 8 é o
-**Context Compiler**: `build_context(query, user, max_tokens)` — montagem de
-contexto com budget de tokens para LLMs, a partir de todos os tipos de items
-armazenados.
+Fase 8 concluída → Fase 9: **RAG Audit Engine** — rastreamento de proveniência,
+scores de confiança por item e log de auditoria no momento da query.

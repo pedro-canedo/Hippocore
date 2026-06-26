@@ -48,6 +48,9 @@ pub struct Filter {
     pub metadata: Metadata,
     /// Return only entries valid at this epoch ms. `None` = no temporal filter.
     pub as_of: Option<i64>,
+    /// When `false` (default), memories that have been superseded by another
+    /// are excluded. Set to `true` to surface the full history.
+    pub include_superseded: bool,
 }
 
 impl Filter {
@@ -99,6 +102,9 @@ impl Filter {
                     return false; // expired
                 }
             }
+        }
+        if !self.include_superseded && e.superseded {
+            return false;
         }
         true
     }
@@ -305,6 +311,7 @@ fn build_result(
         vector_score,
         text_score,
         reason,
+        contradictions: e.contradicts.clone(),
     }
 }
 

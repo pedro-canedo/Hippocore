@@ -171,6 +171,14 @@ struct RememberArgs {
     /// Validity end (epoch ms). Omit to make the memory never expire.
     #[arg(long)]
     valid_until: Option<i64>,
+    /// Ids of memories this one replaces (repeatable). Superseded memories
+    /// are excluded from default recall.
+    #[arg(long, value_name = "ID")]
+    supersedes: Vec<String>,
+    /// Ids of memories this one contradicts (repeatable). Surfaced as an
+    /// advisory in recall results.
+    #[arg(long, value_name = "ID")]
+    contradicts: Vec<String>,
 }
 
 #[derive(Args)]
@@ -251,6 +259,10 @@ struct RecallArgs {
     /// (valid_until <= now) are excluded by default.
     #[arg(long)]
     as_of: Option<i64>,
+    /// Include memories that have been superseded by a newer one. By default
+    /// superseded memories are hidden.
+    #[arg(long)]
+    include_superseded: bool,
 }
 
 #[derive(Args)]
@@ -486,6 +498,8 @@ fn cmd_remember(a: RememberArgs) -> Result<(), String> {
     req.embedding = embedding;
     req.valid_from = a.valid_from;
     req.valid_until = a.valid_until;
+    req.supersedes = a.supersedes;
+    req.contradicts = a.contradicts;
     let mem = db.remember(req).map_err(|e| format!("{e}"))?;
     db.close().map_err(|e| format!("close failed: {e}"))?;
     println!(
@@ -586,6 +600,7 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     req.mode = mode;
     req.top_k = a.top_k;
     req.as_of = a.as_of;
+    req.include_superseded = a.include_superseded;
 
     let results = db.search(req).map_err(|e| format!("{e}"))?;
 
@@ -1104,7 +1119,8 @@ fn cmd_eval_quality(a: EvalQualityArgs) -> Result<(), String> {
                 .duration_since(UNIX_EPOCH)
                 .map(|d| d.as_millis())
                 .unwrap_or(0);
-            let p = std::env::temp_dir().join(format!("hippocore-eval-{ts}"));
+            let pid = std::process::id();
+            let p = std::env::temp_dir().join(format!("hippocore-eval-{ts}-{pid}"));
             std::fs::create_dir_all(&p).map_err(|e| format!("cannot create temp dir: {e}"))?;
             _tmp_guard = Some(p.clone());
             p

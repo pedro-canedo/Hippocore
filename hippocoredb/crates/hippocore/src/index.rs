@@ -45,6 +45,11 @@ pub struct IndexEntry {
     pub valid_from: Option<i64>,
     /// Validity end (epoch ms), inherited from the parent item.
     pub valid_until: Option<i64>,
+    /// True when this memory has been superseded by another. Excluded from
+    /// default recall unless `include_superseded` is set on the filter.
+    pub superseded: bool,
+    /// Ids of memories this entry contradicts (advisory).
+    pub contradicts: Vec<String>,
 }
 
 impl IndexEntry {
@@ -88,6 +93,8 @@ impl IndexEntry {
             token_count,
             valid_from,
             valid_until,
+            superseded: false,
+            contradicts: Vec::new(),
         }
     }
 
@@ -112,6 +119,8 @@ impl IndexEntry {
             token_count,
             valid_from: memory.valid_from,
             valid_until: memory.valid_until,
+            superseded: memory.superseded_by.is_some(),
+            contradicts: memory.contradicts.clone(),
         }
     }
 
@@ -136,6 +145,8 @@ impl IndexEntry {
             token_count,
             valid_from: None,
             valid_until: None,
+            superseded: false,
+            contradicts: Vec::new(),
         }
     }
 }
@@ -374,6 +385,9 @@ mod tests {
             created_at: 0,
             valid_from: None,
             valid_until: None,
+            supersedes: Vec::new(),
+            contradicts: Vec::new(),
+            superseded_by: None,
         };
         IndexEntry::from_memory(&m)
     }

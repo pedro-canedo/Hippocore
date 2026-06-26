@@ -206,6 +206,17 @@ pub struct Memory {
     /// Validity end (epoch ms). `None` = never expires.
     #[serde(default)]
     pub valid_until: Option<i64>,
+    /// Ids of memories this one explicitly replaces. Superseded memories are
+    /// excluded from default recall.
+    #[serde(default)]
+    pub supersedes: Vec<String>,
+    /// Ids of memories this one contradicts. Surfaced as an advisory in
+    /// recall results.
+    #[serde(default)]
+    pub contradicts: Vec<String>,
+    /// Id of the memory that superseded this one, if any.
+    #[serde(default)]
+    pub superseded_by: Option<String>,
 }
 
 impl Memory {
@@ -361,6 +372,9 @@ pub struct RecallResult {
     pub text_score: f32,
     /// Human-readable explanation of why this result was returned.
     pub reason: String,
+    /// Ids of memories that this result explicitly contradicts (advisory).
+    #[serde(default)]
+    pub contradictions: Vec<String>,
 }
 
 fn non_empty(field: &str, value: &str) -> Result<()> {

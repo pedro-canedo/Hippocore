@@ -63,6 +63,9 @@ not a dated commitment.
 
 - `valid_from`, `valid_until`, `supersedes`, `contradicts`.
 - `valid_from`/`valid_until` on memories and documents with `as_of` queries. ✅
+- `supersedes`/`contradicts` relations with durable supersedure marking. ✅
+- Superseded memories excluded from default recall; `include_superseded` override. ✅
+- Contradiction ids surfaced in `RecallResult.contradictions`. ✅
 - Source and confidence-aware resolution of conflicting facts.
 - "What was true at time T?" queries. ✅ (basic `as_of` filter)
 

@@ -198,6 +198,10 @@ pub struct RememberRequest {
     pub valid_from: Option<i64>,
     /// Optional validity end (epoch ms). `None` = never expires.
     pub valid_until: Option<i64>,
+    /// Ids of memories this one replaces. Each must exist in the same tenant.
+    pub supersedes: Vec<String>,
+    /// Ids of memories this one contradicts (advisory).
+    pub contradicts: Vec<String>,
 }
 
 impl RememberRequest {
@@ -220,6 +224,8 @@ impl RememberRequest {
             embedding: None,
             valid_from: None,
             valid_until: None,
+            supersedes: Vec::new(),
+            contradicts: Vec::new(),
         }
     }
 }
@@ -327,6 +333,9 @@ pub struct RecallRequest {
     /// Query as of this epoch ms. `None` = current time (default: excludes
     /// expired entries). Pass an explicit timestamp to query historical state.
     pub as_of: Option<i64>,
+    /// When `false` (default), superseded memories are excluded from results.
+    /// Set to `true` to surface the full history including superseded entries.
+    pub include_superseded: bool,
 }
 
 impl RecallRequest {
@@ -344,6 +353,7 @@ impl RecallRequest {
             mode: SearchMode::Hybrid,
             top_k: 10,
             as_of: None,
+            include_superseded: false,
         }
     }
 }
@@ -512,9 +522,38 @@ impl Hippocore {
             None => self.embedder.embed(&req.text),
         };
 
+        // Validate that supersedes/contradicts ids exist in the same tenant.
+        for sid in &req.supersedes {
+            if !self
+                .state
+                .memories
+                .iter()
+                .any(|m| m.tenant_id == req.tenant_id && m.id == *sid)
+            {
+                return Err(HippocoreError::validation(format!(
+                    "supersedes id {sid:?} not found in tenant {:?}",
+                    req.tenant_id
+                )));
+            }
+        }
+        for cid in &req.contradicts {
+            if !self
+                .state
+                .memories
+                .iter()
+                .any(|m| m.tenant_id == req.tenant_id && m.id == *cid)
+            {
+                return Err(HippocoreError::validation(format!(
+                    "contradicts id {cid:?} not found in tenant {:?}",
+                    req.tenant_id
+                )));
+            }
+        }
+
+        let new_id = id.clone();
         let mem = Memory {
             id,
-            tenant_id: req.tenant_id,
+            tenant_id: req.tenant_id.clone(),
             collection: req.collection,
             user_id: req.user_id,
             memory_type: req.memory_type,
@@ -525,9 +564,28 @@ impl Hippocore {
             created_at,
             valid_from: req.valid_from,
             valid_until: req.valid_until,
+            supersedes: req.supersedes.clone(),
+            contradicts: req.contradicts,
+            superseded_by: None,
         };
         mem.validate()?;
         self.commit(Operation::PutMemory(mem.clone()))?;
+
+        // Mark superseded memories.
+        for sid in &req.supersedes {
+            if let Some(old) = self
+                .state
+                .memories
+                .iter()
+                .find(|m| m.tenant_id == req.tenant_id && m.id == *sid)
+                .cloned()
+            {
+                let mut updated = old;
+                updated.superseded_by = Some(new_id.clone());
+                self.commit(Operation::PutMemory(updated))?;
+            }
+        }
+
         Ok(mem)
     }
 
@@ -745,6 +803,7 @@ impl Hippocore {
             metadata: req.metadata,
             // Default as_of = now: expired entries are excluded by default.
             as_of: Some(req.as_of.unwrap_or_else(now_millis)),
+            include_superseded: req.include_superseded,
         };
         let query_text = if req.query.trim().is_empty() {
             None

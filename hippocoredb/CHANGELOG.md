@@ -5,6 +5,33 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Temporal Truth Layer full spec (supersedes / contradicts)
+
+- `Memory` gains `supersedes: Vec<String>`, `contradicts: Vec<String>`, and
+  `superseded_by: Option<String>`. All three are `#[serde(default)]` so the
+  WAL/snapshot can recover existing databases without migration.
+- `RecallResult` gains `contradictions: Vec<String>` (advisory; ids of memories
+  this result contradicts, carried from the index entry).
+- `RememberRequest` gains `supersedes` and `contradicts` fields; `RecallRequest`
+  gains `include_superseded: bool` (default `false`).
+- `remember` validates that every id in `supersedes`/`contradicts` exists in the
+  same tenant before accepting the request. After writing the new memory, each
+  superseded memory is updated in the WAL with `superseded_by = Some(new_id)`
+  (durable; survives restart).
+- `IndexEntry` carries `superseded: bool` and `contradicts: Vec<String>` derived
+  from the parent `Memory`, so `Filter::matches` can exclude superseded entries
+  in O(1) without reloading the memory.
+- `Filter::matches` excludes entries where `superseded = true` unless
+  `include_superseded = true` on the filter.
+- CLI: `remember --supersedes <id>` (repeatable), `remember --contradicts <id>`
+  (repeatable), `recall --include-superseded`.
+- Fixed a race condition in the eval-quality temp dir name (now includes process
+  id to prevent timestamp collision under parallel test execution).
+- 5 new integration tests: supersedure exclusion, include-superseded flag,
+  contradictions surface in result, unknown-id validation error, durability
+  across restart.
+- No new crate dependencies.
+
 ### Added — Benchmark regression guard
 
 - Added `examples/bench_regression.rs`: standalone latency guard for hybrid,
