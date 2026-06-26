@@ -2,9 +2,10 @@
 
 use hippocore::model::{ItemKind, MemoryType};
 use hippocore::{
-    ChunkInput, Config, Hippocore, HippocoreError, RecallRequest, RememberRequest, SearchMode,
-    StoreDocumentRequest,
+    ChunkInput, Config, Hippocore, HippocoreError, PutRecordRequest, RecallRequest,
+    RememberRequest, SearchMode, StoreDocumentRequest,
 };
+use serde_json::json;
 use tempfile::TempDir;
 
 fn open(dir: &TempDir) -> Hippocore {
@@ -506,6 +507,141 @@ fn store_document_rejects_empty_chunk_inputs() {
         db.store_document(empty_embedding),
         Err(HippocoreError::InvalidEmbedding(_))
     ));
+}
+
+#[test]
+fn put_record_projects_and_recalls_context() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    let mut req = PutRecordRequest::new(
+        "acme",
+        "support",
+        "systems",
+        json!({
+            "name": "billing-db",
+            "engine": "postgresql",
+            "port": 5432,
+            "owner": "payments"
+        }),
+    );
+    req.id = Some("sys-1".into());
+    req.metadata.insert("env".into(), "prod".into());
+    let record = db.put_record(req).unwrap();
+    assert_eq!(record.version, 0);
+    assert_eq!(db.stats().unwrap().records, 1);
+
+    let hits = db
+        .recall(RecallRequest::new("acme", "billing postgresql 5432"))
+        .unwrap();
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].kind, ItemKind::Record);
+    assert_eq!(hits[0].id, "sys-1");
+    assert_eq!(hits[0].record_table.as_deref(), Some("systems"));
+    assert!(hits[0].text.contains("billing-db"));
+}
+
+#[test]
+fn record_metadata_filter_is_respected() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    let mut prod = PutRecordRequest::new(
+        "acme",
+        "support",
+        "systems",
+        json!({"name": "billing-db", "engine": "postgresql"}),
+    );
+    prod.id = Some("prod".into());
+    prod.metadata.insert("env".into(), "prod".into());
+    db.put_record(prod).unwrap();
+
+    let mut dev = PutRecordRequest::new(
+        "acme",
+        "support",
+        "systems",
+        json!({"name": "sandbox-db", "engine": "postgresql"}),
+    );
+    dev.id = Some("dev".into());
+    dev.metadata.insert("env".into(), "dev".into());
+    db.put_record(dev).unwrap();
+
+    let mut req = RecallRequest::new("acme", "postgresql");
+    req.kind = Some(ItemKind::Record);
+    req.metadata.insert("env".into(), "prod".into());
+    let hits = db.search(req).unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].id, "prod");
+}
+
+#[test]
+fn record_survives_restart_and_delete() {
+    let dir = TempDir::new().unwrap();
+    {
+        let mut db = seeded(&dir);
+        let mut req = PutRecordRequest::new(
+            "acme",
+            "support",
+            "systems",
+            json!({"name": "billing-db", "engine": "postgresql"}),
+        );
+        req.id = Some("sys-1".into());
+        db.put_record(req).unwrap();
+        db.close().unwrap();
+    }
+
+    {
+        let mut db = open(&dir);
+        assert_eq!(db.stats().unwrap().records, 1);
+        let hits = db
+            .recall(RecallRequest::new("acme", "billing postgresql"))
+            .unwrap();
+        assert_eq!(hits[0].id, "sys-1");
+
+        db.delete_record("acme", "support", "systems", "sys-1")
+            .unwrap();
+        assert_eq!(db.stats().unwrap().records, 0);
+        assert!(db
+            .recall(RecallRequest::new("acme", "billing postgresql"))
+            .unwrap()
+            .is_empty());
+        db.close().unwrap();
+    }
+
+    let db = open(&dir);
+    assert_eq!(db.stats().unwrap().records, 0);
+}
+
+#[test]
+fn record_tenant_isolation() {
+    let dir = TempDir::new().unwrap();
+    let mut db = open(&dir);
+    db.create_tenant("a", "A").unwrap();
+    db.create_tenant("b", "B").unwrap();
+    db.create_collection("a", "c", "").unwrap();
+    db.create_collection("b", "c", "").unwrap();
+
+    let mut a = PutRecordRequest::new(
+        "a",
+        "c",
+        "systems",
+        json!({"name": "secret-db", "engine": "postgresql", "tenant": "a"}),
+    );
+    a.id = Some("same-id".into());
+    db.put_record(a).unwrap();
+    let mut b = PutRecordRequest::new(
+        "b",
+        "c",
+        "systems",
+        json!({"name": "secret-db", "engine": "postgresql", "tenant": "b"}),
+    );
+    b.id = Some("same-id".into());
+    db.put_record(b).unwrap();
+
+    let hits = db
+        .recall(RecallRequest::new("a", "secret postgresql"))
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].tenant_id, "a");
+    assert!(hits[0].text.contains("tenant a"));
 }
 
 #[test]

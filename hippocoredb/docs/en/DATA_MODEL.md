@@ -28,7 +28,8 @@ Context projection is a native responsibility of Hippocore DB.
 | `Document` | implemented | Stored text managed as one object. |
 | `Chunk` | implemented | Searchable slice of a document. |
 | `Memory` | implemented | Atomic remembered fact/procedure/note/event. |
-| `IndexedEntry` | implemented internally | In-memory searchable projection of one chunk or memory. |
+| `Record` | implemented | Structured JSON object in a logical table namespace. |
+| `IndexedEntry` | implemented internally | In-memory searchable projection of one chunk, memory, or record. |
 | `WAL Entry` | implemented internally | Durable mutation record for recovery. |
 
 ## Planned entities
@@ -38,8 +39,7 @@ These are product concepts, not immediate implementation commitments.
 | Entity | Role |
 |--------|------|
 | `File` | Original file object with path/name/media type/checksum/source metadata. |
-| `Table` | Structured dataset namespace, similar to a lightweight table. |
-| `Record` | Structured row/document, likely JSON-first in the early MVP. |
+| `Table` | Implemented as the `Record.table` namespace; richer schema management is future work. |
 | `ContextItem` | Public context unit returned to SDKs/agents, independent of whether it came from a document, memory, record, or file. |
 | `ContextTrace` | Future audit record tying question → retrieval → context → answer. |
 
@@ -78,7 +78,7 @@ Record
 
 Hippocore should support structured data without becoming SQL-first too early.
 
-The first structured-data increment should be JSON-record oriented:
+The first structured-data increment is JSON-record oriented:
 
 ```rust
 db.put_record("tenant", "systems", json!({
@@ -90,10 +90,11 @@ db.put_record("tenant", "systems", json!({
 
 Expected behavior:
 
-- Store the original JSON record durably.
-- Preserve exact fields for filters/inspection.
-- Create a text projection for retrieval.
-- Return record-derived context with source/type information.
+- Store the original JSON record durably. ✅
+- Preserve metadata for filters/inspection. ✅
+- Create a text projection for retrieval. ✅
+- Return record-derived context with source/type information. ✅
+- Rich field-level indexes and schema management remain future work.
 
 This keeps the path open for table-like management and later query languages
 without prematurely implementing SQL.

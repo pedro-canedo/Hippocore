@@ -287,6 +287,7 @@ fn build_result(
         tenant_id: e.tenant_id.clone(),
         collection: e.collection.clone(),
         document_id: e.document_id.clone(),
+        record_table: e.record_table.clone(),
         user_id: e.user_id.clone(),
         memory_type: e.memory_type,
         text: e.text.clone(),

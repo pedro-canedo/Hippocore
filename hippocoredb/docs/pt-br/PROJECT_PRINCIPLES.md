@@ -544,10 +544,39 @@ Arquivos essenciais:
 * CLAUDE.md;
 * CONTRIBUTING.md;
 * LICENSE;
-* docs/architecture.md futuramente;
-* docs/adr/ futuramente.
+* docs/en/ARCHITECTURE.md e docs/pt-br/ARCHITECTURE.md;
+* docs/en/DECISIONS.md e docs/pt-br/DECISIONS.md.
 
 O projeto deve ser fácil de entender por novos contribuidores.
+
+---
+
+### Regra 21 — Documentação em `docs/` deve ser bilíngue
+
+Todo documento dentro de `docs/` deve existir em duas versões:
+
+```txt
+docs/en/<arquivo>.md
+docs/pt-br/<arquivo>.md
+```
+
+As versões não precisam ser tradução palavra por palavra, mas devem preservar a
+mesma decisão, intenção técnica, escopo, riscos e critérios de aceite.
+
+Regras práticas:
+
+* o nome do arquivo deve ser o mesmo nas duas pastas;
+* links internos devem apontar para documentos do mesmo idioma quando possível;
+* mudanças relevantes em uma versão exigem atualização da outra;
+* documentos de arquitetura, roadmap, status, decisões e próximas features
+  nunca devem existir em apenas um idioma;
+* `README.md`, `ROADMAP.md`, `CLAUDE.md`, `CHANGELOG.md` e outros arquivos fora
+  de `docs/` podem continuar na raiz, mas devem apontar para as versões
+  localizadas quando fizer sentido.
+
+Essa regra existe porque o projeto é open source, mas também nasce em contexto
+pt-BR. A documentação deve ser acessível para contribuidores locais e para a
+comunidade internacional.
 
 ---
 

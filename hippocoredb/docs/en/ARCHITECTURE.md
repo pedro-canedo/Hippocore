@@ -16,7 +16,7 @@ direction.
 |---------------|----------------------------------------------------------------------|
 | `config`      | `Config` (data dir, embedding dim, chunk size, hybrid alpha, sync).  |
 | `errors`      | `HippocoreError` + `Result`; all normal failures are typed.          |
-| `model`       | Typed entities: `Tenant`, `Collection`, `Document`, `Chunk`, `Memory`, `Source`, `MemoryType`, `ItemKind`, `RecallResult`, plus validation. |
+| `model`       | Typed entities: `Tenant`, `Collection`, `Document`, `Chunk`, `Memory`, `Record`, `Source`, `MemoryType`, `ItemKind`, `RecallResult`, plus validation. |
 | `storage`     | `Operation`, `State`, the JSON-lines WAL, atomic snapshot, recovery, compaction. |
 | `memory`      | Deterministic `Embedder` (signed feature hashing) + text `chunk_text` + `tokenize`. |
 | `index`       | In-memory `Index`: exact vector store + inverted text index; cosine + BM25 scoring. |
@@ -26,12 +26,13 @@ direction.
 
 ## Data flow
 
-### Write (`store_document` / `remember`)
+### Write (`store_document` / `remember` / `put_record`)
 
 ```
 caller → Hippocore.store_document/remember
        → validate model
        → derive chunks + embeddings (memory::Embedder)        [documents]
+       → derive deterministic text projection + embedding     [records]
        → storage.append(Operation)   (WAL: write + flush + fsync)
        → state.apply(Operation)      (in-memory materialized State)
        → index.insert(IndexEntry…)   (vector + inverted index updated)
@@ -71,10 +72,10 @@ Hippocore.open → rebuild Index from State (chunks + memories)
 
 ## The unified index entry
 
-Both document chunks and memories are projected into a single `IndexEntry`
+Document chunks, memories and records are projected into a single `IndexEntry`
 (`kind` distinguishes them). This keeps retrieval uniform — one vector scan and
-one inverted index serve both — while the persisted `Document`/`Chunk`/`Memory`
-models stay distinct and strongly typed.
+one inverted index serve all searchable context — while the persisted
+`Document`/`Chunk`/`Memory`/`Record` models stay distinct and strongly typed.
 
 This is the current internal version of the broader **context projection** idea:
 stored objects are not all the same thing, but each searchable object must be
@@ -85,8 +86,10 @@ projectable into a common context/search representation.
 - `Document`: persisted source text managed as one logical object.
 - `Chunk`: persisted slice of a document, with its own embedding.
 - `Memory`: persisted atomic remembered item, independent of documents.
+- `Record`: persisted JSON object under a table namespace, with a deterministic
+  text projection for retrieval.
 - `Indexed Entry`: in-memory search projection of either one chunk or one
-  memory. This is what recall scores.
+  memory or one record. This is what recall scores.
 - `WAL Entry`: durable append-only operation (`remember`, `put document`,
   delete, etc.) used for crash recovery and replay. It is not searchable.
 

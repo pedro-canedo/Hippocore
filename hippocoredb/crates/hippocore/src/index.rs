@@ -5,17 +5,17 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::memory::tokenize;
-use crate::model::{Chunk, ItemKind, Memory, MemoryType, Metadata, Source};
+use crate::model::{Chunk, ItemKind, Memory, MemoryType, Metadata, Record, Source};
 
 /// Stable identity of an indexed entry (kind disambiguates id collisions).
 pub type EntryId = (ItemKind, String);
 
-/// A unified, searchable record covering both document chunks and memories.
+/// A unified, searchable entry covering chunks, memories and record projections.
 #[derive(Debug, Clone)]
 pub struct IndexEntry {
-    /// Underlying chunk/memory id.
+    /// Underlying chunk/memory/record id.
     pub id: String,
-    /// Whether this entry is a document chunk or a memory.
+    /// Whether this entry is a document chunk, memory or record.
     pub kind: ItemKind,
     /// Owning tenant.
     pub tenant_id: String,
@@ -23,6 +23,8 @@ pub struct IndexEntry {
     pub collection: String,
     /// Parent document id (for chunks).
     pub document_id: Option<String>,
+    /// Table name (for structured records).
+    pub record_table: Option<String>,
     /// Owning user (for memories).
     pub user_id: Option<String>,
     /// Memory type (for memories).
@@ -43,7 +45,16 @@ pub struct IndexEntry {
 
 impl IndexEntry {
     fn key(&self) -> EntryId {
-        (self.kind, self.id.clone())
+        let id = match (self.kind, self.record_table.as_deref()) {
+            (ItemKind::Record, Some(table)) => {
+                format!(
+                    "{}\0{}\0{table}\0{}",
+                    self.tenant_id, self.collection, self.id
+                )
+            }
+            _ => format!("{}\0{}\0{}", self.tenant_id, self.collection, self.id),
+        };
+        (self.kind, id)
     }
 
     /// Build an entry from a document chunk plus its parent's metadata/source.
@@ -56,6 +67,7 @@ impl IndexEntry {
             tenant_id: chunk.tenant_id.clone(),
             collection: chunk.collection.clone(),
             document_id: Some(chunk.document_id.clone()),
+            record_table: None,
             user_id: None,
             memory_type: None,
             text: chunk.text.clone(),
@@ -77,12 +89,35 @@ impl IndexEntry {
             tenant_id: memory.tenant_id.clone(),
             collection: memory.collection.clone(),
             document_id: None,
+            record_table: None,
             user_id: memory.user_id.clone(),
             memory_type: Some(memory.memory_type),
             text: memory.text.clone(),
             embedding: memory.embedding.clone(),
             metadata: memory.metadata.clone(),
             source: memory.source.clone(),
+            tf,
+            token_count,
+        }
+    }
+
+    /// Build an entry from a structured record's context projection.
+    pub fn from_record(record: &Record) -> Self {
+        let tf = term_frequencies(&record.projection);
+        let token_count = tf.values().sum();
+        Self {
+            id: record.id.clone(),
+            kind: ItemKind::Record,
+            tenant_id: record.tenant_id.clone(),
+            collection: record.collection.clone(),
+            document_id: None,
+            record_table: Some(record.table.clone()),
+            user_id: None,
+            memory_type: None,
+            text: record.projection.clone(),
+            embedding: record.embedding.clone(),
+            metadata: record.metadata.clone(),
+            source: record.source.clone(),
             tf,
             token_count,
         }
@@ -141,16 +176,33 @@ impl Index {
     }
 
     /// Remove every chunk entry belonging to `document_id`.
-    pub fn remove_document(&mut self, document_id: &str) {
+    pub fn remove_document(&mut self, tenant_id: &str, collection: &str, document_id: &str) {
         let keys: Vec<EntryId> = self
             .entries
             .values()
-            .filter(|e| e.document_id.as_deref() == Some(document_id))
+            .filter(|e| {
+                e.tenant_id == tenant_id
+                    && e.collection == collection
+                    && e.document_id.as_deref() == Some(document_id)
+            })
             .map(IndexEntry::key)
             .collect();
         for k in keys {
             self.remove(&k);
         }
+    }
+
+    /// Remove one memory entry by identity.
+    pub fn remove_memory(&mut self, tenant_id: &str, collection: &str, id: &str) {
+        self.remove(&(ItemKind::Memory, format!("{tenant_id}\0{collection}\0{id}")));
+    }
+
+    /// Remove one structured record entry by table and record id.
+    pub fn remove_record(&mut self, tenant_id: &str, collection: &str, table: &str, id: &str) {
+        self.remove(&(
+            ItemKind::Record,
+            format!("{tenant_id}\0{collection}\0{table}\0{id}"),
+        ));
     }
 
     /// Number of indexed entries.
@@ -309,7 +361,7 @@ mod tests {
     }
 
     fn score(idx: &Index, id: &str, query: &[&str]) -> f32 {
-        let key = (ItemKind::Memory, id.to_string());
+        let key = (ItemKind::Memory, format!("t\0c\0{id}"));
         let tokens: Vec<String> = query.iter().map(|s| s.to_string()).collect();
         text_score(idx, idx.get(&key).unwrap(), &tokens)
     }
@@ -348,7 +400,7 @@ mod tests {
         idx.insert(mem_entry("a", "one two")); // 2 tokens
         idx.insert(mem_entry("b", "one two three four")); // 4 tokens
         assert!(approx(idx.avg_doc_len(), 3.0));
-        idx.remove(&(ItemKind::Memory, "b".to_string()));
+        idx.remove_memory("t", "c", "b");
         assert!(approx(idx.avg_doc_len(), 2.0));
     }
 }

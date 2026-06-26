@@ -206,6 +206,104 @@ impl Memory {
     }
 }
 
+/// A structured JSON record stored in a logical table namespace.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Record {
+    /// Record id, unique within (tenant, collection, table).
+    pub id: String,
+    /// Owning tenant.
+    pub tenant_id: String,
+    /// Owning collection.
+    pub collection: String,
+    /// Logical table / dataset namespace.
+    pub table: String,
+    /// Original structured payload. Must be a JSON object.
+    pub payload: serde_json::Value,
+    /// Deterministic text projection used for retrieval.
+    pub projection: String,
+    /// Embedding for the projection.
+    #[serde(default)]
+    pub embedding: Embedding,
+    /// Exact-match metadata.
+    #[serde(default)]
+    pub metadata: Metadata,
+    /// Optional provenance.
+    #[serde(default)]
+    pub source: Option<Source>,
+    /// Creation time (epoch milliseconds).
+    pub created_at: i64,
+    /// Last update time (epoch milliseconds).
+    pub updated_at: i64,
+    /// Version; starts at 0 and increments on overwrite.
+    pub version: u64,
+}
+
+impl Record {
+    /// Validate required fields.
+    pub fn validate(&self) -> Result<()> {
+        non_empty("record id", &self.id)?;
+        non_empty("tenant id", &self.tenant_id)?;
+        non_empty("collection", &self.collection)?;
+        non_empty("table", &self.table)?;
+        if !self.payload.is_object() {
+            return Err(HippocoreError::validation(
+                "record payload must be a JSON object",
+            ));
+        }
+        non_empty("record projection", &self.projection)
+    }
+}
+
+/// Metadata for an imported file whose extracted text is projected into a
+/// derived [`Document`] for retrieval.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FileObject {
+    /// File id, unique within (tenant, collection).
+    pub id: String,
+    /// Owning tenant.
+    pub tenant_id: String,
+    /// Owning collection.
+    pub collection: String,
+    /// Original path supplied during import.
+    pub path: String,
+    /// File name from the original path.
+    pub name: String,
+    /// Detected media type.
+    pub media_type: String,
+    /// CRC32 checksum of the imported bytes, hex encoded.
+    pub checksum: String,
+    /// Imported byte size.
+    pub size_bytes: u64,
+    /// Derived document id containing extracted text.
+    pub document_id: String,
+    /// Exact-match metadata.
+    #[serde(default)]
+    pub metadata: Metadata,
+    /// Optional provenance.
+    #[serde(default)]
+    pub source: Option<Source>,
+    /// Creation time (epoch milliseconds).
+    pub created_at: i64,
+    /// Last update time (epoch milliseconds).
+    pub updated_at: i64,
+    /// Version; starts at 0 and increments on overwrite.
+    pub version: u64,
+}
+
+impl FileObject {
+    /// Validate required fields.
+    pub fn validate(&self) -> Result<()> {
+        non_empty("file id", &self.id)?;
+        non_empty("tenant id", &self.tenant_id)?;
+        non_empty("collection", &self.collection)?;
+        non_empty("file path", &self.path)?;
+        non_empty("file name", &self.name)?;
+        non_empty("media type", &self.media_type)?;
+        non_empty("checksum", &self.checksum)?;
+        non_empty("document id", &self.document_id)
+    }
+}
+
 /// What kind of item a [`RecallResult`] refers to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -214,6 +312,8 @@ pub enum ItemKind {
     DocumentChunk,
     /// A memory.
     Memory,
+    /// A structured record projected into context.
+    Record,
 }
 
 /// A single scored recall/search hit, with the reason it was returned.
@@ -229,6 +329,8 @@ pub struct RecallResult {
     pub collection: String,
     /// Parent document id, when `kind == DocumentChunk`.
     pub document_id: Option<String>,
+    /// Table name, when `kind == Record`.
+    pub record_table: Option<String>,
     /// Owning user, when present.
     pub user_id: Option<String>,
     /// Memory type, when `kind == Memory`.

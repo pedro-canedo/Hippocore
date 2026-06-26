@@ -5,6 +5,18 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Context data model v0.1
+
+- Added first-class structured JSON `Record`s under a logical table namespace.
+- Added `Hippocore::put_record` / `delete_record` and CLI `put-record` /
+  `delete-record`.
+- Records preserve the original JSON payload and store a deterministic text
+  projection for retrieval.
+- Record projections are indexed alongside memories and document chunks and can
+  be filtered with metadata or `--kind record`.
+- Record writes/deletes are durable through WAL/snapshot recovery and covered by
+  restart, delete, metadata-filter, tenant-isolation and CLI tests.
+
 ### Added — RAG Quality Layer v0.1
 
 - Query normalization for PostgreSQL aliases/typos (`postgres`, `postgress`) and
@@ -36,12 +48,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ### Documentation — product direction
 
-- Added `docs/DATA_MODEL.md` to define Hippocore as a database plus native
+- Added `docs/en/DATA_MODEL.md` and `docs/pt-br/DATA_MODEL.md` to define Hippocore as a database plus native
   context projection layer for documents, memories, future records, files and
   context items.
-- Added `docs/ADMIN_INTERFACE.md` to define the CLI/admin UI direction,
+- Added `docs/en/ADMIN_INTERFACE.md` and `docs/pt-br/ADMIN_INTERFACE.md` to define the CLI/admin UI direction,
   including the future Hippocore Studio concept for human management of context
   data.
+- Moved project docs under `docs/en/` and `docs/pt-br/`; every document under
+  `docs/` must now have same-named English and Portuguese versions.
 - Updated the roadmap and next-feature plan toward `Context data model v0.1`
   before server mode, SQL compatibility or a full UI.
 
@@ -96,8 +110,7 @@ All notable changes to Hippocore DB are documented here. This project adheres to
   snapshot and truncates the log (bounds disk/recovery growth).
 - **Integration example**: `examples/ts-ollama-rag/` — a TypeScript RAG demo
   using local Ollama (embeddings + generation) on top of Hippocore via the CLI.
-- **Docs**: `PLAN.md`, `docs/ARCHITECTURE.md`, `docs/MVP_SCOPE.md`,
-  `docs/STATUS.md`, `docs/NEXT_FEATURE.md`, `docs/DECISIONS.md`.
+- **Docs**: `PLAN.md`, localized docs under `docs/en/` and `docs/pt-br/`.
 - Deterministic test suite (30 tests), example, and baseline benchmarks.
 
 ### Changed
@@ -112,7 +125,7 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 ### Removed
 
 - `crc32fast` dependency (binary record framing retired in favor of JSON-lines
-  WAL; per-line checksums are tracked as a follow-up in `docs/NEXT_FEATURE.md`).
+  WAL; per-line checksums are tracked as a follow-up in `docs/en/NEXT_FEATURE.md`).
 
 ## [0.1.0]
 

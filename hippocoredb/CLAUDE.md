@@ -15,7 +15,7 @@ database for AI applications."*
 The long-term goal is a **context database** for AI agents and RAG: documents,
 memories, embeddings, metadata, temporal facts, source confidence and audit
 information. See `ROADMAP.md`. The current state and the next planned feature
-live in `docs/STATUS.md` and `docs/NEXT_FEATURE.md` — **read them first** and
+live in `docs/en/STATUS.md` and `docs/en/NEXT_FEATURE.md` — **read them first** and
 **update them when you finish work**.
 
 **Keep it small, correct, well-tested and extensible.** Do not pull future
@@ -74,14 +74,15 @@ finish a task with failing tests, formatting diffs, or clippy warnings.**
 
 On-disk files in `<data_dir>`: `wal.log` (JSON-lines), `snapshot.json` (atomic),
 `meta.json`. Recovery loads the snapshot then replays the WAL; a torn trailing
-line is skipped, not fatal. See `docs/ARCHITECTURE.md`.
+line is skipped, not fatal. See `docs/en/ARCHITECTURE.md`.
 
 ## Do NOT implement in this MVP
 
 Clustering, Raft/consensus, production auth, cloud embedders, GPU indexing,
 HNSW/ANN, web dashboard, multi-node replication, SQL/query language, external
-database dependency, `unsafe` Rust. See `docs/MVP_SCOPE.md` and `ROADMAP.md`.
+database dependency, `unsafe` Rust. See `docs/en/MVP_SCOPE.md` and `ROADMAP.md`.
 
 If a request implies one of these, confirm scope first and prefer an issue over
-a large speculative PR. **No task is complete until `docs/STATUS.md` and
-`docs/NEXT_FEATURE.md` are updated (and `CHANGELOG.md` when relevant).**
+a large speculative PR. **No task is complete until `docs/en/STATUS.md`,
+`docs/pt-br/STATUS.md`, `docs/en/NEXT_FEATURE.md` and
+`docs/pt-br/NEXT_FEATURE.md` are updated (and `CHANGELOG.md` when relevant).**

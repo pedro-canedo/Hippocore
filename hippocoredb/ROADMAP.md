@@ -31,10 +31,11 @@ not a dated commitment.
 ## Phase 3 — Data model expansion and context projection
 
 - Define `File`, `Table`, `Record`, and `ContextItem` concepts.
-- JSON-first structured record storage.
+- JSON-first structured record storage. ✅
 - Text-like file ingestion (`.txt`, `.md`, `.json`, `.csv`).
 - Native context projection for documents, memories, records and files.
-- CLI inspection/list/import/export workflows for database management.
+- CLI `put-record` / `delete-record`. ✅
+- CLI inspection/list/import/export workflows for broader database management.
 
 ## Phase 4 — HNSW or pluggable ANN vector index
 

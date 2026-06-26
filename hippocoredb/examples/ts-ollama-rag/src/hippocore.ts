@@ -7,7 +7,7 @@
  */
 import { execFileSync } from "node:child_process";
 
-export type ItemKind = "memory" | "document_chunk";
+export type ItemKind = "memory" | "document_chunk" | "record";
 export type SearchMode = "hybrid" | "vector" | "text";
 
 export interface RecallHit {
@@ -16,6 +16,7 @@ export interface RecallHit {
   tenant_id: string;
   collection: string;
   document_id: string | null;
+  record_table: string | null;
   user_id: string | null;
   memory_type: string | null;
   text: string;

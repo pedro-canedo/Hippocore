@@ -38,14 +38,15 @@ pub mod storage;
 pub mod cli;
 
 use std::fmt;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub use config::Config;
 pub use errors::{HippocoreError, Result};
 pub use model::{
-    Chunk, Collection, Document, Embedding, ItemKind, Memory, MemoryType, Metadata, RecallResult,
-    Source, Tenant,
+    Chunk, Collection, Document, Embedding, FileObject, ItemKind, Memory, MemoryType, Metadata,
+    RecallResult, Record, Source, Tenant,
 };
 pub use query::SearchMode;
 
@@ -75,7 +76,11 @@ pub struct DatabaseStats {
     pub chunks: usize,
     /// Stored memories.
     pub memories: usize,
-    /// Total entries in the retrieval index (chunks + memories).
+    /// Stored structured records.
+    pub records: usize,
+    /// Imported file objects.
+    pub files: usize,
+    /// Total entries in the retrieval index (chunks + memories + records).
     pub indexed_entries: usize,
     /// Operations currently in the WAL (since the last compaction).
     pub wal_entries: usize,
@@ -91,6 +96,8 @@ impl fmt::Display for DatabaseStats {
         writeln!(f, "  documents:       {}", self.documents)?;
         writeln!(f, "  chunks:          {}", self.chunks)?;
         writeln!(f, "  memories:        {}", self.memories)?;
+        writeln!(f, "  records:         {}", self.records)?;
+        writeln!(f, "  files:           {}", self.files)?;
         writeln!(f, "  indexed entries: {}", self.indexed_entries)?;
         writeln!(f, "  wal entries:     {}", self.wal_entries)?;
         write!(f, "  disk bytes:      {}", self.disk_bytes)
@@ -205,6 +212,48 @@ impl RememberRequest {
     }
 }
 
+/// Request to store a structured JSON record.
+#[derive(Debug, Clone)]
+pub struct PutRecordRequest {
+    /// Owning tenant (must exist).
+    pub tenant_id: String,
+    /// Owning collection (must exist).
+    pub collection: String,
+    /// Logical table / dataset namespace.
+    pub table: String,
+    /// Optional explicit id; generated if `None`.
+    pub id: Option<String>,
+    /// Original JSON payload. Must be an object.
+    pub payload: serde_json::Value,
+    /// Exact-match metadata.
+    pub metadata: Metadata,
+    /// Optional provenance.
+    pub source: Option<Source>,
+    /// Optional caller-supplied embedding for the projection.
+    pub embedding: Option<Embedding>,
+}
+
+impl PutRecordRequest {
+    /// Build a minimal structured-record request.
+    pub fn new(
+        tenant_id: impl Into<String>,
+        collection: impl Into<String>,
+        table: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
+        Self {
+            tenant_id: tenant_id.into(),
+            collection: collection.into(),
+            table: table.into(),
+            id: None,
+            payload,
+            metadata: Metadata::new(),
+            source: None,
+            embedding: None,
+        }
+    }
+}
+
 /// Request to recall/search context.
 #[derive(Debug, Clone)]
 pub struct RecallRequest {
@@ -282,6 +331,9 @@ impl Hippocore {
         }
         for memory in &self.state.memories {
             self.index.insert(IndexEntry::from_memory(memory));
+        }
+        for record in &self.state.records {
+            self.index.insert(IndexEntry::from_record(record));
         }
     }
 
@@ -412,6 +464,49 @@ impl Hippocore {
         Ok(mem)
     }
 
+    /// Store (or overwrite) a structured JSON record.
+    pub fn put_record(&mut self, req: PutRecordRequest) -> Result<Record> {
+        self.require_collection(&req.tenant_id, &req.collection)?;
+
+        let id = req.id.unwrap_or_else(|| gen_id("rec"));
+        let now = now_millis();
+        let (created_at, version) =
+            match self.find_record(&req.tenant_id, &req.collection, &req.table, &id) {
+                Some(existing) => (existing.created_at, existing.version + 1),
+                None => (now, 0),
+            };
+        let projection = project_record(&req.table, &id, &req.payload)?;
+        let embedding = match req.embedding {
+            Some(e) => {
+                if e.is_empty() {
+                    return Err(HippocoreError::InvalidEmbedding(
+                        "record embedding must not be empty".into(),
+                    ));
+                }
+                e
+            }
+            None => self.embedder.embed(&projection),
+        };
+
+        let record = Record {
+            id,
+            tenant_id: req.tenant_id,
+            collection: req.collection,
+            table: req.table,
+            payload: req.payload,
+            projection,
+            embedding,
+            metadata: req.metadata,
+            source: req.source,
+            created_at,
+            updated_at: now,
+            version,
+        };
+        record.validate()?;
+        self.commit(Operation::PutRecord(record.clone()))?;
+        Ok(record)
+    }
+
     /// Forget (delete) a memory by identity.
     ///
     /// The removal is durable (a tombstone is written to the WAL and replayed on
@@ -432,6 +527,24 @@ impl Hippocore {
         self.commit(Operation::DeleteDocument {
             tenant_id: tenant_id.to_string(),
             collection: collection.to_string(),
+            id: id.to_string(),
+        })
+    }
+
+    /// Delete a structured record by identity.
+    ///
+    /// Durable and idempotent, like [`Hippocore::forget`].
+    pub fn delete_record(
+        &mut self,
+        tenant_id: &str,
+        collection: &str,
+        table: &str,
+        id: &str,
+    ) -> Result<()> {
+        self.commit(Operation::DeleteRecord {
+            tenant_id: tenant_id.to_string(),
+            collection: collection.to_string(),
+            table: table.to_string(),
             id: id.to_string(),
         })
     }
@@ -493,6 +606,7 @@ impl Hippocore {
             documents: self.state.documents.len(),
             chunks: self.state.chunks.len(),
             memories: self.state.memories.len(),
+            records: self.state.records.len(),
             indexed_entries: self.index.len(),
             wal_entries: self.storage.wal_len,
             disk_bytes: self.storage.disk_bytes()?,
@@ -535,7 +649,8 @@ impl Hippocore {
         self.storage.append(&op)?;
         // Update in-memory state and index.
         if let Operation::PutDocument { document, .. } = &op {
-            self.index.remove_document(&document.id);
+            self.index
+                .remove_document(&document.tenant_id, &document.collection, &document.id);
         }
         let to_index = op.clone();
         self.state.apply(op);
@@ -568,11 +683,30 @@ impl Hippocore {
             Operation::PutMemory(m) => {
                 self.index.insert(IndexEntry::from_memory(m));
             }
-            Operation::DeleteMemory { id, .. } => {
-                self.index.remove(&(ItemKind::Memory, id.clone()));
+            Operation::PutRecord(r) => {
+                self.index.insert(IndexEntry::from_record(r));
             }
-            Operation::DeleteDocument { id, .. } => {
-                self.index.remove_document(id);
+            Operation::DeleteMemory {
+                tenant_id,
+                collection,
+                id,
+            } => {
+                self.index.remove_memory(tenant_id, collection, id);
+            }
+            Operation::DeleteDocument {
+                tenant_id,
+                collection,
+                id,
+            } => {
+                self.index.remove_document(tenant_id, collection, id);
+            }
+            Operation::DeleteRecord {
+                tenant_id,
+                collection,
+                table,
+                id,
+            } => {
+                self.index.remove_record(tenant_id, collection, table, id);
             }
             Operation::CreateTenant(_) | Operation::CreateCollection(_) => {}
         }
@@ -658,6 +792,55 @@ impl Hippocore {
             .documents
             .iter()
             .find(|d| d.tenant_id == tenant_id && d.collection == collection && d.id == id)
+    }
+
+    fn find_record(
+        &self,
+        tenant_id: &str,
+        collection: &str,
+        table: &str,
+        id: &str,
+    ) -> Option<&Record> {
+        self.state.records.iter().find(|r| {
+            r.tenant_id == tenant_id && r.collection == collection && r.table == table && r.id == id
+        })
+    }
+}
+
+fn project_record(table: &str, id: &str, payload: &serde_json::Value) -> Result<String> {
+    if !payload.is_object() {
+        return Err(HippocoreError::validation(
+            "record payload must be a JSON object",
+        ));
+    }
+
+    let mut parts = vec![
+        "table".to_string(),
+        table.to_string(),
+        "record".to_string(),
+        id.to_string(),
+    ];
+    append_json_projection(&mut parts, payload);
+    Ok(parts.join(" "))
+}
+
+fn append_json_projection(parts: &mut Vec<String>, value: &serde_json::Value) {
+    match value {
+        serde_json::Value::Null => parts.push("null".to_string()),
+        serde_json::Value::Bool(v) => parts.push(v.to_string()),
+        serde_json::Value::Number(v) => parts.push(v.to_string()),
+        serde_json::Value::String(v) => parts.push(v.clone()),
+        serde_json::Value::Array(values) => {
+            for value in values {
+                append_json_projection(parts, value);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for (key, value) in map {
+                parts.push(key.clone());
+                append_json_projection(parts, value);
+            }
+        }
     }
 }
 

@@ -20,7 +20,7 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
   parse. Atomic rename gives crash-safe snapshots. Simplest correct design.
 - **Tradeoffs**: Larger on disk and slower to parse than binary; no per-line
   checksum yet (only truncation is detected, not mid-line bit-rot — addressed in
-  docs/NEXT_FEATURE.md).
+  NEXT_FEATURE.md).
 
 ## ADR-002: Unified `IndexEntry` over chunks and memories
 

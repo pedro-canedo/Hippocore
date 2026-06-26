@@ -11,7 +11,9 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::model::{ItemKind, MemoryType, Source};
 use crate::query::SearchMode;
-use crate::{Config, Hippocore, RecallRequest, RememberRequest, StoreDocumentRequest};
+use crate::{
+    Config, Hippocore, PutRecordRequest, RecallRequest, RememberRequest, StoreDocumentRequest,
+};
 
 /// Hippocore DB command-line interface.
 #[derive(Parser)]
@@ -33,12 +35,16 @@ enum Command {
     PutDocument(PutDocumentArgs),
     /// Store a memory.
     Remember(RememberArgs),
+    /// Store a structured JSON record.
+    PutRecord(PutRecordArgs),
     /// Recall context (hybrid by default; choose --mode for vector/text).
     Recall(RecallArgs),
     /// Forget (delete) a memory by id.
     Forget(IdArgs),
     /// Delete a document and all its chunks by id.
     DeleteDocument(IdArgs),
+    /// Delete a structured record by table and id.
+    DeleteRecord(RecordIdArgs),
     /// Print database statistics.
     Stats(DbArg),
     /// Inspect tenants, collections and counts.
@@ -55,6 +61,20 @@ struct IdArgs {
     tenant: String,
     #[arg(long)]
     collection: String,
+    #[arg(long)]
+    id: String,
+}
+
+#[derive(Args)]
+struct RecordIdArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: String,
+    #[arg(long)]
+    table: String,
     #[arg(long)]
     id: String,
 }
@@ -112,6 +132,30 @@ struct RememberArgs {
 }
 
 #[derive(Args)]
+struct PutRecordArgs {
+    #[arg(long)]
+    db: PathBuf,
+    #[arg(long)]
+    tenant: String,
+    #[arg(long)]
+    collection: String,
+    #[arg(long)]
+    table: String,
+    #[arg(long)]
+    id: Option<String>,
+    /// JSON object payload.
+    #[arg(long)]
+    json: String,
+    #[arg(long = "meta", value_name = "KEY=VALUE")]
+    meta: Vec<String>,
+    #[arg(long)]
+    source: Option<String>,
+    /// Optional comma-separated embedding overriding the built-in embedder.
+    #[arg(long, allow_hyphen_values = true)]
+    embedding: Option<String>,
+}
+
+#[derive(Args)]
 struct RecallArgs {
     #[arg(long)]
     db: PathBuf,
@@ -130,7 +174,7 @@ struct RecallArgs {
     user: Option<String>,
     #[arg(long = "type")]
     memory_type: Option<String>,
-    /// Restrict to "chunk" or "memory".
+    /// Restrict to "chunk", "memory" or "record".
     #[arg(long)]
     kind: Option<String>,
     #[arg(long = "meta", value_name = "KEY=VALUE")]
@@ -170,9 +214,11 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::Init(a) => cmd_init(a),
         Command::PutDocument(a) => cmd_put_document(a),
         Command::Remember(a) => cmd_remember(a),
+        Command::PutRecord(a) => cmd_put_record(a),
         Command::Recall(a) => cmd_recall(a),
         Command::Forget(a) => cmd_forget(a),
         Command::DeleteDocument(a) => cmd_delete_document(a),
+        Command::DeleteRecord(a) => cmd_delete_record(a),
         Command::Stats(a) => cmd_stats(a),
         Command::Inspect(a) => cmd_inspect(a),
         Command::Compact(a) => cmd_compact(a),
@@ -268,6 +314,38 @@ fn cmd_remember(a: RememberArgs) -> Result<(), String> {
     Ok(())
 }
 
+fn cmd_put_record(a: PutRecordArgs) -> Result<(), String> {
+    let metadata = parse_meta(&a.meta)?;
+    let embedding = match &a.embedding {
+        Some(raw) => Some(parse_embedding(raw)?),
+        None => None,
+    };
+    let payload: serde_json::Value =
+        serde_json::from_str(&a.json).map_err(|e| format!("invalid JSON payload: {e}"))?;
+    if !payload.is_object() {
+        return Err("record JSON payload must be an object".into());
+    }
+
+    let mut db = open(&a.db)?;
+    db.create_tenant(&a.tenant, &a.tenant)
+        .map_err(|e| format!("{e}"))?;
+    db.create_collection(&a.tenant, &a.collection, "")
+        .map_err(|e| format!("{e}"))?;
+
+    let mut req = PutRecordRequest::new(&a.tenant, &a.collection, &a.table, payload);
+    req.id = a.id;
+    req.metadata = metadata;
+    req.source = a.source.map(Source::label);
+    req.embedding = embedding;
+    let record = db.put_record(req).map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!(
+        "stored record {}/{}/{}/{} (version {})",
+        record.tenant_id, record.collection, record.table, record.id, record.version
+    );
+    Ok(())
+}
+
 fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     let mode = SearchMode::parse(&a.mode)
         .ok_or_else(|| format!("invalid mode: {:?} (expected hybrid|vector|text)", a.mode))?;
@@ -279,7 +357,12 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
         None => None,
         Some("chunk") | Some("document") => Some(ItemKind::DocumentChunk),
         Some("memory") => Some(ItemKind::Memory),
-        Some(other) => return Err(format!("invalid kind: {other:?} (expected chunk|memory)")),
+        Some("record") => Some(ItemKind::Record),
+        Some(other) => {
+            return Err(format!(
+                "invalid kind: {other:?} (expected chunk|memory|record)"
+            ))
+        }
     };
     let metadata = parse_meta(&a.meta)?;
     let embedding = match &a.embedding {
@@ -342,6 +425,18 @@ fn cmd_delete_document(a: IdArgs) -> Result<(), String> {
         .map_err(|e| format!("{e}"))?;
     db.close().map_err(|e| format!("close failed: {e}"))?;
     println!("deleted document {}/{}/{}", a.tenant, a.collection, a.id);
+    Ok(())
+}
+
+fn cmd_delete_record(a: RecordIdArgs) -> Result<(), String> {
+    let mut db = open(&a.db)?;
+    db.delete_record(&a.tenant, &a.collection, &a.table, &a.id)
+        .map_err(|e| format!("{e}"))?;
+    db.close().map_err(|e| format!("close failed: {e}"))?;
+    println!(
+        "deleted record {}/{}/{}/{}",
+        a.tenant, a.collection, a.table, a.id
+    );
     Ok(())
 }
 

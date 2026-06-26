@@ -4,7 +4,22 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**RAG Quality Layer v0.1**:
+**Context data model v0.1**:
+
+- Structured JSON `Record`s are now first-class stored objects under a logical
+  table namespace.
+- `put_record` / `delete_record` APIs and `put-record` / `delete-record` CLI
+  commands persist records through the existing WAL/snapshot storage model.
+- Each record keeps its original JSON payload and a deterministic text projection
+  that is indexed as `ItemKind::Record`.
+- Recall/search can return record-derived context, including `record_table`,
+  source, metadata, score components and reason.
+- Record metadata filters, tenant isolation, restart recovery and delete
+  behavior are covered by tests.
+- Documentation under `docs/` is now bilingual by rule: every file must exist
+  under both `docs/en/` and `docs/pt-br/`.
+
+Previous increment: RAG Quality Layer v0.1:
 
 - Query normalization maps common PostgreSQL typos/aliases (`postgress`,
   `postgres`) to `postgresql` and connection variants (`conexão`, `conexao`,
@@ -26,9 +41,6 @@ _Last updated: 2026-06-26._
 - Pure vector search skips query normalization and entity detection, keeping the
   quality layer out of the vector-only hot path.
 
-Previous increment: user-provided document embeddings via
-`StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>`.
-
 Earlier increments (still current): multi-tenant model; JSON-lines WAL with
 per-line CRC32 + atomic snapshot; automatic + manual compaction; delete/forget
 (`forget`, `delete_document`); deterministic embedder + chunker;
@@ -39,7 +51,7 @@ Ollama embeddings + generation, idempotent ingestion).
 
 ## What is working
 
-- Store/recall for both documents (chunked) and memories.
+- Store/recall for documents (chunked), memories and structured records.
 - Vector, BM25 text, and hybrid modes; every result carries `score`,
   `vector_score`, `text_score`, and a `reason` that includes entity tags and
   boost/penalty explanations when applied.
@@ -63,12 +75,13 @@ Ollama embeddings + generation, idempotent ingestion).
 - The in-memory index is rebuilt fully on open (incremental during runtime).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
-- Structured records, file objects, and a user-facing admin interface are
-  product-direction documents only; they are not implemented yet.
+- Record field-level indexes, schema management, file objects, and a user-facing
+  admin interface are product-direction documents only; they are not implemented
+  yet.
 
 ## What is broken or missing
 
-- No ANN/HNSW, no server, no auth — by design (see docs/MVP_SCOPE.md).
+- No ANN/HNSW, no server, no auth — by design (see MVP_SCOPE.md).
 - Retrieval quality is still heuristic. It is not a learned ranker; the current
   evaluation fixture is intentionally small and should grow with real use cases.
 
@@ -88,17 +101,18 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 
 ## Current test status
 
-**All green.** `cargo test --workspace` passes 54 tests:
+**All green.** `cargo test --workspace` passes 59 tests:
 - 16 unit (embedder/chunker, cosine/index/BM25, query normalization, CRC32 + WAL
   line decode),
-- 31 library integration (store/recall, chunking, retrieval quality layer,
+- 35 library integration (store/recall, chunking, retrieval quality layer,
+  structured records,
   user-supplied document
   embeddings + validation, modes, sorting, metadata & type/user filters, tenant
   isolation, restart, compaction, auto-compaction bounding the WAL,
   checksum-mismatch recovery, delete/forget + restart + compaction, user
   embeddings, empty DB, error paths, dimension-mismatch, torn-WAL recovery),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 5 CLI subprocess smoke tests (incl. `compact`, `forget`),
+- 6 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`),
 - 1 doctest.
 
 `cargo clippy … -D warnings` passes with zero warnings; `cargo fmt --all --check`
@@ -114,11 +128,11 @@ removes a set allocation from query tag detection.
 
 ## Current architectural decisions
 
-See docs/DECISIONS.md. Highlights: JSON-lines WAL with per-line CRC32 + atomic
+See DECISIONS.md. Highlights: JSON-lines WAL with per-line CRC32 + atomic
 snapshot; threshold-based auto-compaction; unified `IndexEntry` over chunks and
 memories; deterministic feature-hashing embedder; min-max hybrid fusion; tenant
 isolation enforced in the query layer.
 
 ## Next recommended feature
 
-**Context data model v0.1** — see docs/NEXT_FEATURE.md.
+**File ingestion v0.1** — see NEXT_FEATURE.md.

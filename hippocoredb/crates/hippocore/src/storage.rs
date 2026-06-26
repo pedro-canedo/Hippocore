@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::{HippocoreError, Result};
-use crate::model::{Chunk, Collection, Document, Memory, Tenant};
+use crate::model::{Chunk, Collection, Document, FileObject, Memory, Record, Tenant};
 
 const WAL_FILE: &str = "wal.log";
 const SNAPSHOT_FILE: &str = "snapshot.json";
@@ -68,6 +68,17 @@ pub enum Operation {
     },
     /// Store (or overwrite) a memory.
     PutMemory(Memory),
+    /// Store (or overwrite) a structured record.
+    PutRecord(Record),
+    /// Store (or overwrite) a file object and its derived document/chunks.
+    PutFile {
+        /// Imported file metadata.
+        file: FileObject,
+        /// Derived document containing extracted text.
+        document: Document,
+        /// Chunks derived from the extracted text.
+        chunks: Vec<Chunk>,
+    },
     /// Remove a memory by identity (tombstone). No-op if absent.
     DeleteMemory {
         /// Owning tenant.
@@ -87,6 +98,26 @@ pub enum Operation {
         /// Document id.
         id: String,
     },
+    /// Remove a structured record by identity (tombstone). No-op if absent.
+    DeleteRecord {
+        /// Owning tenant.
+        tenant_id: String,
+        /// Owning collection.
+        collection: String,
+        /// Logical table namespace.
+        table: String,
+        /// Record id.
+        id: String,
+    },
+    /// Remove an imported file and its derived document/chunks by identity.
+    DeleteFile {
+        /// Owning tenant.
+        tenant_id: String,
+        /// Owning collection.
+        collection: String,
+        /// File id.
+        id: String,
+    },
 }
 
 /// The fully materialized database state. Indexes are rebuilt from this.
@@ -101,7 +132,14 @@ pub struct State {
     /// Chunks (searchable units of documents).
     pub chunks: Vec<Chunk>,
     /// Memories (searchable long-term items).
+    #[serde(default)]
     pub memories: Vec<Memory>,
+    /// Structured records.
+    #[serde(default)]
+    pub records: Vec<Record>,
+    /// Imported file metadata.
+    #[serde(default)]
+    pub files: Vec<FileObject>,
 }
 
 impl State {
@@ -124,7 +162,11 @@ impl State {
                         && d.collection == document.collection
                         && d.id == document.id)
                 });
-                self.chunks.retain(|ch| ch.document_id != document.id);
+                self.chunks.retain(|ch| {
+                    !(ch.tenant_id == document.tenant_id
+                        && ch.collection == document.collection
+                        && ch.document_id == document.id)
+                });
                 self.documents.push(document);
                 self.chunks.extend(chunks);
             }
@@ -133,6 +175,39 @@ impl State {
                     !(x.tenant_id == m.tenant_id && x.collection == m.collection && x.id == m.id)
                 });
                 self.memories.push(m);
+            }
+            Operation::PutRecord(r) => {
+                self.records.retain(|x| {
+                    !(x.tenant_id == r.tenant_id
+                        && x.collection == r.collection
+                        && x.table == r.table
+                        && x.id == r.id)
+                });
+                self.records.push(r);
+            }
+            Operation::PutFile {
+                file,
+                document,
+                chunks,
+            } => {
+                self.files.retain(|x| {
+                    !(x.tenant_id == file.tenant_id
+                        && x.collection == file.collection
+                        && x.id == file.id)
+                });
+                self.documents.retain(|d| {
+                    !(d.tenant_id == document.tenant_id
+                        && d.collection == document.collection
+                        && d.id == document.id)
+                });
+                self.chunks.retain(|ch| {
+                    !(ch.tenant_id == document.tenant_id
+                        && ch.collection == document.collection
+                        && ch.document_id == document.id)
+                });
+                self.files.push(file);
+                self.documents.push(document);
+                self.chunks.extend(chunks);
             }
             Operation::DeleteMemory {
                 tenant_id,
@@ -155,6 +230,45 @@ impl State {
                     !(ch.tenant_id == tenant_id
                         && ch.collection == collection
                         && ch.document_id == id)
+                });
+            }
+            Operation::DeleteRecord {
+                tenant_id,
+                collection,
+                table,
+                id,
+            } => {
+                self.records.retain(|x| {
+                    !(x.tenant_id == tenant_id
+                        && x.collection == collection
+                        && x.table == table
+                        && x.id == id)
+                });
+            }
+            Operation::DeleteFile {
+                tenant_id,
+                collection,
+                id,
+            } => {
+                if let Some(file) = self
+                    .files
+                    .iter()
+                    .find(|x| x.tenant_id == tenant_id && x.collection == collection && x.id == id)
+                    .cloned()
+                {
+                    self.documents.retain(|d| {
+                        !(d.tenant_id == tenant_id
+                            && d.collection == collection
+                            && d.id == file.document_id)
+                    });
+                    self.chunks.retain(|ch| {
+                        !(ch.tenant_id == tenant_id
+                            && ch.collection == collection
+                            && ch.document_id == file.document_id)
+                    });
+                }
+                self.files.retain(|x| {
+                    !(x.tenant_id == tenant_id && x.collection == collection && x.id == id)
                 });
             }
         }

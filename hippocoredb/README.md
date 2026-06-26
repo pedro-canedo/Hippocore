@@ -17,7 +17,8 @@ that can be projected into native context for SDKs, agents and RAG systems.
 ## What it is
 
 - An **embedded** Rust library (`hippocore`) plus a **CLI** (`hippocore`).
-- A durable store for **documents** (auto-chunked) and **memories**.
+- A durable store for **documents** (auto-chunked), **memories**, and
+  JSON-first structured **records**.
 - **Vector** (cosine), **text** (BM25 inverted index), and **hybrid** recall.
 - **Multi-tenant**: every recall is scoped to a tenant; data never leaks across.
 - **Crash-safe**: a write-ahead log + atomic snapshot; recovery rebuilds state
@@ -31,7 +32,7 @@ that can be projected into native context for SDKs, agents and RAG systems.
 
 No clustering, consensus, production auth, cloud embedders, GPU/ANN/HNSW, web
 dashboard, replication, SQL/query language, or external database yet. See
-[docs/MVP_SCOPE.md](docs/MVP_SCOPE.md) and [ROADMAP.md](ROADMAP.md).
+[docs/en/MVP_SCOPE.md](docs/en/MVP_SCOPE.md) and [ROADMAP.md](ROADMAP.md).
 
 ## Why a memory database (not just a vector store)
 
@@ -52,7 +53,8 @@ Vector similarity alone is not reliable context:
 | `Document`   | A stored text, auto-split into `Chunk`s for retrieval.           |
 | `Chunk`      | A searchable slice of a document, with its own embedding.        |
 | `Memory`     | A long-term memory item (episodic/semantic/procedural/note).     |
-| `Indexed Entry` | In-memory searchable projection of one `Chunk` or one `Memory`. |
+| `Record`     | A structured JSON object in a logical table namespace.           |
+| `Indexed Entry` | In-memory searchable projection of one `Chunk`, `Memory`, or `Record`. |
 | `WAL Entry`  | Durable append-only operation record replayed on database open.  |
 | `Embedding`  | `Vec<f32>`; produced by the built-in embedder or supplied by you.|
 | `Metadata`   | Exact-match `String→String` filter keys.                         |
@@ -62,8 +64,9 @@ Vector similarity alone is not reliable context:
 Documents and memories are intentionally distinct. A `Document` is source text
 managed as a whole and split into persisted `Chunk`s; each chunk becomes one
 indexed entry. A `Memory` is already an atomic remembered fact/procedure/note and
-also becomes one indexed entry directly. The WAL stores write/delete operations,
-not retrieval hits.
+also becomes one indexed entry directly. A `Record` preserves its original JSON
+payload and stores a deterministic text projection for retrieval. The WAL stores
+write/delete operations, not retrieval hits.
 
 Because memories do not create `Document` records, a memory-only RAG example can
 correctly report `documents=0` while `memories>0` and `indexed_entries>0`.
@@ -86,10 +89,14 @@ $BIN remember --db ./data --tenant acme --collection support \
 $BIN put-document --db ./data --tenant acme --collection support \
   --text "Oracle ORA-12514 means the listener does not know the service. Check tnsnames.ora."
 
-# 4. recall context (hybrid by default; --mode vector|text|hybrid)
+# 4. store a structured record (JSON-first, projected into context)
+$BIN put-record --db ./data --tenant acme --collection support --table systems \
+  --id billing-db --json '{"engine":"postgresql","port":5432,"env":"prod"}'
+
+# 5. recall context (hybrid by default; --mode vector|text|hybrid)
 $BIN recall --db ./data --tenant acme --query "oracle ORA-12514 in staging" --top-k 5
 
-# 5. inspect & stats
+# 6. inspect & stats
 $BIN inspect --db ./data
 $BIN stats --db ./data
 ```
@@ -131,9 +138,9 @@ answer loop with citations.
 ## Public API
 
 `Hippocore::open`, `create_tenant`, `create_collection`, `store_document`,
-`remember`, `recall`, `search`, `forget`, `delete_document`, `stats`, `compact`,
-`close`. Every fallible call returns `hippocore::Result<T>` — no panics on normal
-errors.
+`remember`, `put_record`, `recall`, `search`, `forget`, `delete_document`,
+`delete_record`, `stats`, `compact`, `close`. Every fallible call returns
+`hippocore::Result<T>` — no panics on normal errors.
 
 **Embeddings.** `remember`, `recall` and `store_document` all accept
 caller-supplied embeddings from any model. For documents, set
@@ -174,17 +181,22 @@ WAL into a fresh snapshot on demand.
 
 ## Architecture
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Modules: `config`, `errors`,
+See [docs/en/ARCHITECTURE.md](docs/en/ARCHITECTURE.md). Modules: `config`, `errors`,
 `model`, `storage`, `index`, `memory` (embedder + chunker), `query`, `cli`, with
 the `Hippocore` engine in `lib.rs`.
 
 ## Status, roadmap, decisions
 
-- Current status: [docs/STATUS.md](docs/STATUS.md)
-- Next feature: [docs/NEXT_FEATURE.md](docs/NEXT_FEATURE.md)
-- Data model direction: [docs/DATA_MODEL.md](docs/DATA_MODEL.md)
-- Admin interface direction: [docs/ADMIN_INTERFACE.md](docs/ADMIN_INTERFACE.md)
-- Decisions: [docs/DECISIONS.md](docs/DECISIONS.md)
+- Current status: [docs/en/STATUS.md](docs/en/STATUS.md) /
+  [docs/pt-br/STATUS.md](docs/pt-br/STATUS.md)
+- Next feature: [docs/en/NEXT_FEATURE.md](docs/en/NEXT_FEATURE.md) /
+  [docs/pt-br/NEXT_FEATURE.md](docs/pt-br/NEXT_FEATURE.md)
+- Data model direction: [docs/en/DATA_MODEL.md](docs/en/DATA_MODEL.md) /
+  [docs/pt-br/DATA_MODEL.md](docs/pt-br/DATA_MODEL.md)
+- Admin interface direction: [docs/en/ADMIN_INTERFACE.md](docs/en/ADMIN_INTERFACE.md) /
+  [docs/pt-br/ADMIN_INTERFACE.md](docs/pt-br/ADMIN_INTERFACE.md)
+- Decisions: [docs/en/DECISIONS.md](docs/en/DECISIONS.md) /
+  [docs/pt-br/DECISIONS.md](docs/pt-br/DECISIONS.md)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Roadmap: [ROADMAP.md](ROADMAP.md)
 

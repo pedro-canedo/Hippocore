@@ -178,6 +178,90 @@ fn cli_forget_removes_memory() {
 }
 
 #[test]
+fn cli_put_and_delete_record() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    let put = bin()
+        .args([
+            "put-record",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--table",
+            "systems",
+            "--id",
+            "sys-1",
+            "--json",
+            r#"{"name":"billing-db","engine":"postgresql","port":5432}"#,
+            "--meta",
+            "env=prod",
+        ])
+        .output()
+        .unwrap();
+    assert!(put.status.success(), "put-record failed: {put:?}");
+
+    let recall = bin()
+        .args([
+            "recall",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--query",
+            "billing postgresql",
+            "--kind",
+            "record",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(recall.status.success(), "recall failed: {recall:?}");
+    let out = String::from_utf8_lossy(&recall.stdout);
+    assert!(out.contains("\"kind\": \"record\""), "{out}");
+    assert!(out.contains("\"record_table\": \"systems\""), "{out}");
+
+    let delete = bin()
+        .args([
+            "delete-record",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--collection",
+            "c",
+            "--table",
+            "systems",
+            "--id",
+            "sys-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(delete.status.success(), "delete-record failed: {delete:?}");
+
+    let recall = bin()
+        .args([
+            "recall",
+            "--db",
+            db,
+            "--tenant",
+            "t",
+            "--query",
+            "billing postgresql",
+            "--kind",
+            "record",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(recall.status.success());
+    assert_eq!(String::from_utf8_lossy(&recall.stdout).trim(), "[]");
+}
+
+#[test]
 fn cli_bad_metadata_returns_nonzero() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();
