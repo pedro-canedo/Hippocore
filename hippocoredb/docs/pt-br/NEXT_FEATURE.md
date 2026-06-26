@@ -2,43 +2,38 @@
 
 ## Nome
 
-**Contradiction Advisory Tests v0.1** — testes determinísticos cobrindo o
-comportamento completo do sistema de advisory `contradicts` / `contradictions`.
+**Valid-Window Recall Tests v0.1** — testes determinísticos para filtragem de
+validade temporal `valid_from` / `valid_until`.
 
 ## Por que importa
 
-O campo `contradicts` em uma memória permite que callers sinalizem que duas
-memórias estão em conflito. Quando presente, `build_context` aplica re-ranking
-ciente de confiança para preferir o item de maior confiança. Não há uma suite de
-regressão focada que verifique:
-
-- O advisory `contradictions` aparece em `RecallResult` para pares sinalizados.
-- Ambos os itens ainda são retornados (o advisory NÃO suprime itens).
-- O re-ranking ciente de confiança é ativado quando há contradições.
-- O item de maior confiança é ranqueado acima do de menor confiança.
+Memórias e documentos suportam timestamps `valid_from` / `valid_until` para que
+fatos com janela de tempo (ex: ofertas promocionais, configuração sazonal) sejam
+automaticamente excluídos do recall quando expiram. O filtro existe mas não há
+uma suite de regressão focada. Um bug aqui poderia expor dados expirados a
+prompts de LLM ou ocultar dados atualmente válidos.
 
 ## Comportamento
 
 Sem novo código de produção. A suite de testes cobrirá:
 
-1. Armazenar memória A (confidence 0.3) e B (confidence 0.9) onde B contradiz A.
-2. Recuperar ambas; afirmar que o resultado de A tem `contradictions = [id_b]`
-   e vice-versa.
-3. Nem A nem B está ausente dos resultados de recall (apenas advisory, não filtro).
-4. Chamar `build_context`; afirmar que B aparece antes de A (maior confiança
-   vence).
-5. Chamar `build_context` com `confidence = None` em ambas; afirmar que a
-   ordenação não muda em relação ao recall simples.
+1. Memória com `valid_until` no passado → excluída do recall.
+2. Memória com `valid_until` no futuro → incluída.
+3. Memória com `valid_from` no futuro → excluída até esse momento.
+4. Query backdatada via `as_of` → recupera estado em timestamp passado.
+5. Caso extremo na fronteira: `valid_until == query_time` → excluída (estritamente menor).
+6. Memória sem janela de validade → sempre incluída.
 
 ## Arquivos
 
-- `crates/hippocore/tests/contradiction.rs` — novo arquivo de testes dedicado.
-- `docs/en/CONTRADICTION_ADVISORY.md` e `docs/pt-br/CONTRADICTION_ADVISORY.md`.
+- `crates/hippocore/tests/valid_window.rs` — novo arquivo de testes dedicado.
+- `docs/en/VALID_WINDOW_RECALL.md` e `docs/pt-br/VALID_WINDOW_RECALL.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- Mínimo de 4 testes de integração determinísticos.
+- Mínimo de 5 testes de integração determinísticos usando timestamps epoch-ms
+  explícitos.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -46,6 +41,6 @@ Sem novo código de produção. A suite de testes cobrirá:
 
 ## Fora de escopo
 
-- Detecção automática de contradição (NLI, comparação semântica).
-- Mudanças no código de produção do modelo de contradição.
+- Expiração / evicção automática.
+- Mudanças no código de produção.
 - Modo server.

@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Contradiction Advisory Tests v0.1
+
+- New test file `crates/hippocore/tests/contradiction.rs` with 4 tests: both
+  contradicting memories appear in recall (advisory only, not a filter), the
+  `RecallResult.contradictions` field is populated, `build_context` fires
+  confidence-aware re-ranking when contradictions are present (higher confidence
+  wins), and when no contradictions exist no re-ranking fires. No production
+  code changes. 154 tests total.
+
 ### Added — Supersession Lifecycle Tests v0.1
 
 - New test file `crates/hippocore/tests/supersession.rs` with 5 tests: default

@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Supersession Lifecycle Tests v0.1**:
+**Contradiction Advisory Tests v0.1**:
+
+- New test file `crates/hippocore/tests/contradiction.rs` with 4 tests.
+- Confirms: both contradicting memories appear in recall (advisory, not filter);
+  `RecallResult.contradictions` is populated; `build_context` fires confidence-
+  aware re-ranking when contradictions present (high-confidence wins); when no
+  contradictions, no re-ranking and recall ordering preserved.
+- No production code changes.
+- Documentation in `docs/en/CONTRADICTION_ADVISORY.md` and
+  `docs/pt-br/CONTRADICTION_ADVISORY.md`.
+- 4 new tests. 154 tests total.
+
+Previous: **Supersession Lifecycle Tests v0.1**:
 
 - New test file `crates/hippocore/tests/supersession.rs` with 5 tests.
 - Covers: default recall hides superseded memories; `include_superseded = true`
@@ -493,7 +505,8 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Contradiction Advisory Tests v0.1** — deterministic tests verifying that the
-`contradicts` field is surfaced as `contradictions` in recall results, that
-confidence-aware re-ranking kicks in when contradictions are present, and that
-the advisory does not suppress either item from recall. See NEXT_FEATURE.md.
+**Valid-Window Recall Tests v0.1** — deterministic tests verifying that memories
+and documents with `valid_from` / `valid_until` timestamps are excluded from
+recall when the query time falls outside the validity window, and included when
+it falls inside, including edge cases at the boundary and with `as_of`
+backdating. See NEXT_FEATURE.md.
