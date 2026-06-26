@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Multi-tenant Query Isolation Audit v0.1
+
+- New test file `crates/hippocore/tests/tenant_isolation.rs` with 6 targeted
+  isolation assertions: `recall()` (Vector/Text/Hybrid), `build_context()`
+  (with and without `include_related`), and `list_graph_edges()`. Tests use two
+  tenants with identical collection names and identical content to prove the
+  query layer enforces hard tenant isolation on every public read path.
+- No production code changes.
+- 6 new tests. 138 tests total.
+
 ### Added — Score Normalization v0.1
 
 - `build_context` now normalises raw hybrid recall scores to `[0.0, 1.0]`

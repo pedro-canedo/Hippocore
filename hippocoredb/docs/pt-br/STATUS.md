@@ -4,7 +4,21 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Score Normalization v0.1**:
+**Multi-tenant Query Isolation Audit v0.1**:
+
+- Novo arquivo de testes dedicado `crates/hippocore/tests/tenant_isolation.rs`.
+- 6 asserções de isolamento cobrindo todos os caminhos de leitura públicos:
+  `recall()` (Vector, Text, Hybrid), `build_context()` (básico e com
+  `include_related = true`) e `list_graph_edges()`.
+- Testes usam dois tenants com nomes de coleção idênticos e conteúdo
+  semanticamente idêntico, garantindo que a camada de query filtra
+  rigidamente por `tenant_id`.
+- Sem mudanças no código de produção.
+- Documentação em `docs/en/TENANT_ISOLATION_AUDIT.md` e
+  `docs/pt-br/TENANT_ISOLATION_AUDIT.md`.
+- 6 novos testes. 138 testes no total.
+
+Anterior: **Score Normalization v0.1**:
 
 - `build_context` agora normaliza scores brutos de recall híbrido para
   `[0.0, 1.0]` antes das mesclagens de Temporal Decay e Graph-Aware Ranking
@@ -387,8 +401,8 @@ cargo bench -p hippocore
 
 ## Próxima feature
 
-**Multi-tenant Query Isolation Audit v0.1** — adicionar uma suite de testes
-determinística que verifica que nenhum resultado de query, recall ou
-`build_context` vaza dados entre fronteiras de tenant, mesmo quando tenants
-compartilham nomes de coleção.
+**Metadata Filter Regression Suite v0.1** — testes determinísticos cobrindo
+combinações de filtros de metadata exatos e de prefixo para todos os tipos de
+item (memories, chunks, records), garantindo que predicados de filtro se
+compõem corretamente e nunca produzem falsos positivos entre tenants.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

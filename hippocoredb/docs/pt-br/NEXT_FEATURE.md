@@ -2,45 +2,40 @@
 
 ## Nome
 
-**Multi-tenant Query Isolation Audit v0.1** — suite de testes determinística
-provando que nenhum resultado de recall, search ou `build_context` cruza
-fronteiras de tenant.
+**Metadata Filter Regression Suite v0.1** — testes determinísticos cobrindo
+combinações de filtros de metadata exatos para todos os tipos de item.
 
 ## Por que importa
 
-O isolamento de tenants é um invariante de correção central (aplicado na camada
-de query), mas não há uma suite de testes dedicada que o verifique
-explicitamente. À medida que novos caminhos de query, passes de mesclagem e
-lógica de expansão por grafo são adicionados, um teste ausente poderia
-silenciosamente permitir um vazamento de dados entre tenants. Uma auditoria de
-isolamento abrangente fecha essa lacuna.
+O filtro de metadata é o mecanismo principal para escopar o recall a um usuário,
+sessão ou contexto. Embora a lógica de filtro exista, não há uma suite de testes
+focada que cubra todos os tipos de item × combinações de filtro × casos extremos.
+Uma lacuna aqui arrisca regressões silenciosas quando as camadas de query ou
+storage mudarem.
 
 ## Comportamento
 
-Nenhum código de produção novo é necessário — esta feature é puramente testes
-aditivos:
+Sem novo código de produção. A suite de testes cobrirá:
 
-1. Criar pelo menos 2 tenants, cada um com nomes de coleção correspondentes.
-2. Armazenar conteúdo semanticamente idêntico em ambos os tenants.
-3. Para cada combinação de:
-   - `recall()` / `search()` / `build_context()`
-   - `SearchMode::Vector`, `Text`, `Hybrid`
-   - `include_related = true/false` (para `build_context`)
-4. Afirmar: cada item resultado tem `tenant_id` igual ao tenant consultado.
-5. Afirmar: nenhum item do outro tenant aparece em nenhum resultado.
-6. Afirmar: `add_graph_edge` e `list_graph_edges` também são isolados por tenant.
+1. Filtro de correspondência exata (`key == value`) em memories, chunks de
+   documento e records.
+2. Filtros multi-chave (todas as chaves devem corresponder, semântica AND).
+3. Um filtro que não corresponde a nenhum item (resultado vazio, não um erro).
+4. Um filtro escopado a uma coleção específica dentro de um tenant.
+5. Verificar que filtrar em um tenant não afeta outro tenant com as mesmas
+   chaves e valores de metadata.
+6. `build_context` com filtro de metadata respeita o filtro (sem vazamento).
 
 ## Arquivos
 
-- `crates/hippocore/tests/tenant_isolation.rs` — novo arquivo de testes dedicado.
-- `docs/en/TENANT_ISOLATION_AUDIT.md` e `docs/pt-br/TENANT_ISOLATION_AUDIT.md`.
+- `crates/hippocore/tests/metadata_filter.rs` — novo arquivo de testes dedicado.
+- `docs/en/METADATA_FILTER_REGRESSION.md` e
+  `docs/pt-br/METADATA_FILTER_REGRESSION.md`.
 - `docs/en/STATUS.md` e `docs/pt-br/STATUS.md`.
 
 ## Critérios de aceite
 
-- Mínimo de 6 asserções de isolamento direcionadas (um por caminho de query ×
-  modo).
-- Sem mudanças no código de produção.
+- Mínimo de 6 testes de integração determinísticos.
 - Quality gate:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -48,6 +43,6 @@ aditivos:
 
 ## Fora de escopo
 
-- Novo enforcement de tenant no código de produção.
-- Modo server ou isolamento multi-nó.
-- Modelo de permissões / RBAC.
+- Novos operadores de filtro (prefixo, range, regex).
+- Modo server.
+- Mudanças no código de produção.
