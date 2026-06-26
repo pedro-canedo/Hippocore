@@ -4,7 +4,19 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Metadata Filter Regression Suite v0.1**:
+**Supersession Lifecycle Tests v0.1**:
+
+- New test file `crates/hippocore/tests/supersession.rs` with 5 tests.
+- Covers: default recall hides superseded memories; `include_superseded = true`
+  surfaces them; linkage is bidirectional; invariants survive WAL compaction +
+  cold reopen; deleting the superseding memory leaves `superseded_by` as a
+  durable tombstone (stale memory stays hidden).
+- No production code changes.
+- Documentation in `docs/en/SUPERSESSION_LIFECYCLE.md` and
+  `docs/pt-br/SUPERSESSION_LIFECYCLE.md`.
+- 5 new tests. 150 tests total.
+
+Previous: **Metadata Filter Regression Suite v0.1**:
 
 - New test file `crates/hippocore/tests/metadata_filter.rs` with 7 tests.
 - Covers: exact-match on memories, multi-key AND semantics, empty result (no
@@ -481,7 +493,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Supersession Lifecycle Tests v0.1** — deterministic tests verifying that
-superseded memories are excluded from default recall, visible with
-`include_superseded = true`, and that the superseded-by / supersedes linkage
-is symmetric and durable across WAL compaction. See NEXT_FEATURE.md.
+**Contradiction Advisory Tests v0.1** — deterministic tests verifying that the
+`contradicts` field is surfaced as `contradictions` in recall results, that
+confidence-aware re-ranking kicks in when contradictions are present, and that
+the advisory does not suppress either item from recall. See NEXT_FEATURE.md.

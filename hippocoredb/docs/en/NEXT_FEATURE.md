@@ -2,42 +2,40 @@
 
 ## Feature name
 
-**Supersession Lifecycle Tests v0.1** — deterministic tests covering the full
-lifecycle of memory supersession.
+**Contradiction Advisory Tests v0.1** — deterministic tests covering the full
+behavior of the `contradicts` / `contradictions` advisory system.
 
 ## Why it matters
 
-The `supersedes` / `superseded_by` linkage allows a new memory to replace an
-older one. This is the primary mechanism for updating stale facts without
-deleting history. While the production code handles it, there is no focused
-regression suite that verifies:
+The `contradicts` field on a memory lets callers flag that two memories conflict.
+When present, `build_context` applies confidence-aware re-ranking to prefer the
+higher-confidence item. There is no focused regression suite that verifies:
 
-- Superseded memories are excluded from default recall.
-- Superseded memories are visible when `include_superseded = true`.
-- The linkage is bidirectional and symmetric.
-- The relationship survives WAL compaction.
+- The `contradictions` advisory appears in `RecallResult` for flagged pairs.
+- Both items are still returned (advisory does NOT suppress items).
+- Confidence-aware re-ranking fires when contradictions are present.
+- The higher-confidence item ranks above the lower-confidence one.
 
 ## Behaviour
 
 No new production code. The test suite will cover:
 
-1. Store memory A; store memory B that supersedes A.
-2. Assert: recall without `include_superseded` returns B but not A.
-3. Assert: recall with `include_superseded = true` returns both A and B.
-4. Assert: A's `superseded_by` is B's id; B's `supersedes` contains A's id.
-5. Compact the WAL; re-open the database; repeat assertions 2–4.
-6. Delete B; assert: A is no longer superseded (since the superseding memory
-   is gone) — or that the delete is rejected if referential integrity is enforced.
+1. Store memory A (confidence 0.3) and B (confidence 0.9) where B contradicts A.
+2. Recall both; assert A's result carries `contradictions = [id_b]` and vice versa.
+3. Neither A nor B is absent from recall results (advisory only, not a filter).
+4. Call `build_context`; assert B appears before A (higher confidence wins).
+5. Call `build_context` with `confidence = None` on both; assert ordering is
+   unchanged from plain recall (confidence re-ranking only fires when needed).
 
 ## Files
 
-- `crates/hippocore/tests/supersession.rs` — new dedicated test file.
-- `docs/en/SUPERSESSION_LIFECYCLE.md` and `docs/pt-br/SUPERSESSION_LIFECYCLE.md`.
+- `crates/hippocore/tests/contradiction.rs` — new dedicated test file.
+- `docs/en/CONTRADICTION_ADVISORY.md` and `docs/pt-br/CONTRADICTION_ADVISORY.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- At least 5 deterministic integration tests.
+- At least 4 deterministic integration tests.
 - All quality gates pass:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -45,6 +43,6 @@ No new production code. The test suite will cover:
 
 ## Out of scope
 
-- Chains of supersession (A → B → C).
+- Automatic contradiction detection (NLI, semantic comparison).
+- Production code changes to the contradiction model.
 - Server mode.
-- Production code changes to the supersession model.

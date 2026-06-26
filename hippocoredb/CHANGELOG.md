@@ -5,6 +5,14 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Supersession Lifecycle Tests v0.1
+
+- New test file `crates/hippocore/tests/supersession.rs` with 5 tests: default
+  recall hides superseded memories, `include_superseded=true` surfaces them,
+  linkage is bidirectional, invariants survive WAL compaction + cold reopen, and
+  deleting the superseding memory leaves `superseded_by` as a durable tombstone.
+  No production code changes. 150 tests total.
+
 ### Added — Metadata Filter Regression Suite v0.1
 
 - New test file `crates/hippocore/tests/metadata_filter.rs` with 7 tests
