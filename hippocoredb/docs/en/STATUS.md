@@ -4,7 +4,30 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 6 — Interactive TUI (`hippocore studio`)**:
+**Phase 9 — RAG Audit Engine**:
+
+- New public audit types: `AuditRecord` and `AuditItem`.
+- Every `Hippocore::build_context(req)` appends one JSON-lines audit record to
+  `<data_dir>/audit.log`.
+- Audit records capture timestamp, tenant, query, mode, optional collection,
+  requested token budget, final token count, dropped count, retrieved item ids,
+  context compilation latency, item kinds, collections, vector/text/final
+  scores, confidence, per-item token counts and whether each item entered the
+  final context.
+- New `Hippocore::query_audit(from_ms, to_ms, tenant_id)` API replays records
+  for one tenant in an inclusive epoch-ms window.
+- New CLI command:
+  `hippocore audit --db <path> --tenant <t> --from <ms> --to <ms> [--json]`.
+- `audit --json` emits parseable `Vec<AuditRecord>` JSON.
+- Audit history is append-only and separate from the mutation WAL; it survives
+  reopen without changing state recovery.
+- Documentation added in `docs/en/RAG_AUDIT_ENGINE.md` and
+  `docs/pt-br/RAG_AUDIT_ENGINE.md`.
+- 3 new core integration tests and 1 new CLI smoke test. The existing
+  confidence/rating tests cover the `rate_memory` acceptance criteria. 105 tests
+  total.
+
+Previous: **Phase 6 — Interactive TUI (`hippocore studio`)**:
 
 - New `hippocore studio [--db <path>]` subcommand launching a full-terminal ratatui UI.
 - Four navigable tabs: **Tenants** (tenants + their collections), **Memories** (live search across all tenants), **Documents** (all stored documents), **Stats** (database statistics).
@@ -255,13 +278,14 @@ Ollama embeddings + generation, idempotent ingestion).
 
 ## What is partial
 
-- Retrieval is exact brute force (O(n) per tenant). Correct, not yet scalable.
+- Retrieval defaults to exact brute force; optional HNSW exists but graph-aware
+  recall is not implemented yet.
 - The in-memory index is rebuilt fully on open (incremental during runtime).
 - Per-chunk external embeddings are a library API; the CLI `put-document` still
   auto-embeds (CLI ergonomics for many chunk vectors are deferred).
 - Record field-level indexes, schema management, full blob storage, PDF/OCR and
-  a user-facing admin interface are product-direction documents only; they are
-  not implemented yet.
+  a web admin dashboard are product-direction documents only; they are not
+  implemented yet.
 
 ## What is broken or missing
 
@@ -288,18 +312,20 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 **All green.** `cargo test --workspace` passes 105 tests:
 - 22 unit (embedder/chunker, cosine/index/BM25, query normalization + RRF, CRC32 + WAL
   line decode, 4 new HNSW unit tests),
-- 64 library integration (store/recall, chunking, retrieval quality layer,
+- 67 library integration (store/recall, chunking, retrieval quality layer,
   structured records, imported files, user-supplied document embeddings +
   validation, modes, sorting, metadata & type/user filters, tenant isolation,
   restart, compaction, auto-compaction bounding the WAL, checksum-mismatch
   recovery, delete/forget + restart + compaction, user embeddings, empty DB,
   error paths, dimension-mismatch, torn-WAL recovery, temporal filtering,
   supersedure/contradictions, context compiler, batch writes, confidence-aware
-  resolution, HNSW backend store+recall+restart+brute-force comparison),
+  resolution, HNSW backend store+recall+restart+brute-force comparison, RAG audit
+  write/replay/reopen),
 - 1 retrieval-quality fixture test (hit@1/hit@5/MRR thresholds),
-- 13 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
+- 14 CLI subprocess smoke tests (incl. `compact`, `forget`, `put-record`,
   `import-file`, admin `list-*` and `show-*` commands with `--json`,
-  `eval-quality` pass + fail paths, and `studio` non-TTY smoke test),
+  `eval-quality` pass + fail paths, `audit --json`, and `studio` non-TTY smoke
+  test),
 - 1 doctest (lib.rs quickstart),
 - 1 bench_regression example.
 
@@ -307,20 +333,20 @@ cd examples/ts-ollama-rag && npm start -- "como faço uma conexão python no pos
 is clean.
 
 `cargo bench -p hippocore` completed. Final run:
-- `remember`: 6.8615-6.9277 ms, no statistically significant change.
-- `recall_hybrid`: 696.41-707.12 us, no statistically significant change.
-- `search_vector`: 348.91-350.96 us, within the noise threshold.
-
-The performance fix avoids normalization/tag work in pure vector search and
-removes a set allocation from query tag detection.
+- `remember`: 8.9788-9.0850 ms.
+- `recall_hybrid`: 598.92-605.97 us.
+- `search_vector`: 87.258-87.797 us.
 
 ## Current architectural decisions
 
 See DECISIONS.md. Highlights: JSON-lines WAL with per-line CRC32 + atomic
 snapshot; threshold-based auto-compaction; unified `IndexEntry` over chunks and
-memories; deterministic feature-hashing embedder; min-max hybrid fusion; tenant
-isolation enforced in the query layer.
+memories; deterministic feature-hashing embedder; RRF hybrid fusion; tenant
+isolation enforced in the query layer; append-only RAG audit log separate from
+the mutation WAL.
 
 ## Next recommended feature
 
-**Phase 9 — RAG Audit Engine** — trace question → retrieved documents → context → answer; record tokens, latency and feedback for auditability. See NEXT_FEATURE.md.
+**Phase 10 — Graph Memory v0.1** — durable direct relationship edges between
+context items, with tenant-scoped APIs, CLI commands and restart-safe
+persistence. See NEXT_FEATURE.md.

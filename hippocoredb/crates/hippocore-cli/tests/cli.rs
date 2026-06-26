@@ -80,6 +80,72 @@ fn cli_full_flow_smoke_test() {
 }
 
 #[test]
+fn cli_audit_json_reports_build_context_records() {
+    let dir = TempDir::new().unwrap();
+    let db = dir.path().to_str().unwrap();
+
+    let remember = bin()
+        .args([
+            "remember",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--collection",
+            "support",
+            "--type",
+            "semantic",
+            "--text",
+            "PostgreSQL Python clients use psycopg for database connections",
+        ])
+        .output()
+        .unwrap();
+    assert!(remember.status.success(), "remember failed: {remember:?}");
+
+    let build = bin()
+        .args([
+            "build-context",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--query",
+            "python postgresql connection",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(build.status.success(), "build-context failed: {build:?}");
+
+    let audit = bin()
+        .args([
+            "audit",
+            "--db",
+            db,
+            "--tenant",
+            "acme",
+            "--from",
+            "0",
+            "--to",
+            "9223372036854775807",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(audit.status.success(), "audit failed: {audit:?}");
+    let records: serde_json::Value = serde_json::from_slice(&audit.stdout).unwrap();
+    let records = records.as_array().unwrap();
+    assert_eq!(records.len(), 1, "unexpected audit output: {records:?}");
+    assert_eq!(records[0]["tenant_id"], "acme");
+    assert_eq!(records[0]["query"], "python postgresql connection");
+    assert!(records[0]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| { item["included"].as_bool() == Some(true) }));
+}
+
+#[test]
 fn cli_compact_preserves_data() {
     let dir = TempDir::new().unwrap();
     let db = dir.path().to_str().unwrap();

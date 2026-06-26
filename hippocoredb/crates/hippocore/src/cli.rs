@@ -83,6 +83,8 @@ enum Command {
     EvalQuality(EvalQualityArgs),
     /// Assemble a token-budget-aware context block for an LLM prompt.
     BuildContext(BuildContextArgs),
+    /// Replay RAG audit records for a tenant and time window.
+    Audit(AuditArgs),
     /// Update the confidence score of a stored memory (human-in-the-loop rating).
     RateMemory(RateMemoryArgs),
 }
@@ -427,6 +429,23 @@ struct BuildContextArgs {
     json: bool,
 }
 
+#[derive(Args)]
+struct AuditArgs {
+    #[arg(long)]
+    db: PathBuf,
+    /// Inclusive start timestamp (epoch ms).
+    #[arg(long)]
+    from: i64,
+    /// Inclusive end timestamp (epoch ms).
+    #[arg(long)]
+    to: i64,
+    #[arg(long)]
+    tenant: String,
+    /// Emit output as JSON.
+    #[arg(long)]
+    json: bool,
+}
+
 /// Parse arguments from the process and run, returning a process exit code.
 pub fn run() -> ExitCode {
     match dispatch(Cli::parse()) {
@@ -465,6 +484,7 @@ fn dispatch(cli: Cli) -> Result<(), String> {
         Command::ShowFile(a) => cmd_show_file(a),
         Command::EvalQuality(a) => cmd_eval_quality(a),
         Command::BuildContext(a) => cmd_build_context(a),
+        Command::Audit(a) => cmd_audit(a),
         Command::RateMemory(a) => cmd_rate_memory(a),
     }
 }
@@ -1408,6 +1428,47 @@ fn cmd_build_context(a: BuildContextArgs) -> Result<(), String> {
         );
     }
 
+    Ok(())
+}
+
+fn cmd_audit(a: AuditArgs) -> Result<(), String> {
+    let db = open(&a.db)?;
+    let records = db
+        .query_audit(a.from, a.to, &a.tenant)
+        .map_err(|e| format!("{e}"))?;
+
+    if a.json {
+        let out = serde_json::to_string_pretty(&records)
+            .map_err(|e| format!("failed to serialize audit records: {e}"))?;
+        println!("{out}");
+        return Ok(());
+    }
+
+    if records.is_empty() {
+        println!("no audit records");
+        return Ok(());
+    }
+
+    println!("{} audit record(s):", records.len());
+    for record in &records {
+        println!(
+            "{} tenant={} mode={} tokens={} latency_ms={} dropped={} query={:?}",
+            record.timestamp_ms,
+            record.tenant_id,
+            record.mode,
+            record.token_count,
+            record.latency_ms,
+            record.items_dropped,
+            record.query
+        );
+        for item in &record.items {
+            let included = if item.included { "included" } else { "dropped" };
+            println!(
+                "  [{:?}] {}/{} score={:.3} tokens={} {}",
+                item.kind, item.collection, item.id, item.score, item.token_count, included
+            );
+        }
+    }
     Ok(())
 }
 

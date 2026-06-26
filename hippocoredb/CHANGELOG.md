@@ -5,6 +5,25 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Phase 9: RAG Audit Engine
+
+- Added public `AuditRecord` and `AuditItem` types for query-time retrieval
+  auditability.
+- `Hippocore::build_context(req)` now appends one JSON-lines record to
+  `<data_dir>/audit.log` for every context compilation, including timestamp,
+  tenant, query, mode, token budget, final token count, compilation latency,
+  dropped count, retrieved item ids, kinds, scores, token counts, confidence and
+  inclusion status.
+- Added `Hippocore::query_audit(from_ms, to_ms, tenant_id)` to replay audit
+  records for a tenant in an inclusive epoch-ms window.
+- Added CLI `audit --from <ms> --to <ms> --tenant <t> [--json]`; JSON output is
+  the stable serialized `Vec<AuditRecord>`.
+- Audit logging is append-only and separate from the mutation WAL, so query
+  traces survive reopen without changing database state recovery.
+- Added 3 core integration tests for audit write/replay/reopen plus 1 CLI JSON
+  smoke test. Existing Phase 7 confidence rating tests cover the Phase 9
+  `rate_memory` acceptance criteria.
+
 ### Added — Phase 6: Interactive TUI (`hippocore studio`)
 
 - New `hippocore studio [--db <path>]` subcommand launching a full-terminal ratatui

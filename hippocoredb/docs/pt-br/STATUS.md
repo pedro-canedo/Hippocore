@@ -4,7 +4,30 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Fase 6 — TUI interativo (`hippocore studio`)**:
+**Fase 9 — RAG Audit Engine**:
+
+- Novos tipos públicos de auditoria: `AuditRecord` e `AuditItem`.
+- Cada `Hippocore::build_context(req)` anexa um registro JSON-lines em
+  `<data_dir>/audit.log`.
+- Os registros capturam timestamp, tenant, query, modo, collection opcional,
+  orçamento de tokens solicitado, token count final, quantidade dropada, ids dos
+  itens recuperados, latência da montagem de contexto, tipos, coleções, scores
+  vetorial/textual/final, confiança, tokens por item e se cada item entrou no
+  contexto final.
+- Nova API `Hippocore::query_audit(from_ms, to_ms, tenant_id)` reproduz registros
+  de um tenant em uma janela inclusiva de epoch ms.
+- Novo comando CLI:
+  `hippocore audit --db <path> --tenant <t> --from <ms> --to <ms> [--json]`.
+- `audit --json` emite JSON parseável como `Vec<AuditRecord>`.
+- O histórico de auditoria é append-only e separado do WAL de mutações; ele
+  sobrevive a reopen sem alterar o recovery do estado.
+- Documentação adicionada em `docs/en/RAG_AUDIT_ENGINE.md` e
+  `docs/pt-br/RAG_AUDIT_ENGINE.md`.
+- 3 novos testes de integração no core e 1 novo smoke test CLI. Os testes já
+  existentes de confiança/rating cobrem os critérios de aceite de `rate_memory`.
+  105 testes no total.
+
+Anterior: **Fase 6 — TUI interativo (`hippocore studio`)**:
 
 - Novo subcomando `hippocore studio [--db <path>]` que abre uma interface de terminal completa (ratatui).
 - Quatro abas navegáveis: **Tenants** (tenants + coleções), **Memories** (busca ao vivo em todos os tenants), **Documents** (todos os documentos armazenados), **Stats** (estatísticas do banco).
@@ -221,18 +244,20 @@ de qualidade e otimização do caminho vector-only.
 
 ## Parcial
 
-- Retrieval ainda é brute-force.
+- Retrieval usa brute-force por padrão; HNSW opcional existe, mas recall ciente
+  de grafo ainda não foi implementado.
 - Estado vivo fica em memória e índice é reconstruído no open.
 - Records não têm schema rico nem índices por campo.
-- Blob storage completo, PDF/OCR e admin UI ainda não foram implementados.
+- Blob storage completo, PDF/OCR e dashboard web admin ainda não foram
+  implementados.
 
 ## Comandos recentes
 
 ```bash
+cargo fmt --all
 cargo fmt --all --check
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-npm run typecheck
 cargo bench -p hippocore
 ```
 
@@ -241,14 +266,16 @@ cargo bench -p hippocore
 `cargo test --workspace` passa com 105 testes:
 
 - 22 unit (embedder/chunker, cosine/index/BM25, normalização de query + RRF, CRC32 + WAL, 4 novos testes HNSW);
-- 64 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
-  batch writes, resolução por confiança, HNSW backend);
+- 67 integração da biblioteca (incl. temporal truth, supersedure, context compiler,
+  batch writes, resolução por confiança, HNSW backend e RAG audit);
 - 1 fixture de qualidade de retrieval;
-- 13 smoke tests de CLI (incl. `cli_studio_exits_without_panic`);
+- 14 smoke tests de CLI (incl. `audit --json` e `cli_studio_exits_without_panic`);
 - 1 doctest (lib.rs quickstart);
 - 1 bench_regression example.
 
 ## Próxima feature
 
-**Fase 9 — RAG Audit Engine** — rastreamento de pergunta → documentos recuperados → contexto → resposta; registro de tokens, latência e feedback para auditabilidade.
+**Fase 10 — Graph Memory v0.1** — arestas duráveis de relacionamento direto
+entre itens de contexto, com APIs por tenant, comandos CLI e persistência segura
+após restart.
 Veja [NEXT_FEATURE.md](NEXT_FEATURE.md).

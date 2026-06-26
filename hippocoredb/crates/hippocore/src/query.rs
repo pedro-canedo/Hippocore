@@ -37,6 +37,15 @@ impl SearchMode {
             _ => None,
         }
     }
+
+    /// Stable lowercase string form.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SearchMode::Vector => "vector",
+            SearchMode::Text => "text",
+            SearchMode::Hybrid => "hybrid",
+        }
+    }
 }
 
 /// Filters applied before scoring. `tenant_id` is mandatory.

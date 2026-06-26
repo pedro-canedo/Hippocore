@@ -1420,6 +1420,98 @@ fn build_context_json_output_roundtrip() {
     );
 }
 
+#[test]
+fn build_context_writes_audit_record() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    remember(&mut db, "support", "postgresql connection pool tuning");
+
+    let block = db
+        .build_context(BuildContextRequest::new(
+            "acme",
+            "postgresql connection",
+            2048,
+        ))
+        .unwrap();
+    assert!(!block.items_included.is_empty());
+
+    let audit_path = dir.path().join("audit.log");
+    assert!(audit_path.exists(), "build_context must create audit.log");
+    let raw = std::fs::read_to_string(audit_path).unwrap();
+    let lines: Vec<&str> = raw.lines().collect();
+    assert_eq!(lines.len(), 1, "one build_context call writes one record");
+
+    let record: hippocore::AuditRecord = serde_json::from_str(lines[0]).unwrap();
+    assert_eq!(record.tenant_id, "acme");
+    assert_eq!(record.query, "postgresql connection");
+    assert_eq!(record.mode, "hybrid");
+    assert_eq!(record.token_count, block.token_count);
+    assert!(
+        serde_json::from_str::<serde_json::Value>(lines[0]).unwrap()["latency_ms"].is_u64(),
+        "audit record must serialize latency_ms"
+    );
+    assert!(
+        !record.items.is_empty(),
+        "audit must include retrieved items"
+    );
+    assert!(
+        record.items.iter().any(|item| item.included),
+        "audit must mark final context items"
+    );
+}
+
+#[test]
+fn query_audit_filters_by_time_range_and_tenant() {
+    let dir = TempDir::new().unwrap();
+    let mut db = seeded(&dir);
+    db.create_tenant("other", "Other").unwrap();
+    db.create_collection("other", "support", "").unwrap();
+    remember(&mut db, "support", "postgresql backup restore runbook");
+    db.remember(RememberRequest::new(
+        "other",
+        "support",
+        MemoryType::Semantic,
+        "oracle listener runbook",
+    ))
+    .unwrap();
+
+    db.build_context(BuildContextRequest::new("acme", "postgresql backup", 2048))
+        .unwrap();
+    db.build_context(BuildContextRequest::new("other", "oracle listener", 2048))
+        .unwrap();
+
+    let all_acme = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert_eq!(all_acme.len(), 1);
+    assert_eq!(all_acme[0].tenant_id, "acme");
+    assert_eq!(all_acme[0].query, "postgresql backup");
+
+    let outside = db
+        .query_audit(0, all_acme[0].timestamp_ms - 1, "acme")
+        .unwrap();
+    assert!(
+        outside.is_empty(),
+        "time range before the record must not return it"
+    );
+}
+
+#[test]
+fn query_audit_survives_reopen() {
+    let dir = TempDir::new().unwrap();
+    {
+        let mut db = seeded(&dir);
+        remember(&mut db, "support", "redis cache invalidation guide");
+        db.build_context(BuildContextRequest::new("acme", "redis cache", 2048))
+            .unwrap();
+        db.close().unwrap();
+    }
+
+    let db = open(&dir);
+    let records = db.query_audit(0, i64::MAX, "acme").unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].query, "redis cache");
+    assert!(!records[0].items.is_empty());
+}
+
 // ── Batch write / group-commit tests ─────────────────────────────────────────
 
 #[test]

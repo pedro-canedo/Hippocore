@@ -394,6 +394,56 @@ pub struct RecallResult {
     pub confidence: Option<f32>,
 }
 
+/// One retrieved item captured in the RAG audit log.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AuditItem {
+    /// Id of the underlying memory, chunk, or record.
+    pub id: String,
+    /// Whether this is a document chunk, memory, or record.
+    pub kind: ItemKind,
+    /// Owning collection.
+    pub collection: String,
+    /// Final recall score at query time.
+    pub score: f32,
+    /// Vector component of the score.
+    pub vector_score: f32,
+    /// Text component of the score.
+    pub text_score: f32,
+    /// Confidence of the underlying memory, or `None` for unrated/non-memory items.
+    #[serde(default)]
+    pub confidence: Option<f32>,
+    /// Approximate token count for this item's context block.
+    pub token_count: usize,
+    /// Whether this item fit inside the final context block.
+    pub included: bool,
+}
+
+/// A single query-time RAG audit record.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AuditRecord {
+    /// Query timestamp (epoch milliseconds).
+    pub timestamp_ms: i64,
+    /// Tenant boundary used for recall.
+    pub tenant_id: String,
+    /// Original natural-language query.
+    pub query: String,
+    /// Recall mode used to build context.
+    pub mode: String,
+    /// Optional collection restriction.
+    #[serde(default)]
+    pub collection: Option<String>,
+    /// Requested context token budget.
+    pub max_tokens: usize,
+    /// Token count of the final assembled context.
+    pub token_count: usize,
+    /// Context compilation latency before the audit record is written.
+    pub latency_ms: u64,
+    /// Number of retrieved items dropped by the token budget.
+    pub items_dropped: usize,
+    /// Retrieved candidates and their scores at query time.
+    pub items: Vec<AuditItem>,
+}
+
 fn non_empty(field: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
         return Err(HippocoreError::validation(format!(

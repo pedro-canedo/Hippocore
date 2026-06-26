@@ -76,10 +76,13 @@ not a dated commitment.
 - `ContextBlock` with assembled text, token count, item provenance, and drop count. ✅
 - CLI `build-context` subcommand with `--json` output. ✅
 
-## Phase 9 — RAG Audit Engine
+## Phase 9 — RAG Audit Engine ✅
 
-- Trace question → retrieved documents → context → answer.
-- Record tokens, latency and feedback for auditability.
+- Trace question → retrieved items → context with append-only audit records. ✅
+- Record token budgets, final context tokens, retrieved item scores and
+  confidence for auditability. ✅
+- Query audit replay by tenant and time window. ✅
+- CLI `audit` and `rate-memory` feedback loop. ✅
 
 ## Phase 10 — Graph Memory
 

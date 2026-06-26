@@ -39,22 +39,26 @@ pub mod storage;
 pub mod cli;
 
 use std::fmt;
+use std::fs::OpenOptions;
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub use config::Config;
 pub use errors::{HippocoreError, Result};
 pub use index::VectorIndexKind;
 pub use model::{
-    Chunk, Collection, Document, Embedding, FileObject, ItemKind, Memory, MemoryType, Metadata,
-    RecallResult, Record, Source, Tenant,
+    AuditItem, AuditRecord, Chunk, Collection, Document, Embedding, FileObject, ItemKind, Memory,
+    MemoryType, Metadata, RecallResult, Record, Source, Tenant,
 };
 pub use query::SearchMode;
 
 use index::{Index, IndexEntry};
 use query::{Filter, QueryRequest};
 use storage::{Operation, State, Storage};
+
+const AUDIT_FILE: &str = "audit.log";
 
 /// The main database handle.
 pub struct Hippocore {
@@ -1064,10 +1068,17 @@ impl Hippocore {
     /// greedily until the next item would exceed `max_tokens`. The token budget
     /// uses the approximation 1 token ≈ 4 UTF-8 bytes.
     pub fn build_context(&self, req: BuildContextRequest) -> Result<ContextBlock> {
+        let started = Instant::now();
+        let tenant_id = req.tenant_id.clone();
+        let query = req.query.clone();
+        let mode = req.mode;
+        let collection = req.collection.clone();
+        let max_tokens = req.max_tokens;
+
         let mut recall_req = RecallRequest::new(req.tenant_id, req.query);
         recall_req.user_id = req.user_id;
         recall_req.top_k = req.top_k_candidates;
-        recall_req.mode = req.mode;
+        recall_req.mode = mode;
         recall_req.collection = req.collection;
         recall_req.metadata = req.metadata_filter;
 
@@ -1150,12 +1161,116 @@ impl Hippocore {
             .collect::<Vec<_>>()
             .join("\n\n");
 
-        Ok(ContextBlock {
+        let block = ContextBlock {
             token_count: approx_tokens(&text),
             text,
             items_included: included,
             items_dropped: dropped,
-        })
+        };
+
+        let audit = AuditRecord {
+            timestamp_ms: now_millis(),
+            tenant_id,
+            query,
+            mode: mode.as_str().to_string(),
+            collection,
+            max_tokens,
+            token_count: block.token_count,
+            latency_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+            items_dropped: block.items_dropped,
+            items: hits
+                .iter()
+                .map(|hit| {
+                    let kind_label = match hit.kind {
+                        ItemKind::Memory => "memory",
+                        ItemKind::DocumentChunk => "chunk",
+                        ItemKind::Record => "record",
+                    };
+                    let item_tokens =
+                        approx_tokens(&format!("[{kind_label}:{}]\n{}", hit.id, hit.text));
+                    AuditItem {
+                        id: hit.id.clone(),
+                        kind: hit.kind,
+                        collection: hit.collection.clone(),
+                        score: hit.score,
+                        vector_score: hit.vector_score,
+                        text_score: hit.text_score,
+                        confidence: hit.confidence,
+                        token_count: item_tokens,
+                        included: block
+                            .items_included
+                            .iter()
+                            .any(|item| item.id == hit.id && item.kind == hit.kind),
+                    }
+                })
+                .collect(),
+        };
+        self.append_audit_record(&audit)?;
+
+        Ok(block)
+    }
+
+    /// Replay RAG audit records for one tenant within an inclusive epoch-ms range.
+    pub fn query_audit(
+        &self,
+        from_ms: i64,
+        to_ms: i64,
+        tenant_id: impl AsRef<str>,
+    ) -> Result<Vec<AuditRecord>> {
+        if from_ms > to_ms {
+            return Err(HippocoreError::validation(
+                "query_audit requires from_ms <= to_ms",
+            ));
+        }
+        let tenant_id = tenant_id.as_ref();
+        if tenant_id.trim().is_empty() {
+            return Err(HippocoreError::validation(
+                "query_audit requires a tenant_id",
+            ));
+        }
+
+        let path = self.storage.data_dir().join(AUDIT_FILE);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let file = std::fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut records = Vec::new();
+        for line in reader.lines() {
+            let line = match line {
+                Ok(line) => line,
+                Err(_) => break,
+            };
+            if line.trim().is_empty() {
+                continue;
+            }
+            let record = match serde_json::from_str::<AuditRecord>(&line) {
+                Ok(record) => record,
+                Err(_) => break,
+            };
+            if record.tenant_id == tenant_id
+                && record.timestamp_ms >= from_ms
+                && record.timestamp_ms <= to_ms
+            {
+                records.push(record);
+            }
+        }
+        Ok(records)
+    }
+
+    fn append_audit_record(&self, record: &AuditRecord) -> Result<()> {
+        let path = self.storage.data_dir().join(AUDIT_FILE);
+        let json = serde_json::to_vec(record)?;
+        let mut line = json;
+        line.push(b'\n');
+
+        let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+        file.write_all(&line)?;
+        file.flush()?;
+        if self.config.sync_writes {
+            file.sync_all()?;
+        }
+        Ok(())
     }
 
     fn run_query(&self, req: RecallRequest) -> Result<Vec<RecallResult>> {

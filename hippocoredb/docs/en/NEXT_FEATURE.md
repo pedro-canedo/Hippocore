@@ -2,47 +2,54 @@
 
 ## Feature name
 
-**RAG Audit Engine** — per-item confidence scoring and a query-time audit log.
+**Graph Memory v0.1** — durable relationship edges between context items.
 
 ## Why it matters
 
-Context Compiler (Phase 8) assembles LLM-ready context, but once an answer is
-generated there is no built-in way to trace it back to the source items, score
-their reliability, or record what was retrieved and when. In production RAG
-systems this is a critical gap: support engineers need to know *why* the agent
-said X, and reliability teams need to detect drift or low-quality retrieval
-before it causes customer-facing incidents.
+The RAG Audit Engine can now explain which items were retrieved for a context
+block, but Hippocore still treats memories, document chunks and records as a
+flat set. Agents often need to know that one item explains, depends on,
+mentions, conflicts with or is related to another item. A small graph layer
+improves context reliability without jumping to full GraphRAG.
 
-The RAG Audit Engine adds:
-- A `confidence: Option<f32>` field on `Memory` and `RecallResult` so facts can
-  carry an explicit reliability signal (e.g. from user feedback or review).
-- An append-only audit log (`<data_dir>/audit.log`) where every `build_context`
-  call is recorded: timestamp, query, tenant, items retrieved, scores, tokens.
-- A `query_audit(from_ms, to_ms, tenant_id)` API to replay what was retrieved
-  in a time window.
-- A `rate_memory(id, confidence)` API for human-in-the-loop feedback.
-- CLI: `audit --from <ms> --to <ms> --tenant <t> [--json]` and
-  `rate-memory --id <id> --confidence <0.0-1.0>`.
+Graph Memory v0.1 should add:
+
+- A typed `GraphEdge` model with `tenant_id`, `from_id`, `from_kind`, `to_id`,
+  `to_kind`, `relation`, metadata and timestamps.
+- Durable APIs to add, list and delete edges.
+- Tenant-scoped graph traversal helpers for direct neighbours only.
+- CLI commands to add/list/delete graph edges with `--json` output.
+- Context compiler awareness that can optionally include directly related
+  neighbour ids in provenance/audit output.
 
 ## Acceptance criteria
 
-- `Memory` and `RecallResult` gain `confidence: Option<f32>` with backward-
-  compatible serde default (`None`).
-- Every `build_context` call writes a JSON-lines audit record atomically.
-- `query_audit(from_ms, to_ms, tenant_id)` returns `Vec<AuditRecord>`.
-- `rate_memory` validates confidence is in `[0.0, 1.0]`, stores it durably.
-- CLI `audit` and `rate-memory` commands work; `--json` output is parseable.
-- At least 4 integration tests: audit record written on build_context, replay
-  by time range, confidence rating round-trip, invalid confidence rejected.
-- All 85+ tests pass; no new external dependencies.
+- `GraphEdge` is persisted through the existing WAL/snapshot model and survives
+  reopen.
+- Edge APIs validate tenant isolation and reject unknown endpoint items.
+- Deleting an item removes or hides dangling edges deterministically.
+- CLI commands work:
+  - `add-edge --tenant <t> --from-kind <kind> --from-id <id> --to-kind <kind>
+    --to-id <id> --relation <name>`
+  - `list-edges --tenant <t> [--from-id <id>] [--json]`
+  - `delete-edge --tenant <t> --id <edge_id>`
+- At least 4 deterministic tests: add/list happy path, unknown endpoint error,
+  tenant isolation, restart durability.
+- Documentation is updated in English and Portuguese.
+- All quality gates pass:
+  - `cargo fmt --all --check`
+  - `cargo test --workspace`
+  - `cargo clippy --workspace --all-targets -- -D warnings`
 
 ## Non-goals
 
-- Automatic confidence calibration (human/agent sets it; engine records it).
-- Full provenance graph (Phase 10 — Graph Memory).
+- Full GraphRAG traversal or ranking.
+- Query language for graph patterns.
+- Entity extraction.
 - Server/HTTP mode.
+- Distributed graph storage.
 
 ## Follow-up
 
-Phase 9 done → Phase 10: **Graph Memory** — inter-item relationship edges and
-graph-aware recall.
+After Graph Memory v0.1, decide whether the next highest-value step is graph-aware
+recall ranking or audit retention/rotation.

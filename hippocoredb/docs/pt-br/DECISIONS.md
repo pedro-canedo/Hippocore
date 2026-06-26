@@ -41,3 +41,19 @@ versão em inglês em `docs/en/DECISIONS.md`.
   textual.
 - **Motivo**: entrega valor de banco/contexto sem implementar SQL cedo demais.
 - **Trade-off**: filtros por campo e schemas ricos ficam para depois.
+
+## ADR-008: Log de auditoria RAG separado e append-only
+
+- **Decisão**: persistir registros de auditoria de query em
+  `<data_dir>/audit.log`, como um objeto JSON por linha, separado de `wal.log` e
+  `snapshot.json`.
+- **Contexto**: a Fase 9 precisa rastrear chamadas de `build_context` sem tratar
+  uma query como mutação durável do estado materializado do banco.
+- **Alternativas consideradas**:
+  - adicionar auditoria ao WAL de mutações como uma nova `Operation`;
+  - armazenar auditoria dentro de `State` e snapshots.
+- **Motivo**: eventos de auditoria são histórico operacional, não dados vivos de
+  contexto. Um arquivo JSON-lines dedicado mantém o replay simples,
+  inspecionável e local-first, sem inflar snapshot nem rebuild de índice.
+- **Trade-off**: `audit.log` não é compactado junto com o snapshot. Isso é
+  aceitável na Fase 9; retenção/rotação pode vir depois sem alterar recovery.

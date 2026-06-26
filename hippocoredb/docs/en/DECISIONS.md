@@ -106,3 +106,19 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
 - **Reason**: Library correctness + CLI ergonomics without coupling them.
 - **Tradeoffs**: Slightly different behavior between the two surfaces (documented
   in README and CLI help).
+
+## ADR-008: RAG audit log is append-only and separate from the mutation WAL
+
+- **Decision**: Persist query-time audit records in `<data_dir>/audit.log` as
+  one JSON object per line, separate from `wal.log` and `snapshot.json`.
+- **Context**: Phase 9 needs to trace `build_context` calls without treating a
+  query as a durable mutation of the materialized database state.
+- **Alternatives considered**:
+  - Add audit records to the mutation WAL as a new `Operation`.
+  - Store audit records inside `State` and snapshots.
+- **Reason**: Audit events are operational history, not live context data. A
+  dedicated append-only JSON-lines file keeps query replay simple, inspectable
+  and local-first while avoiding index rebuild or snapshot bloat.
+- **Tradeoffs**: `audit.log` is not compacted with the state snapshot. That is
+  acceptable for Phase 9; retention/rotation can be added later without changing
+  recovery semantics.
