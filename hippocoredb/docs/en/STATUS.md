@@ -4,7 +4,20 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Valid-Window Recall Tests v0.1**:
+**Collection CRUD Tests v0.1**:
+
+- New test file `crates/hippocore/tests/collection_crud.rs` with 6 tests.
+- Key finding documented: `create_collection` is **idempotent** (returns the
+  existing collection on duplicate, no error) — safe to use as an upsert.
+- Covers: creation appears in list, idempotency, two tenants share names,
+  collection list tenant-isolated, recall on nonexistent returns empty,
+  description round-trip.
+- No production code changes.
+- Documentation in `docs/en/COLLECTION_CRUD.md` and
+  `docs/pt-br/COLLECTION_CRUD.md`.
+- 6 new tests. 165 tests total.
+
+Previous: **Valid-Window Recall Tests v0.1**:
 
 - New test file `crates/hippocore/tests/valid_window.rs` with 5 tests using
   deterministic epoch-ms constants (FAR_PAST=2001, FAR_FUTURE=~year 2255).
@@ -517,7 +530,7 @@ the mutation WAL.
 
 ## Next recommended feature
 
-**Collection CRUD Tests v0.1** — deterministic tests for the collection
-lifecycle: create, list, delete, isolation between tenants, and behavior when
-items in the collection are queried after the collection is deleted.
-See NEXT_FEATURE.md.
+**WAL Recovery Tests v0.1** — deterministic tests verifying that a database
+recovered from a torn or partial WAL entry (simulated by truncating the WAL
+mid-record) starts successfully and the last partial operation is skipped, not
+fatal. See NEXT_FEATURE.md.

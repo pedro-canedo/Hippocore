@@ -2,40 +2,39 @@
 
 ## Feature name
 
-**Collection CRUD Tests v0.1** — deterministic tests for the full collection
-lifecycle.
+**WAL Recovery Tests v0.1** — deterministic tests verifying WAL torn-write
+handling on database open.
 
 ## Why it matters
 
-Collections are the primary scoping unit for all items (memories, documents,
-records). Their create/list/delete lifecycle and cross-tenant isolation are
-exercised incidentally by many existing tests, but there is no focused suite
-covering:
-
-- Duplicate collection names within a tenant return an error.
-- Collections from different tenants don't leak into each other's list.
-- Deleting a collection removes all its items from the retrieval index.
-- Querying a deleted collection's items after deletion returns empty results.
+`CLAUDE.md` and `docs/en/ARCHITECTURE.md` document that "a torn trailing line
+[in the WAL] is skipped, not fatal." This invariant is critical for data safety
+(power loss after a partial write must not corrupt the database), but there are
+no regression tests locking it down. A future refactor of the storage layer
+could accidentally change recovery behavior without any test catching it.
 
 ## Behaviour
 
-No new production code. The test suite will cover:
+No new production code. The test suite will verify:
 
-1. Create, then list collections for a tenant — collection appears.
-2. Creating a duplicate collection name within the same tenant returns an error.
-3. Two tenants can have collections with the same name without interference.
-4. After deleting a collection, `list_collections` no longer shows it.
-5. After deleting a collection, recall scoped to that collection returns empty.
+1. A fresh database with a clean WAL opens successfully.
+2. A database whose WAL file has been truncated mid-record opens successfully
+   (partial last record is skipped, not fatal).
+3. After a torn-WAL open, operations that preceded the torn entry are intact in
+   the recovered state.
+4. A WAL with an invalid (corrupted) JSON record at the end opens without panic
+   and skips the bad entry.
 
 ## Files
 
-- `crates/hippocore/tests/collection_crud.rs` — new dedicated test file.
-- `docs/en/COLLECTION_CRUD.md` and `docs/pt-br/COLLECTION_CRUD.md`.
+- `crates/hippocore/tests/wal_recovery.rs` — new dedicated test file.
+- `docs/en/WAL_RECOVERY.md` and `docs/pt-br/WAL_RECOVERY.md`.
 - `docs/en/STATUS.md` and `docs/pt-br/STATUS.md`.
 
 ## Acceptance criteria
 
-- At least 5 deterministic integration tests.
+- At least 4 deterministic integration tests using `TempDir` and direct WAL
+  file manipulation (truncate / corrupt via `std::fs`).
 - All quality gates pass:
   - `cargo fmt --all --check`
   - `cargo test --workspace`
@@ -43,6 +42,6 @@ No new production code. The test suite will cover:
 
 ## Out of scope
 
-- Collection-level metadata or description updates.
+- WAL compaction changes.
 - Server mode.
 - Production code changes.

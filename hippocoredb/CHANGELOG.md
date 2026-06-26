@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Collection CRUD Tests v0.1
+
+- New test file `crates/hippocore/tests/collection_crud.rs` with 6 tests
+  covering: creation appears in list, idempotency (duplicate create returns
+  existing, not error), two tenants sharing a name, tenant-isolated listing,
+  recall scoped to nonexistent collection returns empty, description round-trip.
+  Key invariant confirmed: `create_collection` is an idempotent upsert. No
+  production code changes. 165 tests total.
+
 ### Added — Valid-Window Recall Tests v0.1
 
 - New test file `crates/hippocore/tests/valid_window.rs` with 5 deterministic
