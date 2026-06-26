@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — MMR (Maximal Marginal Relevance) v0.1
+
+- `RecallRequest` gains `mmr: bool` (default `false`) and `mmr_lambda: f32`
+  (default `0.5`). When `mmr = true`, results are reranked by greedily selecting
+  items that maximise `lambda * score - (1-lambda) * max_cos_sim_to_selected`.
+  `lambda=1.0` degenerates to score order; `lambda=0.0` to pure diversity.
+  Items without embeddings are appended last in score order.
+- CLI: `--mmr` and `--mmr-lambda` flags on `hippocore recall`.
+- HTTP: `{"mmr": true, "mmr_lambda": 0.7}` in the recall body.
+
 ### Added — Matched Terms v0.1
 
 - `RecallResult` gains `matched_terms: Vec<String>` (serde default `[]`).

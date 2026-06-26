@@ -535,6 +535,12 @@ pub struct RecallRequest {
     /// Memories, records, and other non-chunk items are always kept.
     /// Default `false` preserves existing behaviour.
     pub dedup_chunks: bool,
+    /// When `true`, apply Maximal Marginal Relevance reranking to increase
+    /// result diversity. Default `false`.
+    pub mmr: bool,
+    /// Relevance weight for MMR in `[0.0, 1.0]`. `1.0` = pure relevance
+    /// (equivalent to score ranking); `0.0` = pure diversity. Default `0.5`.
+    pub mmr_lambda: f32,
 }
 
 impl RecallRequest {
@@ -555,6 +561,8 @@ impl RecallRequest {
             include_superseded: false,
             min_score: None,
             dedup_chunks: false,
+            mmr: false,
+            mmr_lambda: 0.5,
         }
     }
 }
@@ -1917,6 +1925,8 @@ impl Hippocore {
             top_k: req.top_k,
             min_score: req.min_score,
             dedup_chunks: req.dedup_chunks,
+            mmr: req.mmr,
+            mmr_lambda: req.mmr_lambda,
         };
         Ok(query::execute(
             &self.index,

@@ -150,6 +150,14 @@ pub struct QueryRequest {
     /// Results are already sorted by score when deduplication runs, so the
     /// first occurrence of each `document_id` is always the best chunk.
     pub dedup_chunks: bool,
+    /// When `true`, apply Maximal Marginal Relevance reranking after initial
+    /// scoring to increase result diversity. Items are iteratively selected to
+    /// maximize a weighted combination of query relevance and dissimilarity
+    /// from already-selected results. `mmr_lambda` controls the trade-off.
+    pub mmr: bool,
+    /// Weight for the relevance term in MMR (0.0 = diversity-only, 1.0 =
+    /// relevance-only). Default `0.5`. Only used when `mmr = true`.
+    pub mmr_lambda: f32,
 }
 
 struct Scored<'a> {
@@ -445,8 +453,74 @@ pub fn execute(
         });
     }
 
-    results.truncate(request.top_k);
+    // MMR reranking: iteratively select results that balance relevance (score)
+    // and diversity (dissimilarity to already-selected items). Requires
+    // embeddings to compute inter-result similarity; items without embeddings
+    // are appended at the end in their original score order.
+    if request.mmr && results.len() > 1 {
+        let emb_map: std::collections::HashMap<String, &[f32]> = scored
+            .iter()
+            .filter(|s| !s.entry.embedding.is_empty())
+            .map(|s| (s.entry.id.clone(), s.entry.embedding.as_slice()))
+            .collect();
+        results = mmr_rerank(results, &emb_map, request.mmr_lambda, request.top_k);
+    } else {
+        results.truncate(request.top_k);
+    }
+
     results
+}
+
+/// Maximal Marginal Relevance reranking.
+///
+/// Greedily selects up to `k` items from `candidates` to maximise:
+///   `lambda * score - (1 - lambda) * max_sim_to_selected`
+///
+/// Items without embeddings in `emb_map` are ranked last in original order.
+fn mmr_rerank(
+    candidates: Vec<RecallResult>,
+    emb_map: &std::collections::HashMap<String, &[f32]>,
+    lambda: f32,
+    k: usize,
+) -> Vec<RecallResult> {
+    let lambda = lambda.clamp(0.0, 1.0);
+    let mut remaining: Vec<RecallResult> = candidates;
+    let mut selected: Vec<RecallResult> = Vec::with_capacity(k);
+    let mut selected_embs: Vec<&[f32]> = Vec::with_capacity(k);
+
+    while selected.len() < k && !remaining.is_empty() {
+        let mut best_idx = 0;
+        let mut best_val = f32::NEG_INFINITY;
+
+        for (i, r) in remaining.iter().enumerate() {
+            let relevance = r.score;
+            let max_sim = if selected_embs.is_empty() {
+                0.0
+            } else if let Some(emb) = emb_map.get(&r.id) {
+                selected_embs
+                    .iter()
+                    .filter_map(|sel| cosine_similarity(emb, sel))
+                    .fold(0.0_f32, f32::max)
+            } else {
+                // No embedding: treat as maximally redundant so it falls to the end.
+                1.0
+            };
+
+            let mmr_score = lambda * relevance - (1.0 - lambda) * max_sim;
+            if mmr_score > best_val {
+                best_val = mmr_score;
+                best_idx = i;
+            }
+        }
+
+        let chosen = remaining.remove(best_idx);
+        if let Some(emb) = emb_map.get(&chosen.id) {
+            selected_embs.push(emb);
+        }
+        selected.push(chosen);
+    }
+
+    selected
 }
 
 /// RRF constant — keep here so the unit test can import it.
@@ -697,5 +771,92 @@ mod tests {
             .filter(|t| query_tokens.contains(t))
             .collect();
         assert!(terms.is_empty(), "no overlap means empty matched_terms");
+    }
+
+    #[test]
+    fn mmr_rerank_picks_diverse_results() {
+        use crate::model::{ItemKind, Metadata, RecallResult};
+
+        let make = |id: &str, score: f32| RecallResult {
+            id: id.to_string(),
+            kind: ItemKind::Memory,
+            tenant_id: "t".into(),
+            collection: "c".into(),
+            document_id: None,
+            record_table: None,
+            user_id: None,
+            memory_type: None,
+            text: id.to_string(),
+            metadata: Metadata::new(),
+            source: None,
+            score,
+            vector_score: 0.0,
+            text_score: 0.0,
+            reason: String::new(),
+            contradictions: vec![],
+            confidence: None,
+            matched_terms: vec![],
+        };
+
+        // a and b have identical embeddings (very similar); c is orthogonal.
+        // MMR with lambda=0.5 should prefer c over b after picking a.
+        let a = make("a", 0.9);
+        let b = make("b", 0.8);
+        let c = make("c", 0.5);
+
+        let emb_a: Vec<f32> = vec![1.0, 0.0];
+        let emb_b: Vec<f32> = vec![1.0, 0.0]; // identical to a
+        let emb_c: Vec<f32> = vec![0.0, 1.0]; // orthogonal
+
+        let mut emb_map = std::collections::HashMap::new();
+        emb_map.insert("a".to_string(), emb_a.as_slice());
+        emb_map.insert("b".to_string(), emb_b.as_slice());
+        emb_map.insert("c".to_string(), emb_c.as_slice());
+
+        let result = mmr_rerank(vec![a, b, c], &emb_map, 0.5, 2);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].id, "a", "first pick must be highest-scoring: a");
+        assert_eq!(
+            result[1].id, "c",
+            "second pick must be diverse (c), not redundant (b)"
+        );
+    }
+
+    #[test]
+    fn mmr_rerank_lambda_1_equals_score_order() {
+        use crate::model::{ItemKind, Metadata, RecallResult};
+
+        let make = |id: &str, score: f32| RecallResult {
+            id: id.to_string(),
+            kind: ItemKind::Memory,
+            tenant_id: "t".into(),
+            collection: "c".into(),
+            document_id: None,
+            record_table: None,
+            user_id: None,
+            memory_type: None,
+            text: id.to_string(),
+            metadata: Metadata::new(),
+            source: None,
+            score,
+            vector_score: 0.0,
+            text_score: 0.0,
+            reason: String::new(),
+            contradictions: vec![],
+            confidence: None,
+            matched_terms: vec![],
+        };
+
+        let items = vec![make("a", 0.9), make("b", 0.8), make("c", 0.5)];
+        let emb: Vec<f32> = vec![1.0, 0.0];
+        let mut emb_map = std::collections::HashMap::new();
+        emb_map.insert("a".to_string(), emb.as_slice());
+        emb_map.insert("b".to_string(), emb.as_slice());
+        emb_map.insert("c".to_string(), emb.as_slice());
+
+        // With lambda=1.0, diversity term is zero so order matches score.
+        let result = mmr_rerank(items, &emb_map, 1.0, 3);
+        let ids: Vec<_> = result.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids, ["a", "b", "c"], "lambda=1.0 must preserve score order");
     }
 }

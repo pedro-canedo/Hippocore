@@ -296,6 +296,13 @@ struct RecallArgs {
     /// Memories and records are always kept regardless of this flag.
     #[arg(long)]
     dedup_chunks: bool,
+    /// Apply Maximal Marginal Relevance reranking to increase result diversity.
+    #[arg(long)]
+    mmr: bool,
+    /// Relevance weight for MMR in [0.0, 1.0]. Default 0.5 (balanced).
+    /// 1.0 = pure relevance; 0.0 = pure diversity. Only used when --mmr is set.
+    #[arg(long, default_value_t = 0.5)]
+    mmr_lambda: f32,
 }
 
 #[derive(Args)]
@@ -871,6 +878,8 @@ fn cmd_recall(a: RecallArgs) -> Result<(), String> {
     req.include_superseded = a.include_superseded;
     req.min_score = a.min_score;
     req.dedup_chunks = a.dedup_chunks;
+    req.mmr = a.mmr;
+    req.mmr_lambda = a.mmr_lambda;
 
     let results = db.search(req).map_err(|e| format!("{e}"))?;
 

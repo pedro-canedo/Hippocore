@@ -4,7 +4,18 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Matched Terms v0.1**:
+**MMR (Maximal Marginal Relevance) v0.1**:
+
+- Adicionado `mmr: bool` e `mmr_lambda: f32` em `RecallRequest` (defaults: `false`, `0.5`).
+- Quando ativado, resultados sao reranqueados selecionando iterativamente itens
+  que maximizam `lambda * relevância - (1-lambda) * max_sim_com_selecionados`.
+  Itens sem embeddings sao adicionados ao final.
+- `lambda=1.0` equivale a ordenacao por score; `lambda=0.0` a diversidade pura.
+- CLI: flags `--mmr` e `--mmr-lambda` em `hippocore recall`.
+- HTTP: `{"mmr": true, "mmr_lambda": 0.5}` no body de recall.
+- Dois testes unitarios: pick diverso com `lambda=0.5`; ordem por score preservada com `lambda=1.0`.
+
+Anterior: **Matched Terms v0.1**:
 
 - Adicionado `matched_terms: Vec<String>` em `RecallResult` (serde default `[]`).
 - Para modos hybrid e text, o campo contem a intersecao dos tokens da query com

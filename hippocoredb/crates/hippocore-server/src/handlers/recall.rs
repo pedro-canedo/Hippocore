@@ -15,6 +15,8 @@ pub struct RecallBody {
     pub top_k: Option<usize>,
     pub min_score: Option<f32>,
     pub dedup_chunks: Option<bool>,
+    pub mmr: Option<bool>,
+    pub mmr_lambda: Option<f32>,
 }
 
 #[derive(Serialize)]
@@ -38,6 +40,10 @@ pub async fn recall(
     }
     req.min_score = body.min_score;
     req.dedup_chunks = body.dedup_chunks.unwrap_or(false);
+    req.mmr = body.mmr.unwrap_or(false);
+    if let Some(lam) = body.mmr_lambda {
+        req.mmr_lambda = lam;
+    }
 
     let db = state.db.lock().unwrap();
     let results = db.recall(req).map_err(ServerError::from)?;
