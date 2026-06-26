@@ -20,6 +20,7 @@
 //! }
 //! ```
 
+mod admin;
 mod auth;
 mod handlers;
 mod types;
@@ -53,7 +54,7 @@ pub struct ServerConfig {
 #[derive(Clone)]
 pub struct AppState {
     pub(crate) db: Arc<Mutex<Hippocore>>,
-    pub(crate) api_key: String,
+    pub(crate) api_key: Arc<Mutex<String>>,
 }
 
 impl AppState {
@@ -61,7 +62,7 @@ impl AppState {
     pub fn new(db: Hippocore, api_key: impl Into<String>) -> Self {
         Self {
             db: Arc::new(Mutex::new(db)),
-            api_key: api_key.into(),
+            api_key: Arc::new(Mutex::new(api_key.into())),
         }
     }
 }
@@ -71,7 +72,7 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), Box<dyn std::error::Error>> 
     let db = Hippocore::open(Config::new(&cfg.data_dir))?;
     let state = AppState {
         db: Arc::new(Mutex::new(db)),
-        api_key: cfg.api_key.clone(),
+        api_key: Arc::new(Mutex::new(cfg.api_key.clone())),
     };
 
     let app = build_router(state);
@@ -82,8 +83,22 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), Box<dyn std::error::Error>> 
 
 /// Build the axum `Router` — extracted so tests can call it without binding a port.
 pub fn build_router(state: AppState) -> Router {
+    let public = Router::new()
+        .route("/admin", get(admin::page))
+        .route("/", get(admin::root));
+
     // Routes that require authentication.
     let protected = Router::new()
+        .route("/admin/bootstrap", get(admin::bootstrap))
+        .route("/admin/config", get(admin::config))
+        .route("/admin/api-key/rotate", post(admin::rotate_api_key))
+        .route("/admin/tenants", get(admin::tenants))
+        .route("/admin/collections", get(admin::collections))
+        .route("/admin/memories", get(admin::memories))
+        .route("/admin/documents", get(admin::documents))
+        .route("/admin/records", get(admin::records))
+        .route("/admin/files", get(admin::files))
+        .route("/admin/graph-edges", get(admin::graph_edges))
         .route("/stats", get(handlers::stats::get_stats))
         .route("/tenants", post(handlers::tenants::create_tenant))
         .route(
@@ -117,6 +132,7 @@ pub fn build_router(state: AppState) -> Router {
         ));
 
     Router::new()
+        .merge(public)
         .route("/health", get(health))
         .merge(protected)
         .with_state(state)

@@ -4,7 +4,18 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Phase 12 — Multimodal Storage ✅**:
+**Web Admin Console v0.1**:
+
+- `hippocore serve` now exposes a browser-based admin console at `/admin`.
+- Admin bootstrap/config endpoints let the UI load stats, tenants, and rotate
+  the active API key after login.
+- The console can browse tenants, collections, memories, documents, records,
+  files, and graph edges, and it can run recall/context queries.
+- Docker-first local setup is documented in `docker-compose.yml` and the root
+  README.
+
+Previous: **Phase 12 — Multimodal Storage ✅**:
+
 
 - `StoreDocumentRequest` gains `content_type: Option<String>` and
   `raw: Option<Vec<u8>>` (binary payload for PDF).

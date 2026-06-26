@@ -109,3 +109,18 @@ Build administration in this order:
 
 This keeps Hippocore DB aligned with local-first principles while making it
 practical for real users to curate the context their agents rely on.
+
+### Current web admin surface
+
+The server now exposes a local web admin console at `/admin` when you run
+`hippocore serve`. It is intentionally simple and local-first:
+
+- login with an API key stored in the browser;
+- browse tenants and collections;
+- create tenants and collections;
+- store memories and documents;
+- run recall and context queries;
+- rotate the active API key;
+- copy Ollama integration env snippets for local compose setups.
+
+The admin console is meant to complement the CLI, not replace it.

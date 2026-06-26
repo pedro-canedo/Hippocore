@@ -97,6 +97,21 @@ Opções de longo prazo:
 Isso deve vir depois do modelo de dados, context projection e fluxos de
 administração estarem estáveis.
 
+### Superfície web atual
+
+O servidor agora expõe um console web local em `/admin` quando você executa
+`hippocore serve`. Ele é simples e local-first:
+
+- login com uma API key armazenada no navegador;
+- navegação de tenants e collections;
+- criação de tenants e collections;
+- armazenamento de memórias e documentos;
+- execução de queries de recall e contexto;
+- rotação da API key ativa;
+- cópia de snippets de integração com Ollama para setups locais em compose.
+
+O console administrativo complementa a CLI; não a substitui.
+
 ## Recomendação de curto prazo
 
 Construir administração nesta ordem:

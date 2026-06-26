@@ -19,8 +19,9 @@ pub async fn require_api_key(
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
+    let current_key = state.api_key.lock().unwrap().clone();
 
-    if key != state.api_key {
+    if key != current_key {
         return Err(StatusCode::UNAUTHORIZED);
     }
     Ok(next.run(req).await)

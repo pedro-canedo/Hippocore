@@ -8,6 +8,10 @@ copilots, RAG applications and multi-tenant AI systems. It runs embedded in your
 process, persists to a local directory, and recalls context through **vector**,
 **text**, and **hybrid** search — with **tenant isolation** built in.
 
+When you run `hippocore serve`, it also exposes a web admin console at
+`/admin` for browsing data, rotating API keys, and generating integration
+snippets for local workflows such as Ollama.
+
 The product direction is broader than storing embeddings: documents, memories,
 structured records, files and metadata should become manageable database objects
 that can be projected into native context for SDKs, agents and RAG systems.
@@ -16,6 +20,7 @@ For complete usage patterns, examples, and integration choices, see:
 
 - [docs/en/USAGE_GUIDE.md](docs/en/USAGE_GUIDE.md)
 - [docs/pt-br/USAGE_GUIDE.md](docs/pt-br/USAGE_GUIDE.md)
+- [docker-compose.yml](docker-compose.yml)
 
 ---
 
@@ -111,6 +116,21 @@ $BIN recall --db ./data --tenant acme --query "oracle ORA-12514 in staging" --to
 $BIN inspect --db ./data
 $BIN stats --db ./data
 ```
+
+## Web admin and Docker Compose
+
+The server also serves a browser admin console at `http://localhost:8080/admin`
+when run with `hippocore serve`.
+
+For the local-first container setup:
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080/admin`, log in with the API key from your
+environment or `.env`, and rotate it from the UI if needed. The compose file
+also includes an optional `ollama` profile for local model integration.
 
 ## Quickstart (Rust)
 

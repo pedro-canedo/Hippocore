@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Web Admin Console v0.1
+
+- Browser-based admin console at `/admin` served by `hippocore serve`.
+- API-key login stored client-side in the browser and API key rotation from the UI.
+- Browser browsing for tenants, collections, memories, documents, records,
+  files, graph edges, recall, and context queries.
+- Dockerfile and `docker-compose.yml` for a local-first container workflow.
+- README and server/admin docs updated with usage and integration notes.
+
 ### Added — Multimodal Storage (Phase 12 complete)
 
 - `StoreDocumentRequest` gains `content_type: Option<String>` and

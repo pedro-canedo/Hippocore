@@ -16,6 +16,10 @@ HIPPOCORE_API_KEY=minhachave hippocore serve --port 8080
 hippocore serve --port 8080 --db ./meusdados --api-key minhachave
 ```
 
+O mesmo processo também serve um console administrativo web em `/admin`.
+Ele usa a API key nas requisições do navegador e pode rotacionar a chave ativa
+após o login.
+
 ## Autenticação
 
 Todo endpoint protegido exige o header `X-Api-Key` com valor igual à chave
@@ -31,11 +35,22 @@ A chave é definida via `--api-key <key>` (flag CLI) ou variável de ambiente
 | Método | Path | Descrição |
 |---|---|---|
 | `GET` | `/health` | Retorna `200 OK` — liveness probe |
+| `GET` | `/admin` | Console administrativo web |
 
 ### Protegidos (requerem `X-Api-Key`)
 
 | Método | Path | Descrição |
 |---|---|---|
+| `GET` | `/admin/bootstrap` | Stats, tenants e config para o console |
+| `GET` | `/admin/config` | Resumo básico da configuração do servidor |
+| `POST` | `/admin/api-key/rotate` | Rotacionar a API key ativa |
+| `GET` | `/admin/tenants` | Listar tenants |
+| `GET` | `/admin/collections` | Listar collections |
+| `GET` | `/admin/memories` | Listar memórias |
+| `GET` | `/admin/documents` | Listar documentos |
+| `GET` | `/admin/records` | Listar records |
+| `GET` | `/admin/files` | Listar arquivos |
+| `GET` | `/admin/graph-edges` | Listar arestas de grafo |
 | `GET` | `/stats` | `DatabaseStats` como JSON |
 | `POST` | `/tenants` | Criar tenant (`{"id":"t1","name":"T1"}`) |
 | `POST` | `/tenants/:tid/collections` | Criar collection (`{"name":"col","description":"..."}`) |
@@ -62,7 +77,7 @@ A chave é definida via `--api-key <key>` (flag CLI) ou variável de ambiente
 ## Arquitetura
 
 - **Crate**: `crates/hippocore-server` (biblioteca + binário opcional).
-- **State**: `AppState { db: Arc<Mutex<Hippocore>>, api_key: String }`.
+- **State**: `AppState { db: Arc<Mutex<Hippocore>>, api_key: Arc<Mutex<String>> }`.
 - **Middleware de auth**: `axum::middleware::from_fn_with_state`.
 - **Tipo de erro**: `ServerError(StatusCode, String)` implementa `IntoResponse`.
 - **Testes**: usar `build_router(state)` com `tower::ServiceExt::oneshot` para

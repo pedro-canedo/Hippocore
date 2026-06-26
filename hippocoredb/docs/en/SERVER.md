@@ -16,6 +16,10 @@ HIPPOCORE_API_KEY=mysecret hippocore serve --port 8080
 hippocore serve --port 8080 --db ./mydata --api-key mysecret
 ```
 
+The same process also serves a browser-based admin console at `/admin`.
+It uses the API key for browser-side requests and can rotate the active key
+after login.
+
 ## Authentication
 
 Every protected endpoint requires an `X-Api-Key` request header matching the
@@ -32,11 +36,22 @@ environment variable. The server refuses to start if no key is provided.
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/health` | Returns `200 OK` — liveness probe |
+| `GET` | `/admin` | Browser-based admin console |
 
 ### Protected (requires `X-Api-Key`)
 
 | Method | Path | Description |
 |---|---|---|
+| `GET` | `/admin/bootstrap` | Stats, tenants, and config for the admin console |
+| `GET` | `/admin/config` | Basic server configuration summary |
+| `POST` | `/admin/api-key/rotate` | Rotate the active API key |
+| `GET` | `/admin/tenants` | List tenants |
+| `GET` | `/admin/collections` | List collections |
+| `GET` | `/admin/memories` | List memories |
+| `GET` | `/admin/documents` | List documents |
+| `GET` | `/admin/records` | List records |
+| `GET` | `/admin/files` | List files |
+| `GET` | `/admin/graph-edges` | List graph edges |
 | `GET` | `/stats` | `DatabaseStats` as JSON |
 | `POST` | `/tenants` | Create a tenant (`{"id":"t1","name":"T1"}`) |
 | `POST` | `/tenants/:tid/collections` | Create a collection (`{"name":"col","description":"..."}`) |
