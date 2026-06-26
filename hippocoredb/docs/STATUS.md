@@ -18,7 +18,8 @@ _Last updated: 2026-06-26._
   is explicitly mentioned.
 - The TypeScript Ollama RAG example now seeds PostgreSQL service, port, `pg_ctl`,
   Python `psycopg`/`psycopg2`, and "not Oracle listener/lsnrctl" memories; it
-  also prints retrieval debug details and uses a stricter grounded answer prompt.
+  also prunes obsolete demo memory ids, prints retrieval debug details, and uses
+  a stricter grounded answer prompt.
 
 Previous increment: user-provided document embeddings via
 `StoreDocumentRequest.chunks: Option<Vec<ChunkInput>>`.

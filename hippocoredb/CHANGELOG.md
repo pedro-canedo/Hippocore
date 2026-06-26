@@ -20,7 +20,8 @@ All notable changes to Hippocore DB are documented here. This project adheres to
   normalization, Python/PostgreSQL connection ranking, and vector dimension
   mismatch safety.
 - The TypeScript Ollama RAG example now includes stronger PostgreSQL seed
-  memories, richer retrieval debug output, and a stricter grounding prompt.
+  memories, richer retrieval debug output, a stricter grounding prompt, and
+  cleanup for obsolete demo memory ids during ingestion.
 - Docs now distinguish documents, chunks, memories, indexed entries, and WAL
   entries, including why memory-only examples can show `documents=0` with
   `memories>0`.

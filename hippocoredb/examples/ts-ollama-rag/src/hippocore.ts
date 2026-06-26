@@ -101,6 +101,16 @@ export class Hippocore {
     return JSON.parse(this.run(args)) as RecallHit[];
   }
 
+  forget(o: { tenant: string; collection: string; id: string }): void {
+    this.run([
+      "forget",
+      "--db", this.db,
+      "--tenant", o.tenant,
+      "--collection", o.collection,
+      "--id", o.id,
+    ]);
+  }
+
   stats(): string {
     return this.run(["stats", "--db", this.db]);
   }

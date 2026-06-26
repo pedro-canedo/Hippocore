@@ -73,6 +73,8 @@ const KNOWLEDGE: { id: string; text: string; meta?: Record<string, string> }[] =
   },
 ];
 
+const OBSOLETE_MEMORY_IDS = ["hml-policy"];
+
 /** Marker file (inside the data dir) mapping passage id -> text hash, so we
  *  only re-embed passages that are new or whose text changed. */
 const MARKER = resolve(DB_DIR, ".ingested.json");
@@ -130,6 +132,14 @@ async function ingest(db: Hippocore): Promise<void> {
   const marker = loadMarker();
   let embedded = 0;
   let skipped = 0;
+  let staleChecked = 0;
+  for (const id of OBSOLETE_MEMORY_IDS) {
+    db.forget({ tenant: TENANT, collection: COLLECTION, id });
+    if (id in marker) {
+      delete marker[id];
+    }
+    staleChecked++;
+  }
   for (const k of KNOWLEDGE) {
     const hash = sha256(k.text);
     if (marker[k.id] === hash) {
@@ -152,7 +162,7 @@ async function ingest(db: Hippocore): Promise<void> {
   }
   writeFileSync(MARKER, JSON.stringify(marker, null, 2));
   console.log(
-    `Ingestion done: ${embedded} embedded, ${skipped} skipped (unchanged) ` +
+    `Ingestion done: ${embedded} embedded, ${skipped} skipped, ${staleChecked} stale ids checked ` +
       `via ${EMBED_MODEL}.`,
   );
 }
