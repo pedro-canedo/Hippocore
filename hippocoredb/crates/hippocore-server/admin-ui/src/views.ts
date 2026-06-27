@@ -7,7 +7,8 @@ export type View =
   | "ingestion"
   | "explorer"
   | "sql"
-  | "recall";
+  | "recall"
+  | "integrations";
 
 export const NAV_ITEMS: ReadonlyArray<{ view: View; label: string }> = [
   { view: "dashboard", label: "Dashboard" },
@@ -17,4 +18,5 @@ export const NAV_ITEMS: ReadonlyArray<{ view: View; label: string }> = [
   { view: "explorer", label: "Data Explorer" },
   { view: "sql", label: "SQL Editor" },
   { view: "recall", label: "Recall" },
+  { view: "integrations", label: "Integrations" },
 ];

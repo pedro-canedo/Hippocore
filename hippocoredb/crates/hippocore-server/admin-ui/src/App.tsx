@@ -28,6 +28,7 @@ import { DataExplorerView } from "./views/DataExplorerView";
 import { SqlEditorView } from "./views/SqlEditorView";
 import { IngestionView } from "./views/IngestionView";
 import { RecallView } from "./views/RecallView";
+import { IntegrationsView } from "./views/IntegrationsView";
 
 export function App() {
   const [session, setSession] = useState<string>(() => loadSession());
@@ -233,6 +234,9 @@ export function App() {
           activeTenant={activeTenant}
           collections={collections}
         />
+      )}
+      {view === "integrations" && (
+        <IntegrationsView session={session} onChanged={onTenantsChanged} />
       )}
       <Toast message={toast} />
     </Shell>

@@ -356,6 +356,96 @@ export function recall(
   return postTenant<RecallItem[]>(session, tenantId, "recall", body);
 }
 
+export interface ProviderView {
+  id: string;
+  kind: string;
+  base_url: string;
+  model: string;
+  api_key_set: boolean;
+  is_default: boolean;
+}
+
+export interface ProviderConfig {
+  id: string;
+  kind: string;
+  base_url: string;
+  model: string;
+  api_key?: string;
+  is_default: boolean;
+}
+
+export interface ValidateResult {
+  ok: boolean;
+  message: string;
+  snippet: string;
+}
+
+export interface PingResult {
+  ok: boolean;
+  message: string;
+  latency_ms: number;
+}
+
+export interface ApiInfo {
+  base_url: string;
+  api_key_hint: string;
+}
+
+export async function listProviders(session: string): Promise<ProviderView[]> {
+  const res = await fetch("/admin/llm-providers", {
+    headers: { "x-admin-session": session },
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ProviderView[];
+}
+
+export async function upsertProvider(
+  session: string,
+  config: ProviderConfig,
+): Promise<ProviderView> {
+  const res = await fetch("/admin/llm-providers", {
+    method: "POST",
+    headers: authHeaders(session),
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ProviderView;
+}
+
+export async function validateProvider(
+  session: string,
+  config: ProviderConfig,
+): Promise<ValidateResult> {
+  const res = await fetch("/admin/llm-providers/validate", {
+    method: "POST",
+    headers: authHeaders(session),
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ValidateResult;
+}
+
+export async function pingProvider(
+  session: string,
+  id: string,
+): Promise<PingResult> {
+  const res = await fetch("/admin/llm-providers/ping", {
+    method: "POST",
+    headers: authHeaders(session),
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as PingResult;
+}
+
+export async function apiInfo(session: string): Promise<ApiInfo> {
+  const res = await fetch("/admin/api-info", {
+    headers: { "x-admin-session": session },
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as ApiInfo;
+}
+
 export interface UploadResult {
   file_id: string | null;
   kind: string;

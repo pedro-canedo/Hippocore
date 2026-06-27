@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: Integrations (LLM) v0.8
+
+- New Integrations page in `/console`: list providers (`GET /admin/llm-providers`),
+  add/update (`POST /admin/llm-providers`), Validate and live Ping over
+  `/admin/llm-providers/{validate,ping}`, and an API-exposure panel from
+  `GET /admin/api-info` (base URL + masked key hint, curl example).
+- Stored API keys are never returned; the form key field is write-only.
+- Typed provider/api-info calls added to the API client.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TS: File Upload (drag-and-drop) v0.7
 
 - Ingestion page gains a drag-and-drop upload zone (PDF/TXT/MD/CSV/JSON) over

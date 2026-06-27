@@ -95,6 +95,9 @@ cargo clippy --workspace --all-targets -- -D warnings
   opcional de collection, `top_k`, toggles dedup/MMR e cards de resultado.
 - Upload de arquivo: drag-and-drop (PDF/TXT/MD/CSV/JSON) na página Ingestion via
   `POST /admin/tenants/{tid}/files`, com barra de progresso XHR.
+- Integrations: config de provider LLM (listar/adicionar/validar/ping ao vivo) e
+  exposição da API (base URL + key mascarada) sobre `/admin/llm-providers*` e
+  `/admin/api-info`.
 - Chave de sessão compartilhada (`hippocore.adminSession`) com o console `/admin`.
 
 ## Plano de migração

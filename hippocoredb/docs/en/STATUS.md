@@ -4,7 +4,20 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TS — File Upload (drag-and-drop) v0.7**:
+**Control Plane TS — Integrations (LLM) v0.8**:
+
+- New **Integrations** page in `/console` to configure the LLM "brain".
+- Lists providers from `GET /admin/llm-providers`; add/update via
+  `POST /admin/llm-providers` (id, kind, base_url, model, write-only api_key,
+  default flag). Clicking a row loads it into the form.
+- **Validate** (local) and **Ping** (live) buttons over
+  `POST /admin/llm-providers/{validate,ping}`, showing ok/message and latency;
+  a bad URL returns ok:false inline without crashing.
+- API exposure panel from `GET /admin/api-info` (base URL + masked key hint)
+  with a curl recall example. The stored API key is never shown.
+- No server changes; assets rebuilt and embedded.
+
+Previous: **Control Plane TS — File Upload (drag-and-drop) v0.7**:
 
 - The Ingestion page gains a drag-and-drop **Upload file** zone (PDF/TXT/MD/CSV/
   JSON), gated on an active tenant and a selected collection.

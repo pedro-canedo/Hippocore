@@ -2,30 +2,30 @@
 
 ## Feature name
 
-**Control Plane TS — Integrations (LLM) v0.8**
+**Control Plane TS — Prompts + Chat (SSE) v0.9**
 
 ## Why it matters
 
-The console covers the full data loop but not the LLM "brain" configuration. The
-classic console has an Integrations page (providers + validate + live ping + API
-exposure). Porting provider configuration to `/console` unlocks the later Chat
-(RAG → LLM) feature and lets operators wire the brain in the new typed UI.
+With the LLM brain configurable in `/console`, the payoff is the RAG → LLM Chat.
+The classic console has System Prompts CRUD and a streaming Chat endpoint. Porting
+them realizes the "LLM as brain" vision in the new typed UI and is the last major
+product surface before `/admin` can be retired.
 
 ## Behavior
 
-- Add an **Integrations** page to the sidebar.
-- List configured providers from `GET /admin/llm-providers`; add/update one via
-  `POST /admin/llm-providers` (id, kind, base_url, model, optional api_key).
-- **Validate** a provider config locally (`POST /admin/llm-providers/validate`)
-  and **Ping** it live (`POST /admin/llm-providers/ping`), showing ok/message
-  and latency without crashing on network failure.
-- Show API exposure from `GET /admin/api-info` (base URL, masked key hint) with
-  a curl recall example.
+- Add a **Prompts** page: list/create/update/delete system prompt templates via
+  `GET/POST/PUT/DELETE /admin/prompts` (id, name, description, content with
+  `{{context}}`/`{{query}}` placeholders, optional tenant scope).
+- Add a **Chat** panel (gated on an active tenant): query + optional collection
+  + optional prompt id, streaming the answer token-by-token from
+  `POST /admin/tenants/{tid}/chat` using `fetch` + `response.body.getReader()`.
+- Render streamed tokens live into an output area; show a final sources list and
+  handle `event: error` from the SSE stream without crashing.
 
 ## Likely files
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (provider + api-info calls)
-- `crates/hippocore-server/admin-ui/src/views/IntegrationsView.tsx` (new)
+- `crates/hippocore-server/admin-ui/src/api.ts` (prompts CRUD + chat stream)
+- `crates/hippocore-server/admin-ui/src/views/PromptsView.tsx` (new)
 - `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Rebuilt assets in `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
@@ -33,20 +33,19 @@ exposure). Porting provider configuration to `/console` unlocks the later Chat
 
 ## Acceptance criteria
 
-- Providers list, add/update, validate, and ping all work; the stored API key is
-  never shown (only a set/length indicator and masked hint).
-- A bad ping URL returns ok:false inline (no crash, no 500 surfaced as fatal).
+- Prompts CRUD works end to end; a prompt can be selected for chat.
+- Chat streams tokens live and shows sources; SSE errors render inline.
 - `pnpm type-check` and `pnpm build` pass; the Rust gate is green.
 - New user-facing copy exists in English and Portuguese.
 
 ## Tests
 
 - `/console` assets stay public (existing integration test).
-- Existing provider-registry tests (secret masking) stay green.
+- Existing prompts/chat endpoint tests stay green.
 - `tsc --noEmit` strict passes; build updates `src/console/`.
 
 ## Out of scope
 
-- Prompts and Chat (the next increment after this).
-- Traefik/Docker config generators (can follow later).
-- Observability, Graph, Settings.
+- Observability, Graph, API Reference, Settings, Documentation ports.
+- Traefik/Docker config generators.
+- Retiring `/admin` (only after parity across the remaining pages).
