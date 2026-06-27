@@ -53,7 +53,8 @@ pub use errors::{HippocoreError, Result};
 pub use index::VectorIndexKind;
 pub use model::{
     AuditItem, AuditRecord, Chunk, Collection, ContextItemSource, Document, Embedding, FileObject,
-    GraphEdge, ItemKind, Memory, MemoryType, Metadata, RecallResult, Record, Source, Tenant,
+    GraphEdge, ItemKind, Memory, MemoryType, Metadata, RecallResult, Record, Source, SystemPrompt,
+    Tenant,
 };
 pub use query::SearchMode;
 pub use sql::{RestrictedRecordQuery, SqlCommand, SqlResult};
@@ -500,6 +501,20 @@ pub struct TraversalNode {
 
 /// Request to recall/search context.
 #[derive(Debug, Clone)]
+/// Request to create or update a system prompt template.
+pub struct UpsertPromptRequest {
+    /// Optional explicit id; generated if `None`.
+    pub id: Option<String>,
+    /// Human-readable name.
+    pub name: String,
+    /// Optional description.
+    pub description: Option<String>,
+    /// Prompt content; may contain `{{context}}` and `{{query}}` placeholders.
+    pub content: String,
+    /// If set, scopes the prompt to a specific tenant.
+    pub tenant_id: Option<String>,
+}
+
 pub struct RecallRequest {
     /// Tenant to search within (mandatory; enforces isolation).
     pub tenant_id: String,
@@ -2244,6 +2259,48 @@ impl Hippocore {
         chunks
     }
 
+    /// List system prompts, optionally filtered by tenant.
+    pub fn list_prompts(&self, tenant_id: Option<&str>) -> Vec<SystemPrompt> {
+        self.state
+            .system_prompts
+            .iter()
+            .filter(|p| match tenant_id {
+                Some(tid) => p.tenant_id.as_deref() == Some(tid) || p.tenant_id.is_none(),
+                None => true,
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Create or overwrite a system prompt.
+    pub fn upsert_prompt(&mut self, req: UpsertPromptRequest) -> Result<SystemPrompt> {
+        let now = now_millis();
+        let id = req.id.unwrap_or_else(|| crate::gen_id("prompt"));
+        let existing = self
+            .state
+            .system_prompts
+            .iter()
+            .find(|p| p.id == id)
+            .cloned();
+        let prompt = SystemPrompt {
+            id,
+            name: req.name,
+            description: req.description.unwrap_or_default(),
+            content: req.content,
+            tenant_id: req.tenant_id,
+            created_at: existing.as_ref().map(|p| p.created_at).unwrap_or(now),
+            updated_at: now,
+        };
+        prompt.validate()?;
+        self.commit(Operation::PutSystemPrompt(prompt.clone()))?;
+        Ok(prompt)
+    }
+
+    /// Delete a system prompt by id.
+    pub fn delete_prompt(&mut self, id: &str) -> Result<()> {
+        self.commit(Operation::DeleteSystemPrompt { id: id.to_string() })
+    }
+
     /// Fold the WAL into a fresh snapshot and truncate the log.
     pub fn compact(&mut self) -> Result<()> {
         self.storage.compact(&self.state)
@@ -2345,6 +2402,7 @@ impl Hippocore {
             Operation::DeleteFile { .. } => {}
             Operation::PutGraphEdge(_) | Operation::DeleteGraphEdge { .. } => {}
             Operation::CreateTenant(_) | Operation::CreateCollection(_) => {}
+            Operation::PutSystemPrompt(_) | Operation::DeleteSystemPrompt { .. } => {}
         }
     }
 

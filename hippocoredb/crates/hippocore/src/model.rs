@@ -531,6 +531,37 @@ pub struct AuditRecord {
     pub items: Vec<AuditItem>,
 }
 
+/// A reusable system prompt template for the RAG → LLM pipeline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SystemPrompt {
+    /// Unique identifier.
+    pub id: String,
+    /// Human-readable name.
+    pub name: String,
+    /// Optional description.
+    #[serde(default)]
+    pub description: String,
+    /// Prompt content; may contain `{{context}}` and `{{query}}` placeholders.
+    pub content: String,
+    /// Scope: if set, this prompt is available only to the specified tenant.
+    #[serde(default)]
+    pub tenant_id: Option<String>,
+    /// Creation time (epoch milliseconds).
+    pub created_at: i64,
+    /// Last update time (epoch milliseconds).
+    pub updated_at: i64,
+}
+
+impl SystemPrompt {
+    /// Validate required fields.
+    pub fn validate(&self) -> Result<()> {
+        non_empty("system prompt id", &self.id)?;
+        non_empty("system prompt name", &self.name)?;
+        non_empty("system prompt content", &self.content)?;
+        Ok(())
+    }
+}
+
 fn non_empty(field: &str, value: &str) -> Result<()> {
     if value.trim().is_empty() {
         return Err(HippocoreError::validation(format!(

@@ -14,6 +14,7 @@ const NAV = [
   ['context', 'Ingestion & Recall','ingestion-recall'],
   ['context', 'Graph',            'graph'],
   ['admin',   'API Reference',    'api-reference'],
+  ['admin',   'Prompts',          'prompts'],
   ['admin',   'Documentation',    'documentation'],
   ['admin',   'Tenants',          'tenants'],
   ['admin',   'Integrations',     'integrations'],
@@ -553,6 +554,8 @@ const state = {
   traefikDomain: '',
   traefikPath: '/api',
   traefikConfig: '',
+  editingPrompt: null,
+  chatResult: '',
 };
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -1285,6 +1288,56 @@ labels:
     </section>`;
 }
 
+function PromptsPage() {
+  const prompts = annotateRows(state.lists.prompts || [], 'prompts');
+  const editing = state.editingPrompt;
+  return `${PageHeader('System Prompts', 'Reusable system prompt templates for the RAG → LLM pipeline.', ActionButton(t('refresh'), 'refresh'))}
+    <section class="grid cols-2">
+      <div class="panel">
+        <h3>Prompt library</h3>
+        ${DataTable(
+          prompts,
+          [{key:'name',label:'name'},{key:'description',label:'description'},{key:'tenant_id',label:'tenant'}],
+          'No prompts yet',
+          'Create a prompt template to use with the Chat API.'
+        )}
+      </div>
+      <div class="panel">
+        <h3>${editing ? 'Edit prompt' : 'New prompt'}</h3>
+        <div class="form-grid">
+          ${FormField('Name', 'promptName', editing?.name || '')}
+          ${FormField('Description (optional)', 'promptDesc', editing?.description || '')}
+          ${FormField('Tenant id (leave blank for global)', 'promptTenant', editing?.tenant_id || '')}
+        </div>
+        <label class="field" style="margin-top:8px">
+          <span>Content — use {{context}} and {{query}} as placeholders</span>
+          <textarea id="promptContent" rows="8" style="font-family:monospace;font-size:12.5px;resize:vertical">${esc(editing?.content || 'You are a helpful AI assistant.\n\nContext:\n{{context}}\n\nAnswer the following question:\n{{query}}')}</textarea>
+        </label>
+        <div class="page-actions" style="margin-top:12px">
+          ${ActionButton(t('save'), 'save-prompt', 'primary')}
+          ${editing ? ActionButton('Cancel', 'cancel-edit-prompt') : ''}
+          ${editing ? ActionButton('Delete', 'delete-prompt', 'danger') : ''}
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <h3>Test chat (RAG → LLM)</h3>
+      <div class="grid cols-2" style="gap:12px">
+        <div>
+          ${FormField('Tenant', 'chatTenant', state.tenant || '')}
+          ${FormField('Collection (optional)', 'chatCollection', state.collection || '')}
+          ${FormField('Prompt id (optional)', 'chatPromptId', editing?.id || '')}
+          <label class="field"><span>Question</span><textarea id="chatQuery" rows="3" placeholder="Ask anything…"></textarea></label>
+          <div class="page-actions" style="margin-top:8px">${ActionButton('Send', 'test-chat', 'primary')}</div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 8px;font-size:13px;color:var(--muted)">Response</h4>
+          <div id="chatOutput" style="background:var(--glass-md);border-radius:8px;padding:12px;min-height:120px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word">${esc(state.chatResult || '')}</div>
+        </div>
+      </div>
+    </section>`;
+}
+
 function ObservabilityPage() {
   const s = stats();
   const physical = [
@@ -1366,6 +1419,7 @@ function renderPage() {
   if (state.page === 'documentation')   return AppShell(DocumentationPage());
   if (state.page === 'tenants')         return AppShell(TenantsPage());
   if (state.page === 'integrations')    return AppShell(IntegrationsPage());
+  if (state.page === 'prompts')         return AppShell(PromptsPage());
   if (state.page === 'observability')   return AppShell(ObservabilityPage());
   if (state.page === 'settings')        return AppShell(SettingsPage());
   return AppShell(DashboardPage());
@@ -1427,6 +1481,9 @@ async function hydratePage() {
   }
   if (state.page === 'integrations') {
     state.apiInfo = await request('/admin/api-info').catch(() => null);
+  }
+  if (state.page === 'prompts') {
+    state.lists.prompts = await request(`/admin/prompts${state.tenant ? '?tenant_id=' + encodeURIComponent(state.tenant) : ''}`).catch(() => []);
   }
   render();
 }
@@ -1609,6 +1666,76 @@ async function pingProvider() {
   render();
 }
 
+async function savePrompt() {
+  const name    = document.getElementById('promptName')?.value.trim();
+  const desc    = document.getElementById('promptDesc')?.value.trim();
+  const tenant  = document.getElementById('promptTenant')?.value.trim() || null;
+  const content = document.getElementById('promptContent')?.value.trim();
+  if (!name || !content) { showError('Name and content are required'); return; }
+  const editing = state.editingPrompt;
+  const body = { id: editing?.id || null, name, description: desc, content, tenant_id: tenant };
+  const method = editing ? 'PUT' : 'POST';
+  const url = editing ? `/admin/prompts/${encodeURIComponent(editing.id)}` : '/admin/prompts';
+  await request(url, { method, body: JSON.stringify(body) });
+  state.editingPrompt = null;
+  state.lastOperation = `Prompt "${name}" saved.`;
+  showToast(`Prompt "${name}" saved.`);
+  await hydratePage();
+}
+
+async function deletePrompt() {
+  const editing = state.editingPrompt;
+  if (!editing) return;
+  if (!window.confirm(`Delete prompt "${editing.name}"?`)) return;
+  await request(`/admin/prompts/${encodeURIComponent(editing.id)}`, { method: 'DELETE' });
+  state.editingPrompt = null;
+  state.lastOperation = `Prompt "${editing.name}" deleted.`;
+  showToast(`Prompt "${editing.name}" deleted.`);
+  await hydratePage();
+}
+
+async function runChat() {
+  const tid    = document.getElementById('chatTenant')?.value.trim() || state.tenant;
+  const col    = document.getElementById('chatCollection')?.value.trim() || state.collection || undefined;
+  const pid    = document.getElementById('chatPromptId')?.value.trim() || undefined;
+  const query  = document.getElementById('chatQuery')?.value.trim();
+  if (!tid)   { showError('Tenant is required'); return; }
+  if (!query) { showError('Enter a question'); return; }
+  const output = document.getElementById('chatOutput');
+  if (output) output.textContent = '…';
+  state.chatResult = '';
+  const body = { query, collection: col, system_prompt_id: pid };
+  try {
+    const resp = await fetch(`/admin/tenants/${encodeURIComponent(tid)}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-session': state.session },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) { if (output) output.textContent = `Error: HTTP ${resp.status}`; return; }
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('data:')) {
+          const token = line.slice(5);
+          state.chatResult += token;
+          if (output) output.textContent = state.chatResult;
+        } else if (line.startsWith('event:done')) {
+          // sources in next data line — ignore for display
+        }
+      }
+    }
+  } catch (e) {
+    if (output) output.textContent = `Error: ${e.message}`;
+  }
+}
+
 function openDetail(list, index) {
   const rows = list === 'sql'
     ? state.sqlResult?.rows || []
@@ -1618,7 +1745,10 @@ function openDetail(list, index) {
     : list === 'providers'    ? state.providers || []
     : state.lists[list] || [];
   const value = rows[Number(index)];
-  if (value) { state.detail = { title: value.id || value.name || list, value }; render(); }
+  if (!value) return;
+  if (list === 'prompts') { state.editingPrompt = value; render(); return; }
+  state.detail = { title: value.id || value.name || list, value };
+  render();
 }
 
 function copyCode(value) {
@@ -1699,6 +1829,11 @@ async function handleAction(target) {
   if (action === 'save-provider')     { await saveProvider();          return; }
   if (action === 'validate-provider') { await validateProvider();      return; }
   if (action === 'ping-provider')     { await pingProvider();          return; }
+  if (action === 'save-prompt')       { await savePrompt();            return; }
+  if (action === 'delete-prompt')     { await deletePrompt();          return; }
+  if (action === 'cancel-edit-prompt') { state.editingPrompt = null; render(); return; }
+  if (action === 'go-prompts')        { route('prompts');              return; }
+  if (action === 'test-chat')         { await runChat();               return; }
   if (action === 'generate-traefik') {
     state.traefikDomain = document.getElementById('traefikDomain')?.value.trim() || '';
     state.traefikPath   = document.getElementById('traefikPath')?.value.trim() || '/api';

@@ -31,7 +31,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::errors::{HippocoreError, Result};
 use crate::model::{
-    Chunk, Collection, Document, FileObject, GraphEdge, ItemKind, Memory, Record, Tenant,
+    Chunk, Collection, Document, FileObject, GraphEdge, ItemKind, Memory, Record, SystemPrompt,
+    Tenant,
 };
 
 const WAL_FILE: &str = "wal.log";
@@ -129,6 +130,13 @@ pub enum Operation {
         /// Edge id.
         id: String,
     },
+    /// Store (or overwrite) a system prompt template.
+    PutSystemPrompt(SystemPrompt),
+    /// Remove a system prompt by id.
+    DeleteSystemPrompt {
+        /// System prompt id.
+        id: String,
+    },
 }
 
 /// The fully materialized database state. Indexes are rebuilt from this.
@@ -154,6 +162,9 @@ pub struct State {
     /// Durable direct relationship edges between context items.
     #[serde(default)]
     pub graph_edges: Vec<GraphEdge>,
+    /// Reusable system prompt templates.
+    #[serde(default)]
+    pub system_prompts: Vec<SystemPrompt>,
 }
 
 impl State {
@@ -313,6 +324,13 @@ impl State {
             Operation::DeleteGraphEdge { tenant_id, id } => {
                 self.graph_edges
                     .retain(|edge| !(edge.tenant_id == tenant_id && edge.id == id));
+            }
+            Operation::PutSystemPrompt(p) => {
+                self.system_prompts.retain(|x| x.id != p.id);
+                self.system_prompts.push(p);
+            }
+            Operation::DeleteSystemPrompt { id } => {
+                self.system_prompts.retain(|x| x.id != id);
             }
         }
     }

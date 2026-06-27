@@ -34,7 +34,7 @@ use std::sync::{Arc, Mutex};
 use axum::{
     http::StatusCode,
     middleware,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -151,6 +151,13 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/admin/llm-providers/ping", post(admin::ping_llm_provider))
         .route("/admin/api-info", get(admin::api_info))
+        .route("/admin/prompts", get(handlers::prompts::list_prompts))
+        .route("/admin/prompts", post(handlers::prompts::create_prompt))
+        .route("/admin/prompts/{id}", put(handlers::prompts::update_prompt))
+        .route(
+            "/admin/prompts/{id}",
+            delete(handlers::prompts::delete_prompt),
+        )
         .route("/admin/tenants", post(handlers::tenants::create_tenant))
         .route(
             "/admin/tenants/{tid}/collections",
@@ -188,6 +195,7 @@ pub fn build_router(state: AppState) -> Router {
             "/admin/tenants/{tid}/context",
             post(handlers::context::build_context),
         )
+        .route("/admin/tenants/{tid}/chat", post(handlers::chat::chat))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_admin_session,
@@ -222,6 +230,7 @@ pub fn build_router(state: AppState) -> Router {
             "/tenants/{tid}/graph/traverse",
             post(handlers::graph::traverse),
         )
+        .route("/tenants/{tid}/chat", post(handlers::chat::chat))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::require_api_key,

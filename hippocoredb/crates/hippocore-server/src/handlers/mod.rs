@@ -1,9 +1,11 @@
+pub mod chat;
 pub mod collections;
 pub mod context;
 pub mod documents;
 pub mod files;
 pub mod graph;
 pub mod memories;
+pub mod prompts;
 pub mod recall;
 pub mod records;
 pub mod stats;
