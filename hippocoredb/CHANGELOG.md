@@ -5,6 +5,20 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Guided Workspace Onboarding v0.1
+
+- Dashboard now provides a persistent five-step setup checklist for tenant,
+  collection, first data, SQL query, and recall/context workflows.
+- Tenant, collection, and data progress comes from bootstrap stats; successful
+  SQL and recall steps use local UI flags scoped by the active data directory.
+- The first incomplete step receives the primary action and also appears as a
+  next-action control in the sidebar.
+- Dashboard content is separated into setup, operational status, data overview,
+  and quick actions. Raw stats moved out of the primary Dashboard surface in
+  favor of the Observability page.
+- Added responsive setup rows and asset regression assertions for derivation,
+  local completion flags, routing, and raw-stats removal.
+
 ### Added — Data Explorer Workspace v0.1
 
 - Data Explorer now navigates tenant, collection, and Records/Memories/Documents/

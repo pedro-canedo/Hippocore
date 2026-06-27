@@ -4,7 +4,20 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Data Explorer Workspace v0.1**:
+**Guided Workspace Onboarding v0.1**:
+
+- Dashboard mantem checklist de cinco passos entre banco vazio, tenant,
+  collection, primeiro dado, SQL e recall/contexto.
+- Stats do bootstrap dirigem os tres primeiros passos. Flags de SQL e recall
+  ficam no browser, escopadas por `data_dir`; nenhum estado do banco e alterado.
+- Apenas o primeiro passo incompleto possui acao primaria, repetida na sidebar
+  ate o setup ser concluido.
+- Status operacional, tenant, storage, API, contagens e acoes ficam em secoes
+  separadas.
+- JSON bruto de stats saiu do Dashboard e continua em Observability.
+- Catalogos ingles e portugues agora possuem 297 chaves equivalentes e unicas.
+
+Anterior: **Data Explorer Workspace v0.1**:
 
 - O Explorer agora navega tenant -> collection -> tipo para Records, Memories,
   Documents e Files sem sair da pagina.

@@ -135,8 +135,11 @@ screen:
 - domain pages: Dashboard, Data Explorer, SQL Editor, Collections, Records,
   Memories, Documents, Files, Ingestion & Recall, Graph, API Reference, Tenants,
   Service Keys, Observability, and Settings;
-- Dashboard cards for server status, current tenant, object counts, audit log
-  size, data directory, and last operation;
+- persistent five-step Dashboard setup for tenant, collection, first data, SQL,
+  and recall/context, with one clear next action in the page and sidebar;
+- separate Dashboard sections for operational status, data counts, quick
+  actions, data directory, audit size, and last operation; raw stats live in
+  Observability instead of the primary Dashboard;
 - Data Explorer with tenant/collection/type tree, collection search, per-type
   counts, record payload columns, Raw JSON, Physical Info, and full detail drawer;
 - dedicated SQL Editor using `POST /admin/sql`;

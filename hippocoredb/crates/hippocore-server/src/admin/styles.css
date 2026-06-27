@@ -338,6 +338,23 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
+.sidebar-next {
+  align-items: flex-start;
+  background: var(--accent-dim);
+  border-color: rgba(92,200,255,0.20);
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  margin: 8px;
+  min-height: 52px;
+  padding: 9px 11px;
+  text-align: left;
+  white-space: normal;
+}
+
+.sidebar-next span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.sidebar-next strong { color: var(--accent); font-size: 12px; }
+
 /* ─── Main / Topbar ──────────────────────────────────────────────────────── */
 .main {
   display: grid;
@@ -833,6 +850,80 @@ tr:hover td {
 .onboarding-step strong { display: block; font-size: 13.5px; font-weight: 650; margin-bottom: 3px; }
 .onboarding-step span { color: var(--muted); font-size: 12.5px; }
 
+/* ─── Guided Setup ──────────────────────────────────────────────────────── */
+.setup-panel {
+  background: linear-gradient(90deg, rgba(92,200,255,0.06), transparent 70%);
+  border-bottom: 1px solid rgba(92,200,255,0.14);
+  border-top: 1px solid rgba(92,200,255,0.14);
+  padding: 18px 4px;
+}
+
+.setup-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.setup-head h2 { font-size: 17px; margin: 0 0 4px; }
+.setup-head p { color: var(--muted); margin: 0; max-width: 620px; }
+
+.setup-steps { display: grid; }
+
+.setup-step {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  min-height: 58px;
+  padding: 9px 4px;
+}
+
+.setup-step[data-state="current"] {
+  background: linear-gradient(90deg, var(--accent-dim), transparent 75%);
+  box-shadow: inset 2px 0 0 var(--accent);
+  padding-left: 10px;
+}
+
+.setup-step[data-state="pending"] { opacity: 0.62; }
+
+.setup-marker {
+  align-items: center;
+  border: 1px solid var(--border-hi);
+  border-radius: 50%;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.setup-step[data-state="done"] .setup-marker {
+  background: var(--green-glow);
+  border-color: rgba(74,222,128,0.28);
+  color: var(--green);
+}
+
+.setup-step > div { display: grid; gap: 2px; }
+.setup-step strong { font-size: 13px; }
+.setup-step > div span { color: var(--muted); font-size: 12px; }
+
+.section-title {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.dashboard-actions {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
 /* ─── Quick Action Card ──────────────────────────────────────────────────── */
 .quick-action-card {
   background: var(--glass-sm);
@@ -1213,6 +1304,9 @@ tr:hover td {
     grid-column: 1 / -1;
   }
   .docs-content { padding: 18px; }
+  .setup-head { align-items: stretch; flex-direction: column; }
+  .setup-step { grid-template-columns: 28px minmax(0, 1fr); }
+  .setup-step button, .setup-step .status-badge { grid-column: 2; justify-self: start; }
 }
 
 /* ─── Drop Zone ──────────────────────────────────────────────────────────── */

@@ -122,8 +122,11 @@ de uma tela unica de debug:
 - paginas por dominio: Dashboard, Data Explorer, SQL Editor, Collections,
   Records, Memories, Documents, Files, Ingestion & Recall, Graph, API Reference,
   Tenants, Service Keys, Observability e Settings;
-- cards no Dashboard para status do servidor, tenant atual, contagens de
-  objetos, tamanho do audit log, diretorio de dados e ultima operacao;
+- setup persistente em cinco passos no Dashboard para tenant, collection,
+  primeiro dado, SQL e recall/contexto, com uma proxima acao clara na pagina e
+  na sidebar;
+- secoes separadas no Dashboard para status operacional, contagens, acoes,
+  diretorio, audit e ultima operacao; stats brutos ficam em Observability;
 - Data Explorer com arvore tenant/collection/tipo, busca de collection,
   contagens por tipo, colunas do payload, JSON bruto, informacao fisica e drawer;
 - SQL Editor dedicado usando `POST /admin/sql`;

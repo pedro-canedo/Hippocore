@@ -2,27 +2,25 @@
 
 ## Nome da feature
 
-**Guided Workspace Onboarding v0.1**
+**SQL Editor Workbench v0.1**
 
 ## Por que importa
 
-O Dashboard mostra onboarding apenas quando nao ha tenants e depois vira uma
-grade de estatisticas. Desenvolvedores novos precisam de um caminho persistente
-e orientado por estado entre banco vazio, primeira query e primeiro recall sem
-saber antecipadamente qual pagina ou tipo de objeto usar.
+O SQL Editor executa queries, mas ainda se comporta como um textarea grande.
+Desenvolvedores precisam de um workbench eficiente que ensine o mapeamento de
+payload, preserve trabalho recente e facilite inspecao ou exportacao.
 
 ## Comportamento
 
-- Mostrar checklist com cinco passos: criar tenant, criar collection, adicionar
-  primeiro dado, executar SQL e testar recall/contexto.
-- Derivar tenant, collection e dados dos stats; registrar sucesso de SQL e recall
-  localmente apenas para progresso da UI.
-- Dar ao primeiro passo incompleto uma acao primaria para o fluxo correto e
-  manter passos concluidos visualmente marcados.
-- Separar status operacional, tenant ativo, storage e health da API das
-  contagens de dados e acoes rapidas.
-- Retirar JSON bruto do foco do Dashboard e apontar para Observabilidade.
-- Exibir a proxima acao de setup na sidebar enquanto o onboarding estiver incompleto.
+- Dar ao editor toolbar de codigo com Run e suporte a `Ctrl/Cmd + Enter`.
+- Manter a query atual no estado da pagina e fazer exemplos preencherem o editor
+  sem perder o tenant.
+- Armazenar as ultimas 20 queries bem-sucedidas localmente por diretorio e
+  tenant; selecionar historico restaura texto sem executar automaticamente.
+- Renderizar campos do payload como colunas deterministas, com abas Table e JSON.
+- Mostrar erros de validacao estruturados e duracao observada no cliente.
+- Adicionar Copy JSON e Export JSON para resultados bem-sucedidos.
+- Explicar que campos sem prefixo mapeiam para `payload.<field>` com exemplo curto.
 
 ## Arquivos provaveis
 
@@ -33,21 +31,22 @@ saber antecipadamente qual pagina ou tipo de objeto usar.
 
 ## Criterios de aceitacao
 
-- Usuario novo sempre ve uma proxima acao clara ate concluir os cinco passos.
-- Progresso atualiza apos tenant, collection, ingestao, SQL e recall com sucesso.
-- JSON bruto deixa de ser painel primario do Dashboard.
-- Stats, navegacao, auth e isolamento existentes permanecem inalterados.
-- Todo texto novo esta em ingles e portugues; portao de qualidade verde.
+- Botao Run e atalho executam o mesmo request tenant-scoped.
+- Exemplos e historico restauram texto sem executar automaticamente.
+- Resultados mostram colunas de payload em ordem determinista e JSON completo.
+- Copy/export usam exatamente o resultado atual.
+- Historico e limitado, local e escopado por banco e tenant.
+- Todo texto novo esta em ingles e portugues; portao verde.
 
 ## Testes
 
-- Assertions de assets cobrem derivacao de passos, rota da proxima acao e flags
-  locais de SQL/recall.
-- Testes de integracao admin existentes continuam verdes.
+- Assertions de assets cobrem atalho, escopo/limite do historico, colunas de
+  payload, copy/export e erros.
+- Testes existentes de parser, executor e isolamento SQL continuam verdes.
 - Check JavaScript e portao Rust completo passam.
 
 ## Fora de escopo
 
-- Estado de onboarding por usuario persistido no servidor ou analytics.
-- Tour overlay, command palette ou migracao de framework.
-- Alterar schemas, retrieval ou persistencia.
+- Expandir gramatica SQL ou adicionar escrita.
+- Historico no servidor, queries salvas, paginacao ou export CSV.
+- Monaco/CodeMirror, dependencias npm ou migracao React/Vite.

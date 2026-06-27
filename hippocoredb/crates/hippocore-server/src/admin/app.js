@@ -314,6 +314,23 @@ const I18N = {
     validate: 'Validate',
     walEntries: 'WAL entries',
     workspace: 'Workspace',
+    apiStatus: 'API status',
+    complete: 'Complete',
+    continueSetup: 'Continue setup',
+    dataOverview: 'Data overview',
+    openObservability: 'Open Observability',
+    operationalStatus: 'Operational status',
+    ready: 'Ready',
+    setupComplete: 'Workspace ready',
+    setupCompleteLead: 'The initial database, query, and AI context workflows are ready to use.',
+    setupLead: 'Follow the next incomplete step to prepare a usable AI-native database.',
+    setupTitle: 'Workspace setup',
+    stepAddData: 'Add your first data',
+    stepAddDataDesc: 'Store a record, memory, document, or file',
+    stepRunSql: 'Run a SQL query',
+    stepRunSqlDesc: 'Inspect structured records with the SQL-like layer',
+    stepTestRecall: 'Test recall and context',
+    stepTestRecallDesc: 'Confirm which knowledge Hippocore retrieves for AI',
     welcome: 'Welcome to Hippocore',
     welcomeDesc: 'A local-first, AI-native memory and context database. Start by creating your first tenant to isolate your data.',
     noTenantDesc: 'You have no tenants yet. A tenant is the top-level isolation boundary for all your data, memories, and queries. Create one to begin.',
@@ -596,6 +613,23 @@ const I18N = {
     validate: 'Validar',
     walEntries: 'Entradas no WAL',
     workspace: 'Workspace',
+    apiStatus: 'Status da API',
+    complete: 'Concluido',
+    continueSetup: 'Continuar configuracao',
+    dataOverview: 'Visao dos dados',
+    openObservability: 'Abrir Observabilidade',
+    operationalStatus: 'Status operacional',
+    ready: 'Pronta',
+    setupComplete: 'Workspace pronto',
+    setupCompleteLead: 'Os fluxos iniciais de banco, query e contexto de IA estao prontos para uso.',
+    setupLead: 'Siga o primeiro passo incompleto para preparar um banco AI-native utilizavel.',
+    setupTitle: 'Configuracao do workspace',
+    stepAddData: 'Adicionar o primeiro dado',
+    stepAddDataDesc: 'Armazene record, memoria, documento ou arquivo',
+    stepRunSql: 'Executar uma query SQL',
+    stepRunSqlDesc: 'Inspecione records estruturados com a camada SQL-like',
+    stepTestRecall: 'Testar recall e contexto',
+    stepTestRecallDesc: 'Confirme qual conhecimento o Hippocore recupera para IA',
     welcome: 'Bem-vindo ao Hippocore',
     welcomeDesc: 'Um banco de dados local-first de memoria e contexto para aplicacoes de IA. Comece criando seu primeiro tenant.',
     noTenantDesc: 'Voce ainda nao tem tenants. Um tenant isola dados, colecoes e consultas. Crie o primeiro para comecar.',
@@ -1222,8 +1256,12 @@ function Sidebar() {
   const footerBadge = state.session
     ? StatusBadge(t('active'), 'ok')
     : StatusBadge(t('signedOut'), 'error');
+  const next = setupProgress().next;
+  const setupAction = next
+    ? `<button class="sidebar-next" type="button" data-action="${esc(next.action)}"><span>${esc(t('continueSetup'))}</span><strong>${esc(next.title)}</strong></button>`
+    : '';
 
-  return `<aside class="sidebar"><div class="brand"><div class="mark" aria-hidden="true"></div><div><h1>${esc(t('appTitle'))}</h1><p>${esc(t('appSubtitle'))}</p></div></div><nav class="nav">${nav}</nav><div class="sidebar-footer">${footerBadge}<span class="muted">${esc(state.bootstrap?.config?.data_dir || './hippocore-data')}</span></div></aside>`;
+  return `<aside class="sidebar"><div class="brand"><div class="mark" aria-hidden="true"></div><div><h1>${esc(t('appTitle'))}</h1><p>${esc(t('appSubtitle'))}</p></div></div><nav class="nav">${nav}</nav>${setupAction}<div class="sidebar-footer">${footerBadge}<span class="muted">${esc(state.bootstrap?.config?.data_dir || './hippocore-data')}</span></div></aside>`;
 }
 
 function Topbar() {
@@ -1267,58 +1305,69 @@ function stats() {
   return state.bootstrap?.stats || {};
 }
 
+function onboardingStorageKey(step) {
+  const database = state.bootstrap?.config?.data_dir || 'default';
+  return `hippocore.onboarding.${database}.${step}`;
+}
+
+function completeOnboardingStep(step) {
+  localStorage.setItem(onboardingStorageKey(step), 'true');
+}
+
+function setupProgress() {
+  const s = stats();
+  const dataCount = ['records', 'memories', 'documents', 'files']
+    .reduce((total, key) => total + Number(s[key] || 0), 0);
+  const steps = [
+    { id: 'tenant', title: t('createTenant'), description: t('createTenantStepDesc'), action: 'go-tenants', done: Number(s.tenants || 0) > 0 },
+    { id: 'collection', title: t('createCollection'), description: t('createCollectionStepDesc'), action: 'go-collections', done: Number(s.collections || 0) > 0 },
+    { id: 'data', title: t('stepAddData'), description: t('stepAddDataDesc'), action: 'go-ingest', done: dataCount > 0 },
+    { id: 'sql', title: t('stepRunSql'), description: t('stepRunSqlDesc'), action: 'go-sql', done: localStorage.getItem(onboardingStorageKey('sql')) === 'true' },
+    { id: 'recall', title: t('stepTestRecall'), description: t('stepTestRecallDesc'), action: 'go-ingest', done: Number(s.audit_records || 0) > 0 || localStorage.getItem(onboardingStorageKey('recall')) === 'true' },
+  ];
+  return {
+    steps,
+    completed: steps.filter((step) => step.done).length,
+    next: steps.find((step) => !step.done) || null,
+  };
+}
+
+function SetupChecklist() {
+  const progress = setupProgress();
+  const complete = progress.next === null;
+  const rows = progress.steps.map((step, index) => {
+    const current = progress.next?.id === step.id;
+    return `<div class="setup-step" data-state="${step.done ? 'done' : current ? 'current' : 'pending'}">
+      <span class="setup-marker">${step.done ? '✓' : index + 1}</span>
+      <div><strong>${esc(step.title)}</strong><span>${esc(step.description)}</span></div>
+      ${current ? ActionButton(step.title, step.action, 'primary') : step.done ? StatusBadge(t('complete'), 'ok') : ''}
+    </div>`;
+  }).join('');
+  return `<section class="setup-panel">
+    <div class="setup-head"><div><h2>${esc(complete ? t('setupComplete') : t('setupTitle'))}</h2><p>${esc(complete ? t('setupCompleteLead') : t('setupLead'))}</p></div>${StatusBadge(`${progress.completed}/${progress.steps.length}`, complete ? 'ok' : 'info')}</div>
+    <div class="setup-steps">${rows}</div>
+  </section>`;
+}
+
 function DashboardPage() {
   const s = stats();
-  const tenants = state.bootstrap?.tenants || [];
-  const hasTenants = tenants.length > 0;
-
-  const welcomeOrEmpty = !hasTenants
-    ? `<div class="welcome-card">
-        <h2>${esc(t('welcome'))}</h2>
-        <p>${esc(t('welcomeDesc'))}</p>
-        <div class="onboarding-steps">
-          <div class="onboarding-step">
-            <div class="step-num">1</div>
-            <strong>${esc(t('createTenant'))}</strong>
-            <span>${esc(t('createTenantStepDesc'))}</span>
-          </div>
-          <div class="onboarding-step">
-            <div class="step-num">2</div>
-            <strong>${esc(t('createCollection'))}</strong>
-            <span>${esc(t('createCollectionStepDesc'))}</span>
-          </div>
-          <div class="onboarding-step">
-            <div class="step-num">3</div>
-            <strong>${esc(t('ingestContext'))}</strong>
-            <span>${esc(t('ingestContextStepDesc'))}</span>
-          </div>
-          <div class="onboarding-step">
-            <div class="step-num">4</div>
-            <strong>${esc(t('recall'))}</strong>
-            <span>${esc(t('runRecallStepDesc'))}</span>
-          </div>
-        </div>
-        <div class="page-actions" style="margin-top:20px">
-          ${ActionButton(t('getStarted') + ': ' + t('createTenant'), 'go-tenants', 'primary')}
-          ${ActionButton(t('documentation'), 'go-docs')}
-        </div>
-      </div>`
-    : '';
-
-  const statCards = hasTenants ? `<section class="grid cols-4">
+  const operational = `<section><h3 class="section-title">${esc(t('operationalStatus'))}</h3><div class="grid cols-4">
     ${StatCard(t('serverStatus'), state.session ? t('online') : t('offline'), 'GET /health')}
     ${StatCard(t('currentTenant'), state.tenant || '—', t('isolationScope'))}
-    ${StatCard(t('tenants'), s.tenants ?? '—')}
-    ${StatCard(t('collections'), s.collections ?? '—')}
+    ${StatCard(t('dataDir'), state.bootstrap?.config?.data_dir || '—', 'local-first')}
+    ${StatCard(t('apiStatus'), state.session ? t('ready') : t('offline'), '/admin/bootstrap')}
+  </div></section>`;
+
+  const dataCards = `<section><h3 class="section-title">${esc(t('dataOverview'))}</h3><div class="grid cols-4">
+    ${StatCard(t('collections'), s.collections ?? 0)}
     ${StatCard(t('records'), s.records ?? '—')}
     ${StatCard(t('memories'), s.memories ?? '—')}
     ${StatCard(t('documents'), s.documents ?? '—')}
     ${StatCard(t('files'), s.files ?? '—')}
     ${StatCard(t('graphEdges'), s.graph_edges ?? '—')}
     ${StatCard(t('auditRecords'), s.audit_records ?? '—', `${s.audit_log_bytes ?? 0} B`)}
-    ${StatCard(t('dataDir'), state.bootstrap?.config?.data_dir || '—', 'local-first')}
     ${StatCard(t('walEntries'), s.wal_entries ?? '—')}
-  </section>` : '';
+  </div></section>`;
 
   const quick = [
     [t('createTenant'),    'go-tenants'],
@@ -1327,20 +1376,19 @@ function DashboardPage() {
     [t('openDataExplorer'), 'go-explorer'],
     [t('ingestContext'),    'go-ingest'],
     [t('rotateKey'),       'go-keys'],
+    [t('openObservability'),'go-observability'],
     [t('documentation'),   'go-docs'],
-  ].map(([label, action]) => `<button class="quick-action-card" type="button" data-action="${esc(action)}"><span>${esc(label)}</span><span class="qa-arrow">→</span></button>`).join('');
+  ].map(([label, action]) => `<button type="button" data-action="${esc(action)}"><span>${esc(label)}</span><span class="qa-arrow">→</span></button>`).join('');
 
   const lastOp = state.lastOperation
     ? `<div class="notice" style="margin-top:0">${esc(messageText(state.lastOperation))}</div>`
     : '';
 
   return `${PageHeader(t('dashboard'), t('dashboardLead'), ActionButton(t('refresh'), 'refresh'))}
-    ${welcomeOrEmpty}
-    ${statCards}
-    <section class="grid cols-2">
-      <div class="panel"><h3>${esc(t('quickActions'))}</h3><div class="actions-list">${quick}</div></div>
-      <div class="panel"><h3>${esc(t('objectCounts'))}</h3>${JsonViewer(s)}</div>
-    </section>
+    ${SetupChecklist()}
+    ${operational}
+    ${dataCards}
+    <section class="panel"><h3>${esc(t('quickActions'))}</h3><div class="actions-list dashboard-actions">${quick}</div></section>
     ${lastOp}`;
 }
 
@@ -2154,6 +2202,7 @@ async function runSql() {
       method: 'POST',
       body: JSON.stringify({ tenant_id: state.tenant, sql }),
     });
+    completeOnboardingStep('sql');
     state.lastOperation = message('sqlReturned', { count: state.sqlResult.row_count });
   } catch (err) {
     state.sqlResult = null;
@@ -2227,6 +2276,7 @@ async function runRecall(kind) {
     method: 'POST',
     body: JSON.stringify(body),
   });
+  completeOnboardingStep('recall');
   state.recallKind = kind;
   state.recallTab = 'results';
   state.recallQuery = query;
@@ -2390,6 +2440,7 @@ async function handleAction(target) {
   if (action === 'go-docs')        { route('documentation');     return; }
   if (action === 'go-tables')      { route('tables');            return; }
   if (action === 'go-files')       { route('files');             return; }
+  if (action === 'go-observability') { route('observability');    return; }
   if (action === 'ingest-explorer-kind') {
     if (state.explorerKind === 'files') { route('files'); return; }
     state.ingestType = { records: 'Record', memories: 'Memory', documents: 'Document' }[state.explorerKind] || 'Memory';

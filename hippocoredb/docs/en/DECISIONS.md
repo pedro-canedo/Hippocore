@@ -227,3 +227,17 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
 - **Trade-offs**: Opening or changing a collection makes four parallel local
   requests. If measured object volume makes this expensive, a summarized admin
   endpoint or pagination can replace client-derived counts later.
+
+## ADR-015: Onboarding progress does not mutate database state
+
+- **Decision**: Derive tenant, collection, and first-data completion from
+  bootstrap stats. Store successful SQL and recall completion only in browser
+  local storage, scoped by the active `data_dir`.
+- **Context**: Setup guidance is interface state, not durable context data. The
+  server has authoritative counts but no user identity model for per-user tours.
+- **Reason**: This keeps WAL, snapshots, and public database APIs untouched while
+  making progress immediate and stable across local browser sessions. Scoping
+  flags by data directory prevents one local database from completing another.
+- **Trade-offs**: SQL/recall progress does not synchronize across browsers and
+  can be cleared with browser storage. Server-persisted onboarding can be added
+  only if a real multi-user requirement appears.

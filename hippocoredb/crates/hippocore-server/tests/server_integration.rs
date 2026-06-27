@@ -111,6 +111,8 @@ async fn admin_assets_are_public() {
     assert!(css.contains(".topbar"));
     assert!(css.contains(".explorer-kinds"));
     assert!(css.contains(".explorer-selection"));
+    assert!(css.contains(".setup-panel"));
+    assert!(css.contains(".sidebar-next"));
 
     let resp = app
         .oneshot(
@@ -154,6 +156,12 @@ async fn admin_assets_are_public() {
         "function explorerLogicalColumns",
         "`payload.${key}`",
         "Promise.all(EXPLORER_KINDS",
+        "function onboardingStorageKey",
+        "function setupProgress",
+        "function SetupChecklist",
+        "completeOnboardingStep('sql')",
+        "completeOnboardingStep('recall')",
+        "go-observability",
     ] {
         assert!(js.contains(marker), "missing admin asset marker {marker}");
     }
@@ -176,6 +184,7 @@ async fn admin_assets_are_public() {
         "PageHeader('Settings'",
         "showToast('Copied to clipboard')",
         "throw new Error('select a tenant first')",
+        "${JsonViewer(s)}",
     ] {
         assert!(
             !runtime.contains(hardcoded_copy),

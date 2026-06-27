@@ -165,3 +165,18 @@ versão em inglês em `docs/en/DECISIONS.md`.
 - **Trade-off**: abrir ou trocar collection faz quatro requests locais em
   paralelo. Se volume medido tornar isso caro, endpoint resumido ou paginacao
   pode substituir contagens derivadas no cliente.
+
+## ADR-015: Progresso de onboarding nao altera estado do banco
+
+- **Decisao**: derivar conclusao de tenant, collection e primeiro dado dos
+  stats de bootstrap. Salvar sucesso de SQL e recall apenas no local storage do
+  browser, escopado pelo `data_dir` ativo.
+- **Contexto**: orientacao de setup e estado de interface, nao dado duravel de
+  contexto. O servidor possui contagens autoritativas, mas nao um modelo de
+  identidade para tours por usuario.
+- **Motivo**: WAL, snapshots e APIs publicas ficam intocados, enquanto progresso
+  atualiza imediatamente e sobrevive a sessoes locais. O escopo por diretorio
+  impede que um banco local conclua o onboarding de outro.
+- **Trade-off**: progresso SQL/recall nao sincroniza entre browsers e pode ser
+  apagado com storage local. Persistencia no servidor so deve vir com requisito
+  multiusuario real.

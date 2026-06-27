@@ -4,7 +4,21 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Data Explorer Workspace v0.1**:
+**Guided Workspace Onboarding v0.1**:
+
+- Dashboard now keeps a five-step checklist visible from empty database through
+  tenant, collection, first data, SQL, and recall/context completion.
+- Bootstrap stats drive the first three steps. SQL and recall success flags are
+  browser-local and scoped by `data_dir`; no database state is mutated.
+- Only the first incomplete step has a primary action, and the same next action
+  appears in the sidebar until setup is complete.
+- Operational status, active tenant, storage, API status, data counts, and quick
+  actions are separate sections.
+- Raw stats JSON was removed from the Dashboard and remains available through
+  Observability.
+- English and Portuguese catalogs now contain 297 matching, non-duplicate keys.
+
+Previous: **Data Explorer Workspace v0.1**:
 
 - The Explorer now supports tenant -> collection -> data-type navigation for
   Records, Memories, Documents, and Files without leaving the page.
