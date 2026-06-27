@@ -2,65 +2,59 @@
 
 ## Nome da feature
 
-**Control Plane TS — Shell de Navegação + Tenants & Collections v0.2**
+**Control Plane TS — Data Explorer (leitura) v0.3**
 
 ## Por que importa
 
-O console TypeScript (`/console`) hoje tem apenas a fatia Login → Dashboard. O
-próximo incremento de maior valor é o shell de navegação mais as primeiras
-páginas de mutação de dados — Tenants e Collections — que estabelecem a sidebar,
-o roteamento, o seletor global de tenant e o padrão de formulário create/list
-reutilizado por todas as páginas seguintes.
+Com tenants e collections gerenciáveis no `/console`, o próximo passo de maior
+valor é ver os dados dentro deles. Um Data Explorer read-only permite navegar
+Records, Memories, Documents e Files do tenant ativo e de uma collection
+escolhida, estabelecendo o padrão de listagem de entidades reutilizado por todas
+as páginas de gestão seguintes.
 
 ## Comportamento
 
-- Adicionar um shell de sidebar persistente (marca, navegação agrupada, logout)
-  e troca de view client-side dirigida por estado de componente (ainda sem
-  biblioteca de router).
-- Um seletor global de tenant na topbar persiste o tenant ativo no local storage
-  e o compartilha com o resto do console.
-- **Página Tenants**: listar tenants de `GET /admin/tenants`; criar tenant via
-  `POST /admin/tenants`; mostrar empty state e erros de validação inline.
-- **Página Collections**: listar collections do tenant ativo de
-  `GET /admin/collections?tenant_id=`; criar via
-  `POST /admin/tenants/{tid}/collections`; exigir um tenant ativo primeiro.
-- Todas as requisições passam pelo cliente de API tipado; sucesso atualiza a
-  lista e mostra um toast; o `ApiError` tipado expõe mensagens do servidor.
-- O Dashboard ganha links para as novas páginas.
+- Adicionar uma página **Data Explorer** à sidebar, condicionada a um tenant
+  ativo.
+- Um seletor de collection (populado por `GET /admin/collections?tenant_id=`)
+  escolhe o escopo; lembrar a última collection por tenant localmente.
+- Abas por tipo — Records, Memories, Documents, Files — carregam em paralelo para
+  a collection ativa e mostram contagens por tipo nas abas.
+- Records renderizam as chaves do payload como colunas deterministas (id e table
+  ficam como colunas de sistema estáveis); outros tipos mostram seus campos
+  principais. Um drawer de detalhe mostra o JSON completo da linha selecionada.
+- Empty states orientam a criar uma collection ou ingerir o primeiro dado pelo
+  console clássico enquanto a ingestão não foi portada.
 
 ## Arquivos provaveis
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (calls de tenants/collections)
-- `crates/hippocore-server/admin-ui/src/App.tsx` (estado de view + shell)
-- `crates/hippocore-server/admin-ui/src/components/Shell.tsx` (novo)
-- `crates/hippocore-server/admin-ui/src/views/TenantsView.tsx` (novo)
-- `crates/hippocore-server/admin-ui/src/views/CollectionsView.tsx` (novo)
-- `crates/hippocore-server/admin-ui/src/styles.css`
+- `crates/hippocore-server/admin-ui/src/api.ts` (listar records/memories/
+  documents/files; reutilizar `/admin/{records,memories,documents,files}`)
+- `crates/hippocore-server/admin-ui/src/views/DataExplorerView.tsx` (novo)
+- `crates/hippocore-server/admin-ui/src/components/Drawer.tsx` (novo)
+- `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Assets rebuildados em `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
 - Status/CHANGELOG bilíngues e `CONTROL_PLANE_TS.md`
 
 ## Criterios de aceitacao
 
-- A navegação da sidebar troca entre Dashboard, Tenants e Collections sem reload
-  completo.
-- Criar tenant e collection persiste e aparece imediatamente nas listas;
-  isolamento de tenant é respeitado para collections.
-- O tenant ativo é lembrado entre reloads e compartilhado com `/admin`.
+- Selecionar tenant e collection lista cada tipo com contagens corretas.
+- Chaves do payload de records aparecem como colunas deterministas; o drawer
+  mostra JSON completo; isolamento de tenant é respeitado (só dados do tenant
+  ativo aparecem).
+- A collection escolhida é lembrada por tenant entre reloads.
 - `pnpm type-check` e `pnpm build` passam; o portão Rust fica verde.
-- Texto novo existe em inglês e português onde voltado ao usuário.
+- Texto novo voltado ao usuário existe em inglês e português.
 
 ## Testes
 
-- Assertions de integração de que os assets de `/console` continuam servindo e
-  públicos.
-- Testes admin/server existentes continuam verdes (endpoints de
-  tenants/collections já cobertos no servidor).
-- `tsc --noEmit` strict passa; build conclui e atualiza `src/console/`.
+- Assets de `/console` continuam públicos (teste de integração existente).
+- Endpoints de listagem do servidor continuam verdes.
+- `tsc --noEmit` strict passa; build atualiza `src/console/`.
 
 ## Fora de escopo
 
-- Portar Records, Memories, Documents, Files, SQL Editor, Recall, Integrations,
-  Prompts ou Observability (incrementos futuros).
-- Adicionar biblioteca de router, de state-management ou kit de componentes.
-- Aposentar `/admin` ou redirecionar `/` (só após paridade completa).
+- Criar/editar/excluir entidades pelo Explorer (read-only por enquanto).
+- Portar SQL Editor, Ingestion & Recall, Integrations, Prompts, Observability.
+- Paginação, busca server-side ou export CSV.

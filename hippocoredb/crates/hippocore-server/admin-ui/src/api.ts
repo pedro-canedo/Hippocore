@@ -37,6 +37,13 @@ export interface Tenant {
   [key: string]: unknown;
 }
 
+export interface Collection {
+  name: string;
+  tenant_id: string;
+  description: string;
+  [key: string]: unknown;
+}
+
 export interface Bootstrap {
   config: AdminConfig;
   stats: BootstrapStats;
@@ -91,4 +98,60 @@ export async function bootstrap(session: string): Promise<Bootstrap> {
   });
   if (!res.ok) return parseError(res);
   return (await res.json()) as Bootstrap;
+}
+
+function authHeaders(session: string): HeadersInit {
+  return { "content-type": "application/json", "x-admin-session": session };
+}
+
+export async function listTenants(session: string): Promise<Tenant[]> {
+  const res = await fetch("/admin/tenants", {
+    headers: { "x-admin-session": session },
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as Tenant[];
+}
+
+export async function createTenant(
+  session: string,
+  id: string,
+  name: string,
+): Promise<Tenant> {
+  const res = await fetch("/admin/tenants", {
+    method: "POST",
+    headers: authHeaders(session),
+    body: JSON.stringify({ id, name }),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as Tenant;
+}
+
+export async function listCollections(
+  session: string,
+  tenantId: string,
+): Promise<Collection[]> {
+  const params = new URLSearchParams({ tenant_id: tenantId });
+  const res = await fetch(`/admin/collections?${params.toString()}`, {
+    headers: { "x-admin-session": session },
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as Collection[];
+}
+
+export async function createCollection(
+  session: string,
+  tenantId: string,
+  name: string,
+  description: string,
+): Promise<Collection> {
+  const res = await fetch(
+    `/admin/tenants/${encodeURIComponent(tenantId)}/collections`,
+    {
+      method: "POST",
+      headers: authHeaders(session),
+      body: JSON.stringify({ name, description }),
+    },
+  );
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as Collection;
 }

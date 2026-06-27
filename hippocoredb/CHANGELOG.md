@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: Navigation Shell + Tenants & Collections v0.2
+
+- `/console` gains a persistent sidebar shell with client-side view switching
+  (Dashboard, Tenants, Collections) and a topbar tenant selector that persists
+  the active tenant (shared `hippocore.tenant` key with `/admin`).
+- Tenants page: list/create via `GET`/`POST /admin/tenants`.
+- Collections page: list/create via `GET /admin/collections?tenant_id=` and
+  `POST /admin/tenants/{tid}/collections`; requires an active tenant.
+- Typed API client extended with `listTenants`, `createTenant`,
+  `listCollections`, `createCollection`; inline `ApiError`, list refresh, toast.
+- Dashboard refactored to render inside the shell with navigating stat cards.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TypeScript Rebuild: Foundation v0.1
 
 - New React + Vite + TypeScript admin console under

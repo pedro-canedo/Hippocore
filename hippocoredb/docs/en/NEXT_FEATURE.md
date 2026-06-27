@@ -2,64 +2,57 @@
 
 ## Feature name
 
-**Control Plane TS — Navigation Shell + Tenants & Collections v0.2**
+**Control Plane TS — Data Explorer (read) v0.3**
 
 ## Why it matters
 
-The TypeScript console (`/console`) currently has only a Login → Dashboard
-slice. The next highest-value increment is the navigation shell plus the first
-data-mutation pages — Tenants and Collections — which establish the sidebar,
-routing, global tenant selector, and the create/list form pattern that every
-later page reuses.
+With tenants and collections manageable in `/console`, the next highest-value
+step is seeing the data inside them. A read-only Data Explorer lets operators
+browse Records, Memories, Documents, and Files for the active tenant and a
+chosen collection, establishing the entity-list pattern every later management
+page reuses.
 
 ## Behavior
 
-- Add a persistent sidebar shell (brand, grouped navigation, sign-out) and a
-  client-side route/view switch driven by component state (no router library
-  required yet).
-- A global tenant selector in the topbar persists the active tenant in local
-  storage and is shared with the rest of the console.
-- **Tenants page**: list tenants from `GET /admin/tenants`; create a tenant via
-  `POST /admin/tenants`; show empty state and inline validation errors.
-- **Collections page**: list collections for the active tenant from
-  `GET /admin/collections?tenant_id=`; create one via
-  `POST /admin/tenants/{tid}/collections`; require an active tenant first.
-- All requests go through the typed API client; success refreshes the list and
-  shows a toast; typed `ApiError` surfaces server messages.
-- Dashboard gains links into the new pages.
+- Add a **Data Explorer** page to the sidebar, gated on an active tenant.
+- A collection selector (populated from `GET /admin/collections?tenant_id=`)
+  chooses the scope; remember the last collection per tenant locally.
+- Entity-type tabs — Records, Memories, Documents, Files — load in parallel for
+  the active collection and show per-type counts on the tabs.
+- Records render their payload keys as deterministic columns (id and table stay
+  as stable system columns); other types show their core fields. A detail
+  drawer shows the full JSON of a selected row.
+- Empty states guide the user to create a collection or ingest first data via
+  the classic console while ingestion is not yet ported.
 
 ## Likely files
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (add tenants/collections calls)
-- `crates/hippocore-server/admin-ui/src/App.tsx` (route/view state + shell)
-- `crates/hippocore-server/admin-ui/src/components/Shell.tsx` (new)
-- `crates/hippocore-server/admin-ui/src/views/TenantsView.tsx` (new)
-- `crates/hippocore-server/admin-ui/src/views/CollectionsView.tsx` (new)
-- `crates/hippocore-server/admin-ui/src/styles.css`
+- `crates/hippocore-server/admin-ui/src/api.ts` (list records/memories/
+  documents/files; reuse existing `/admin/{records,memories,documents,files}`)
+- `crates/hippocore-server/admin-ui/src/views/DataExplorerView.tsx` (new)
+- `crates/hippocore-server/admin-ui/src/components/Drawer.tsx` (new)
+- `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Rebuilt assets in `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
 - Bilingual status/CHANGELOG and `CONTROL_PLANE_TS.md`
 
 ## Acceptance criteria
 
-- Sidebar navigation switches between Dashboard, Tenants, and Collections
-  without a full reload.
-- Creating a tenant and a collection persists and immediately appears in the
-  lists; tenant isolation is respected for collections.
-- The active tenant is remembered across reloads and shared with `/admin`.
+- Selecting a tenant and collection lists each type with correct counts.
+- Record payload keys appear as deterministic columns; the drawer shows full
+  JSON; tenant isolation is respected (only active tenant's data shows).
+- The chosen collection is remembered per tenant across reloads.
 - `pnpm type-check` and `pnpm build` pass; the Rust gate is green.
-- New copy exists in both English and Portuguese where user-facing.
+- New user-facing copy exists in English and Portuguese.
 
 ## Tests
 
-- Integration assertions that `/console` assets still serve and remain public.
-- Existing admin/server tests stay green (tenants/collections endpoints already
-  covered server-side).
-- `tsc --noEmit` strict passes; build succeeds and updates `src/console/`.
+- `/console` assets stay public (existing integration test).
+- Existing server list endpoints stay green.
+- `tsc --noEmit` strict passes; build updates `src/console/`.
 
 ## Out of scope
 
-- Porting Records, Memories, Documents, Files, SQL Editor, Recall, Integrations,
-  Prompts, or Observability (later increments).
-- Adding a router library, state-management library, or component kit.
-- Retiring `/admin` or redirecting `/` (only after full parity).
+- Creating/editing/deleting entities from the Explorer (read-only for now).
+- Porting SQL Editor, Ingestion & Recall, Integrations, Prompts, Observability.
+- Pagination, server-side search, or CSV export.

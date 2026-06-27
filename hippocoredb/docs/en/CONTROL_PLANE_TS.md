@@ -79,6 +79,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 ## Current scope
 
 - Login → Dashboard with server status and database counts.
+- Navigation shell (sidebar + topbar) with client-side view switching.
+- Topbar tenant selector; active tenant persisted and shared with `/admin`
+  (`hippocore.tenant`).
+- Tenants page: list and create.
+- Collections page: list and create for the active tenant.
 - Shared session key (`hippocore.adminSession`) with the `/admin` console.
 
 ## Migration plan

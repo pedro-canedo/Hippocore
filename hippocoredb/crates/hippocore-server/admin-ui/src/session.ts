@@ -3,6 +3,7 @@
 
 const SESSION_KEY = "hippocore.adminSession";
 const USER_KEY = "hippocore.adminUser";
+const TENANT_KEY = "hippocore.tenant";
 
 export function loadSession(): string {
   return localStorage.getItem(SESSION_KEY) ?? "";
@@ -19,4 +20,13 @@ export function saveSession(session: string, username: string): void {
 
 export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
+}
+
+export function loadActiveTenant(): string {
+  return localStorage.getItem(TENANT_KEY) ?? "";
+}
+
+export function saveActiveTenant(tenantId: string): void {
+  if (tenantId) localStorage.setItem(TENANT_KEY, tenantId);
+  else localStorage.removeItem(TENANT_KEY);
 }

@@ -80,6 +80,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 ## Escopo atual
 
 - Login → Dashboard com status do servidor e contagens do banco.
+- Shell de navegação (sidebar + topbar) com troca de view client-side.
+- Seletor de tenant na topbar; tenant ativo persistido e compartilhado com
+  `/admin` (`hippocore.tenant`).
+- Página Tenants: listar e criar.
+- Página Collections: listar e criar para o tenant ativo.
 - Chave de sessão compartilhada (`hippocore.adminSession`) com o console `/admin`.
 
 ## Plano de migração

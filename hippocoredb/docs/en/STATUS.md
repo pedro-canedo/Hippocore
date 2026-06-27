@@ -4,7 +4,23 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TypeScript Rebuild — Foundation v0.1**:
+**Control Plane TS — Navigation Shell + Tenants & Collections v0.2**:
+
+- The `/console` app gains a persistent sidebar shell (Dashboard, Tenants,
+  Collections) with client-side view switching — no router library — plus a
+  topbar tenant selector that persists the active tenant in local storage,
+  sharing the `hippocore.tenant` key with the classic `/admin` console.
+- **Tenants** page lists and creates tenants (`GET`/`POST /admin/tenants`);
+  **Collections** page lists and creates collections for the active tenant
+  (`GET /admin/collections?tenant_id=`, `POST /admin/tenants/{tid}/collections`),
+  requiring a tenant to be selected first.
+- Forms use the typed API client; typed `ApiError` surfaces server messages
+  inline, success refreshes lists and bootstrap counts, and shows a toast.
+- Dashboard was refactored to render inside the shell, with stat cards and
+  links that navigate into Tenants/Collections.
+- No server changes: all endpoints already existed; assets rebuilt and embedded.
+
+Previous: **Control Plane TypeScript Rebuild — Foundation v0.1**:
 
 - New React + Vite + TypeScript admin console under
   `crates/hippocore-server/admin-ui/`, served at **`/console`**. The classic
