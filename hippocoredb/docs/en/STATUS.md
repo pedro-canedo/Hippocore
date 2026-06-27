@@ -4,7 +4,24 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Control Plane — Liquid Glass UI v0.1**:
+**File Upload with Drag-and-Drop v0.1**:
+
+- New `POST /admin/tenants/{tid}/files` multipart endpoint (axum `multipart` feature).
+  Dispatch by extension:
+  - `.pdf` → `store_document(from_pdf(...))` — chunked Document for recall
+  - `.txt`, `.md` → `store_document(new(...))` — plain text Document
+  - `.csv` → inline CSV parser → one `put_record()` per row; table = filename stem
+  - `.json` — array-of-objects → Records; any other JSON → Document
+  - other extensions → `422 Unprocessable Entity`
+  - Response: `{ file_id, kind, count, name }`
+- New `handlers/files.rs` module following the existing handler pattern.
+- Files page now shows a Liquid Glass drag-and-drop zone with file type badges,
+  XHR upload with live progress bar, and a success banner after upload.
+- Dragging files onto `#dropZone` or clicking to browse both trigger upload.
+- `styles.css`: new `.drop-zone`, `.drag-over`, `.drop-zone-progress`, `.drop-zone-progress-bar`,
+  `.file-type-badge`, `.upload-result`, `.radio-card` classes.
+
+Previous: **Control Plane — Liquid Glass UI v0.1**:
 
 - Complete visual redesign of `/admin` into a premium Liquid Glass interface:
   translucent cards with `backdrop-filter: blur`, radial gradient body,

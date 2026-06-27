@@ -5,6 +5,18 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — File Upload with Drag-and-Drop v0.1
+
+- `POST /admin/tenants/{tid}/files` — multipart upload endpoint (axum `multipart` feature).
+  Automatically stores files as the correct type based on extension: PDF → chunked Document;
+  TXT/MD → Document; CSV → Records (one row per record, table = filename stem);
+  JSON array → Records; JSON object/string → Document. Unsupported extensions return 422.
+- New `handlers/files.rs` module in `hippocore-server`.
+- Admin Files page: Liquid Glass drag-and-drop zone with file-type badges (.pdf, .txt,
+  .md, .csv, .json), XHR progress bar, and success/error feedback.
+- New CSS classes: `.drop-zone`, `.drag-over`, `.drop-zone-progress`,
+  `.drop-zone-progress-bar`, `.file-type-badge`, `.upload-result`, `.radio-card`.
+
 ### Added — Control Plane Liquid Glass UI v0.1
 
 - Complete visual redesign of `/admin` with Liquid Glass design system:

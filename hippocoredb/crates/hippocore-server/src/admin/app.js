@@ -546,6 +546,8 @@ const state = {
   detail:     null,
   toast:      '',
   lastOperation: '',
+  uploadProgress: 0,
+  uploadResult: null,
 };
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -951,6 +953,59 @@ function ObjectListPage(kind) {
     </section>`;
 }
 
+function DropZone() {
+  const types = [
+    ['.pdf', 'Document (chunks)'],
+    ['.txt', 'Document'],
+    ['.md',  'Document'],
+    ['.csv', 'Records (SQL)'],
+    ['.json','Document / Records'],
+  ];
+  const badges = types.map(([ext, kind]) =>
+    `<span class="file-type-badge" title="${esc(kind)}">${esc(ext)}</span>`
+  ).join('');
+  const progress = state.uploadProgress > 0
+    ? `<div class="drop-zone-progress"><div class="drop-zone-progress-bar" style="width:${state.uploadProgress}%"></div></div>`
+    : '';
+  return `<div class="drop-zone" id="dropZone" data-action="drop-zone-click">
+    <p class="drop-zone-hint">Drag &amp; drop files here, or click to browse</p>
+    <div class="drop-zone-types">${badges}</div>
+    ${progress}
+    <input type="file" id="fileInput" style="display:none" multiple accept=".pdf,.txt,.md,.csv,.json" />
+  </div>`;
+}
+
+function FilesPage() {
+  const rows = annotateRows(state.lists.files || [], 'files');
+  const hasTenant = !!state.tenant;
+  const result = state.uploadResult
+    ? `<div class="upload-result">✓ ${esc(state.uploadResult.name)} → ${esc(state.uploadResult.kind)} (${state.uploadResult.count} ${state.uploadResult.kind === 'records' ? 'rows' : 'chunks'})</div>`
+    : '';
+  return `${PageHeader('Files', 'Drag and drop PDF, CSV, TXT, MD, or JSON files. The server stores them automatically as documents or records.', ActionButton(t('refresh'), 'refresh'))}
+    <section class="grid cols-2">
+      <div class="panel">
+        <h3>Upload</h3>
+        ${!hasTenant
+          ? EmptyState('No tenant selected', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+          : `${FormField(t('collection'), 'fileCollection', state.collection)}
+             ${DropZone()}
+             ${result}`
+        }
+        <div class="notice" style="margin-top:12px">PDF → Document (chunked for recall) · CSV → Records (SQL-queryable) · JSON array → Records · JSON object / TXT / MD → Document</div>
+      </div>
+      <div class="panel">
+        <h3>Stored files</h3>
+        ${DataTable(
+          rows,
+          [{key:'name',label:'name'},{key:'media_type',label:'type'},{key:'size_bytes',label:'bytes'},{key:'collection',label:'collection'}],
+          'No files uploaded',
+          'Drag a file into the upload zone on the left.',
+          ''
+        )}
+      </div>
+    </section>`;
+}
+
 function IngestionRecallPage() {
   const kindStatus = { Memory: 'Implemented', Document: 'Implemented', Record: 'Implemented', File: 'Planned' };
   const hasTenant = !!state.tenant;
@@ -1198,7 +1253,8 @@ function renderPage() {
   if (state.page === 'data-explorer')   return AppShell(DataExplorerPage());
   if (state.page === 'sql-editor')      return AppShell(SqlEditorPage());
   if (state.page === 'collections')     return AppShell(CollectionsPage());
-  if (['records','memories','documents','files'].includes(state.page)) return AppShell(ObjectListPage(state.page));
+  if (['records','memories','documents'].includes(state.page)) return AppShell(ObjectListPage(state.page));
+  if (state.page === 'files') return AppShell(FilesPage());
   if (state.page === 'ingestion-recall') return AppShell(IngestionRecallPage());
   if (state.page === 'graph')           return AppShell(GraphPage());
   if (state.page === 'api-reference')   return AppShell(ApiReferencePage());
@@ -1507,6 +1563,59 @@ async function handleAction(target) {
   if (action === 'detail')            { openDetail(target.dataset.list, target.dataset.index); return; }
   if (action === 'close-detail')      { state.detail = null; render(); return; }
   if (action === 'copy-code')         { copyCode(target.dataset.code); return; }
+  if (action === 'drop-zone-click')   { document.getElementById('fileInput')?.click(); return; }
+}
+
+/* ─── File upload via XHR (progress events) ─────────────────────────────── */
+async function uploadFile(file) {
+  if (!state.tenant) throw new Error('select a tenant first');
+  const collection = document.getElementById('fileCollection')?.value.trim() || state.collection;
+  if (!collection) throw new Error('collection required — fill the collection field above the drop zone');
+  state.uploadProgress = 1;
+  state.uploadResult = null;
+  render();
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('collection', collection);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/admin/tenants/${encodeURIComponent(state.tenant)}/files`);
+    xhr.setRequestHeader('x-admin-session', state.session);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        state.uploadProgress = Math.round((e.loaded / e.total) * 100);
+        render();
+      }
+    };
+    xhr.onload = () => {
+      state.uploadProgress = 0;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { state.uploadResult = JSON.parse(xhr.responseText); } catch (_) { state.uploadResult = { name: file.name, kind: 'unknown', count: 0 }; }
+        resolve(state.uploadResult);
+      } else {
+        let msg = xhr.responseText;
+        try { msg = JSON.parse(msg).error || msg; } catch (_) { /* keep raw */ }
+        reject(new Error(`${file.name}: ${msg}`));
+      }
+    };
+    xhr.onerror = () => {
+      state.uploadProgress = 0;
+      reject(new Error('Network error during upload'));
+    };
+    xhr.send(fd);
+  });
+}
+
+function handleDroppedFiles(files) {
+  Array.from(files).forEach((file) => {
+    uploadFile(file)
+      .then(() => {
+        showToast(`${file.name} uploaded successfully.`);
+        state.lastOperation = `Uploaded ${file.name} → ${state.uploadResult?.kind}`;
+        return hydratePage();
+      })
+      .catch(showError);
+  });
 }
 
 root.addEventListener('click', (event) => {
@@ -1531,6 +1640,36 @@ root.addEventListener('change', (event) => {
     state.lang = event.target.value;
     persist();
     render();
+  }
+  if (event.target.id === 'fileInput' && event.target.files.length > 0) {
+    handleDroppedFiles(event.target.files);
+    event.target.value = '';
+  }
+});
+
+root.addEventListener('dragover', (event) => {
+  if (event.target.closest('#dropZone')) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    event.target.closest('#dropZone').classList.add('drag-over');
+  }
+});
+
+root.addEventListener('dragleave', (event) => {
+  const zone = event.target.closest('#dropZone');
+  if (zone && !zone.contains(event.relatedTarget)) {
+    zone.classList.remove('drag-over');
+  }
+});
+
+root.addEventListener('drop', (event) => {
+  const zone = event.target.closest('#dropZone');
+  if (zone) {
+    event.preventDefault();
+    zone.classList.remove('drag-over');
+    if (event.dataTransfer.files.length > 0) {
+      handleDroppedFiles(event.dataTransfer.files);
+    }
   }
 });
 

@@ -160,6 +160,10 @@ pub fn build_router(state: AppState) -> Router {
             post(handlers::documents::store_document),
         )
         .route(
+            "/admin/tenants/{tid}/files",
+            post(handlers::files::upload_file),
+        )
+        .route(
             "/admin/tenants/{tid}/recall",
             post(handlers::recall::recall),
         )
