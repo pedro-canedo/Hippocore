@@ -124,8 +124,8 @@ de uma tela unica de debug:
   Tenants, Service Keys, Observability e Settings;
 - cards no Dashboard para status do servidor, tenant atual, contagens de
   objetos, tamanho do audit log, diretorio de dados e ultima operacao;
-- Data Explorer com painel lateral tenant/collection, tabela, JSON bruto,
-  informacao fisica e drawer de detalhe;
+- Data Explorer com arvore tenant/collection/tipo, busca de collection,
+  contagens por tipo, colunas do payload, JSON bruto, informacao fisica e drawer;
 - SQL Editor dedicado usando `POST /admin/sql`;
 - pagina guiada de ingestao/recall com autocomplete de collection no tenant e
   acoes especificas para Memory, Document, Record e File (criacao de record usa

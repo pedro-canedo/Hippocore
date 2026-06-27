@@ -2,26 +2,27 @@
 
 ## Feature name
 
-**Data Explorer Workspace v0.1**
+**Guided Workspace Onboarding v0.1**
 
 ## Why it matters
 
-Data Explorer has logical, JSON, and physical tabs, but still behaves like an
-empty records page. A developer should be able to select a tenant, navigate its
-collections and data types, inspect structured payload fields as columns, and
-open full object details without first understanding Hippocore internals.
+The Dashboard currently shows onboarding only when there are no tenants and
+then immediately becomes a statistics grid. New developers need a persistent,
+state-aware path from an empty database to their first query and recall without
+knowing which page or object type comes next.
 
 ## Behavior
 
-- Add collection search and a contextual create-collection action to the tree.
-- Show Records, Memories, Documents, and Files under the selected collection,
-  with counts derived from the loaded tenant-scoped lists.
-- Selecting a data type loads and displays that type without leaving Explorer.
-- Render record payload keys as logical table columns while keeping stable
-  object identifiers and table names visible.
-- Keep Raw JSON for complete persisted objects and Physical Info for lineage,
-  kind, timestamps, source, metadata, document/chunk references, and version.
-- Empty states guide users to create a collection or ingest the first item.
+- Show a five-step setup checklist: create tenant, create collection, add first
+  data, run SQL, and test recall/context.
+- Derive tenant, collection, and data completion from bootstrap stats; record
+  successful SQL and recall actions locally for UI progress only.
+- Give the first incomplete step one primary action that routes to the correct
+  workflow, while completed steps remain visibly checked.
+- Keep operational status, active tenant, storage, and API health separate from
+  data counts and quick actions.
+- Move raw stats out of the Dashboard focus and link to Observability instead.
+- Show the next setup action in the sidebar while onboarding is incomplete.
 
 ## Likely files
 
@@ -32,23 +33,22 @@ open full object details without first understanding Hippocore internals.
 
 ## Acceptance criteria
 
-- Explorer navigates tenant -> collection -> data type from one screen.
-- Collection search filters the tree without changing tenant scope.
-- Record payload fields appear as logical columns with deterministic ordering.
-- JSON and physical views expose complete selected data without mixing storage
-  details into the default logical table.
-- All new copy is complete in English and Portuguese.
-- Existing auth and tenant isolation remain unchanged; quality gate is green.
+- A new user always sees one clear next action until all five steps are complete.
+- Progress updates immediately after successful tenant, collection, ingest, SQL,
+  and recall workflows.
+- Dashboard raw JSON is no longer a primary panel.
+- Existing stats, navigation, auth, and tenant isolation remain unchanged.
+- All new copy is complete in English and Portuguese; quality gate is green.
 
 ## Tests
 
-- Asset assertions cover collection search, type selection, payload columns,
-  and the three explorer views.
-- Existing tenant-isolation and admin-list integration tests remain green.
+- Asset assertions cover setup-step derivation, next-action routing, and local
+  SQL/recall progress flags.
+- Existing admin workflow integration tests remain green.
 - JavaScript syntax check and complete Rust quality gate pass.
 
 ## Out of scope
 
-- Editing or deleting arbitrary objects from the Explorer table.
-- New backend aggregation/count endpoints.
-- Virtualized tables, schema migrations, or React/Vite migration.
+- Server-persisted per-user onboarding state or analytics.
+- A product tour overlay, command palette, or framework migration.
+- Changing database schemas, retrieval, or persistence.

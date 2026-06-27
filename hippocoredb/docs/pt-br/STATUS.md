@@ -4,10 +4,24 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Control Plane i18n Completeness v0.1**:
+**Data Explorer Workspace v0.1**:
 
-- Toda copia runtime do Control Plane agora vem de catalogos equivalentes com
-  278 chaves em ingles e portugues, incluindo navegacao, paginas, formularios,
+- O Explorer agora navega tenant -> collection -> tipo para Records, Memories,
+  Documents e Files sem sair da pagina.
+- A busca filtra a arvore do tenant ativo e acoes contextuais levam a criacao
+  de collection ou ingestao do primeiro item.
+- Os quatro endpoints tenant-scoped existentes carregam em paralelo para a
+  collection ativa, gerando contagens e troca instantanea de tipo.
+- Chaves do payload de records viram colunas logicas deterministas; id e table
+  continuam como colunas estaveis do sistema.
+- JSON bruto mostra objetos completos. Informacao Fisica mostra kind, lineage,
+  source, metadata, timestamps, versao e abre o objeto completo no drawer.
+- Catalogos ingles e portugues agora possuem 280 chaves equivalentes.
+
+Anterior: **Control Plane i18n Completeness v0.1**:
+
+- Toda copia runtime do Control Plane agora vem de catalogos equivalentes em
+  ingles e portugues, incluindo navegacao, paginas, formularios,
   acoes, erros, toasts, integracoes, prompts e observabilidade.
 - Identificadores tecnicos, SQL, paths, nomes de provider e dados do usuario
   preservam suas formas originais para manter precisao.

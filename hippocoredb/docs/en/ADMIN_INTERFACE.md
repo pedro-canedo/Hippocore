@@ -137,8 +137,8 @@ screen:
   Service Keys, Observability, and Settings;
 - Dashboard cards for server status, current tenant, object counts, audit log
   size, data directory, and last operation;
-- Data Explorer with tenant/collection side panel, table view, raw JSON view,
-  physical-info view, and detail drawer;
+- Data Explorer with tenant/collection/type tree, collection search, per-type
+  counts, record payload columns, Raw JSON, Physical Info, and full detail drawer;
 - dedicated SQL Editor using `POST /admin/sql`;
 - guided ingestion/recall page with tenant-scoped collection autocomplete and
   type-specific Memory, Document, Record, and File actions (record creation

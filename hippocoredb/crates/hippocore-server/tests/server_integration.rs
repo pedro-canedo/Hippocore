@@ -109,6 +109,8 @@ async fn admin_assets_are_public() {
     let css = String::from_utf8(css.to_vec()).unwrap();
     assert!(css.contains(".sidebar"));
     assert!(css.contains(".topbar"));
+    assert!(css.contains(".explorer-kinds"));
+    assert!(css.contains(".explorer-selection"));
 
     let resp = app
         .oneshot(
@@ -145,6 +147,13 @@ async fn admin_assets_are_public() {
         "function captureFormState",
         "function messageText",
         "t(GROUP_LABELS[group])",
+        "const EXPLORER_KINDS",
+        "explorerCollectionSearch",
+        "choose-explorer-kind",
+        "ingest-explorer-kind",
+        "function explorerLogicalColumns",
+        "`payload.${key}`",
+        "Promise.all(EXPLORER_KINDS",
     ] {
         assert!(js.contains(marker), "missing admin asset marker {marker}");
     }

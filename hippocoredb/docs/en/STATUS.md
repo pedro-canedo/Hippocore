@@ -4,9 +4,23 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Control Plane i18n Completeness v0.1**:
+**Data Explorer Workspace v0.1**:
 
-- All runtime Control Plane copy now comes from matching 278-key English and
+- The Explorer now supports tenant -> collection -> data-type navigation for
+  Records, Memories, Documents, and Files without leaving the page.
+- Collection search filters the active tenant tree, and contextual actions lead
+  to collection creation or first-item ingestion.
+- The four existing tenant-scoped list endpoints load in parallel for the
+  active collection, providing per-type counts and instant type switching.
+- Record payload keys become deterministic logical columns; id and table remain
+  stable system columns.
+- Raw JSON shows complete objects. Physical Info shows kind, lineage, source,
+  metadata, timestamps, version, and opens the complete object in the drawer.
+- English and Portuguese catalogs now contain 280 matching keys.
+
+Previous: **Control Plane i18n Completeness v0.1**:
+
+- All runtime Control Plane copy now comes from matching English and
   Portuguese catalogs, including navigation, pages, forms, actions, errors,
   toasts, integrations, prompts, and observability.
 - Technical identifiers, SQL, endpoint paths, provider names, and stored user

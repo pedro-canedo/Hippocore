@@ -151,3 +151,17 @@ versão em inglês em `docs/en/DECISIONS.md`.
   transitorio preserva UX sem gravar senhas ou input incompleto no local storage.
 - **Trade-off**: manutencao do catalogo e manual e testes estaticos nao substituem
   automacao de browser. Um frontend empacotado futuro pode adotar biblioteca i18n.
+
+## ADR-014: Data Explorer compoe endpoints scoped existentes
+
+- **Decisao**: carregar Records, Memories, Documents e Files em paralelo pelos
+  endpoints admin existentes com escopo tenant/collection e derivar contagens
+  da collection ativa no Control Plane.
+- **Contexto**: o Explorer precisa de contagens e troca instantanea de tipo, mas
+  o volume atual e local-first e todas as listas scoped necessarias ja existem.
+  Um contrato de agregacao duplicaria comportamento antes de medir escala.
+- **Motivo**: reutilizar endpoints estaveis preserva isolamento de tenant, nao
+  altera o servidor e entrega o workspace completo em incremento pequeno de UI.
+- **Trade-off**: abrir ou trocar collection faz quatro requests locais em
+  paralelo. Se volume medido tornar isso caro, endpoint resumido ou paginacao
+  pode substituir contagens derivadas no cliente.

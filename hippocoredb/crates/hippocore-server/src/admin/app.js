@@ -22,6 +22,13 @@ const NAV = [
   ['admin',   'settings',         'settings'],
 ];
 
+const EXPLORER_KINDS = [
+  ['records', 'records'],
+  ['memories', 'memories'],
+  ['documents', 'documents'],
+  ['files', 'files'],
+];
+
 const GROUP_LABELS = {
   operate: 'workspace',
   data:    'data',
@@ -155,6 +162,7 @@ const I18N = {
     data: 'Data',
     dataExplorer: 'Data Explorer',
     dataExplorerNotice: 'Collections are logical namespaces. Records are JSON-first structured data projected into context.',
+    dataTypes: 'Data types',
     delete: 'Delete',
     deleteAll: 'Delete all',
     deletePromptConfirm: 'Delete prompt "{name}"?',
@@ -255,6 +263,7 @@ const I18N = {
     runtimeConfigurationLead: 'Embedding runtime, reindex controls, hybrid_alpha tuning, and richer table settings are planned.',
     selectTenantFirst: 'Select a tenant first',
     selectTenantTopbar: 'Select a tenant in the topbar first.',
+    searchCollections: 'Search collections',
     send: 'Send',
     serviceApiKeyLead: 'The service API key authenticates tenant-facing endpoints and can be rotated at any time.',
     serviceKeys: 'Service Keys',
@@ -435,6 +444,7 @@ const I18N = {
     data: 'Dados',
     dataExplorer: 'Explorador de Dados',
     dataExplorerNotice: 'Collections sao namespaces logicos. Records sao dados JSON estruturados e projetados para contexto.',
+    dataTypes: 'Tipos de dados',
     delete: 'Excluir',
     deleteAll: 'Excluir todos',
     deletePromptConfirm: 'Excluir o prompt "{name}"?',
@@ -535,6 +545,7 @@ const I18N = {
     runtimeConfigurationLead: 'Runtime de embeddings, reindex, ajuste de hybrid_alpha e configuracoes ricas de tables estao planejados.',
     selectTenantFirst: 'Selecione um tenant primeiro',
     selectTenantTopbar: 'Selecione um tenant no topbar primeiro.',
+    searchCollections: 'Buscar collections',
     send: 'Enviar',
     serviceApiKeyLead: 'A service API key autentica endpoints de tenants e pode ser rotacionada a qualquer momento.',
     serviceKeys: 'Chaves de Servico',
@@ -959,6 +970,8 @@ const state = {
   collection: localStorage.getItem('hippocore.collection') || '',
   tab:        'logical',
   sqlTab:     'table',
+  explorerKind: 'records',
+  explorerSearch: '',
   recallTab:  'results',
   recallKind: 'recall',
   recallQuery:'',
@@ -1333,25 +1346,38 @@ function DashboardPage() {
 
 function DataExplorerPage() {
   const collections = state.collections || [];
-  const rows = annotateRows(activeExplorerRows(), activeExplorerListName());
+  const kind = activeExplorerListName();
+  const rows = annotateRows(activeExplorerRows(), kind);
+  const kindLabel = t(EXPLORER_KINDS.find(([id]) => id === kind)?.[1] || kind);
   const tabs = Tabs([
     { id: 'logical',  label: t('logicalView') },
     { id: 'json',     label: t('rawJson') },
     { id: 'physical', label: t('physicalInfo') },
   ], state.tab, 'tab');
-  const main = state.tab === 'json'
-    ? JsonViewer(rows)
-    : state.tab === 'physical'
-      ? PhysicalInfo(rows)
-      : DataTable(rows, logicalColumns(rows), t('noDataSelected'), t('noDataSelectedDesc'), '');
+  const hasTenant = !!state.tenant;
+  const hasCollection = !!state.collection && collections.some((item) => item.name === state.collection);
+  const emptyAction = ActionButton(tf('ingestItems', { type: kindLabel }), 'ingest-explorer-kind', 'primary');
+  const view = rows.length === 0 && hasCollection
+    ? EmptyState(tf('noItems', { type: kindLabel }), tf('objectListEmpty', { type: kindLabel }), emptyAction)
+    : state.tab === 'json'
+      ? JsonViewer(rows)
+      : state.tab === 'physical'
+        ? PhysicalInfo(rows, kind)
+        : DataTable(rows, explorerLogicalColumns(rows, kind), t('noDataSelected'), t('noDataSelectedDesc'), emptyAction);
+  const main = !hasTenant
+    ? EmptyState(t('noTenantSelected'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+    : !hasCollection
+      ? EmptyState(t('noCollectionSelected'), t('noCollectionDesc'), ActionButton(t('createCollection'), 'go-collections', 'primary'))
+      : `<div class="explorer-selection"><div><strong>${esc(state.collection)}</strong><span>${esc(kindLabel)}</span></div>${StatusBadge(String(rows.length), 'info')}</div>${tabs}${view}`;
   return `${PageHeader(t('dataExplorer'), t('dataExplorerLead'), ActionButton(t('refresh'), 'refresh'))}
     <div class="layout-split">
       <aside class="side-panel">
-        <strong>${esc(t('tenants'))}</strong>
+        <div class="explorer-side-head"><strong>${esc(t('tenants'))}</strong>${ActionButton(`+ ${t('collection')}`, 'go-collections')}</div>
+        <label class="field"><span>${esc(t('searchCollections'))}</span><input id="explorerCollectionSearch" type="search" value="${esc(state.explorerSearch)}" placeholder="${esc(t('searchCollections'))}" /></label>
         <div class="tree">${tenantTree(collections)}</div>
         <div class="notice">${esc(t('dataExplorerNotice'))}</div>
       </aside>
-      <section class="panel">${tabs}${main}</section>
+      <section class="panel">${main}</section>
     </div>`;
 }
 
@@ -1360,17 +1386,28 @@ function tenantTree(collections) {
   if (tenants.length === 0) {
     return EmptyState(t('noTenants'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'));
   }
+  const search = state.explorerSearch.trim().toLowerCase();
+  const matchedCollections = collections.filter((collection) => collection.name.toLowerCase().includes(search));
   return tenants.map((tenant) => {
     const nested = tenant.id === state.tenant
-      ? `<div class="nested">${collections.map((col) => `<button type="button" data-action="choose-collection" data-collection="${esc(col.name)}" ${col.name === state.collection ? 'style="background:rgba(92,200,255,0.08);border-color:rgba(92,200,255,0.2)"' : ''}>${esc(col.name)}</button>`).join('') || `<span class="muted" style="padding:6px 10px;font-size:12px">${esc(t('noCollectionsYet'))}</span>`}</div>`
+      ? `<div class="nested">${collections.map((collection) => {
+          const selected = collection.name === state.collection;
+          const hidden = search && !collection.name.toLowerCase().includes(search) ? 'hidden' : '';
+          const kinds = selected
+            ? `<div class="explorer-kinds"><span class="tree-caption">${esc(t('dataTypes'))}</span>${EXPLORER_KINDS.map(([kind, labelKey]) => `<button type="button" class="tree-kind" data-action="choose-explorer-kind" data-kind="${esc(kind)}" aria-current="${state.explorerKind === kind ? 'page' : 'false'}"><span>${esc(t(labelKey))}</span><span class="tree-count">${state.lists[kind]?.length ?? 0}</span></button>`).join('')}</div>`
+            : '';
+          return `<div class="tree-collection" data-collection-node="${esc(collection.name.toLowerCase())}" ${hidden}><button type="button" data-action="choose-collection" data-collection="${esc(collection.name)}" aria-current="${selected ? 'page' : 'false'}"><span>${esc(collection.name)}</span></button>${kinds}</div>`;
+        }).join()}<span class="muted tree-empty" data-search-empty ${matchedCollections.length > 0 ? 'hidden' : ''}>${esc(t('noCollectionsYet'))}</span></div>`
       : '';
-    return `<div><button type="button" data-action="choose-tenant" data-tenant="${esc(tenant.id)}" ${tenant.id === state.tenant ? 'style="background:rgba(92,200,255,0.06);border-color:rgba(92,200,255,0.15)"' : ''}>${esc(tenant.id)} <span class="muted" style="font-size:12px">${esc(tenant.name)}</span></button>${nested}</div>`;
+    return `<div class="tree-tenant"><button type="button" data-action="choose-tenant" data-tenant="${esc(tenant.id)}" aria-current="${tenant.id === state.tenant ? 'page' : 'false'}"><span>${esc(tenant.id)}</span><span class="muted">${esc(tenant.name)}</span></button>${nested}</div>`;
   }).join('');
 }
 
 function activeExplorerListName() {
   const listPages = ['records','memories','documents','files'];
-  return listPages.includes(state.page) ? state.page : 'records';
+  return state.page === 'data-explorer'
+    ? state.explorerKind
+    : listPages.includes(state.page) ? state.page : 'records';
 }
 
 function activeExplorerRows() {
@@ -1388,16 +1425,45 @@ function logicalColumns(rows) {
   return keys.map((key) => ({ key, label: key }));
 }
 
-function PhysicalInfo(rows) {
-  const payload = {
-    layer: 'physical/internal',
-    selected_tenant: state.tenant || null,
-    selected_collection: state.collection || null,
-    visible_rows: rows.length,
-    stats: stats(),
-    notes: [t('physicalInfoNote')],
-  };
-  return JsonViewer(payload);
+function displayCell(value) {
+  if (value === null || value === undefined) return '';
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+}
+
+function explorerLogicalColumns(rows, kind) {
+  if (kind === 'records') {
+    const payloadKeys = [...new Set(rows.flatMap((row) => Object.keys(row.payload || {})))].sort();
+    const base = [
+      { key: 'id', label: 'id' },
+      { key: 'table', label: 'table' },
+    ];
+    return base.concat(payloadKeys.map((key) => ({
+      key: `payload.${key}`,
+      label: ['id', 'table'].includes(key) ? `payload.${key}` : key,
+      render: (row) => displayCell(row.payload?.[key]),
+    })));
+  }
+  if (kind === 'memories') {
+    return [{key:'id',label:'id'},{key:'memory_type',label:'memory_type'},{key:'text',label:'text'},{key:'confidence',label:'confidence'}];
+  }
+  if (kind === 'documents') {
+    return [{key:'id',label:'id'},{key:'text',label:'text'},{key:'version',label:'version'}];
+  }
+  return [{key:'id',label:'id'},{key:'name',label:'name'},{key:'media_type',label:'media_type'},{key:'size_bytes',label:'size_bytes'}];
+}
+
+function PhysicalInfo(rows, kind) {
+  const columns = [
+    { key: 'id', label: 'id' },
+    { key: '__kind', label: 'kind', render: () => kind },
+    { key: 'lineage', label: 'lineage', render: (row) => displayCell(row.document_id || row.source || row.path || '') },
+    { key: 'source', label: 'source', render: (row) => displayCell(row.source) },
+    { key: 'metadata', label: 'metadata', render: (row) => displayCell(row.metadata) },
+    { key: 'created_at', label: 'created_at' },
+    { key: 'updated_at', label: 'updated_at' },
+    { key: 'version', label: 'version' },
+  ];
+  return `<div class="notice explorer-physical-note">${esc(t('physicalInfoNote'))}</div>${DataTable(rows, columns, t('noDataSelected'), t('noDataSelectedDesc'))}`;
 }
 
 function SqlEditorPage() {
@@ -1982,7 +2048,10 @@ async function loadBootstrap() {
 }
 
 async function loadCollections() {
-  if (!state.session || !state.tenant) return;
+  if (!state.session || !state.tenant) {
+    state.collections = [];
+    return;
+  }
   const params = `?${new URLSearchParams({ tenant_id: state.tenant })}`;
   state.collections = await request(`/admin/collections${params}`);
   if (!state.collection && state.collections.length > 0) {
@@ -1999,7 +2068,10 @@ async function loadProviders() {
 }
 
 async function loadList(kind) {
-  if (!state.tenant) return;
+  if (!state.tenant) {
+    state.lists[kind] = [];
+    return;
+  }
   const params = new URLSearchParams({ tenant_id: state.tenant });
   if (state.collection && ['memories','documents','records','files'].includes(kind)) {
     params.set('collection', state.collection);
@@ -2010,7 +2082,9 @@ async function loadList(kind) {
 async function hydratePage() {
   await loadBootstrap();
   const listPages = ['records','memories','documents','files'];
-  if (state.page === 'data-explorer') await loadList('records');
+  if (state.page === 'data-explorer') {
+    await Promise.all(EXPLORER_KINDS.map(([kind]) => loadList(kind)));
+  }
   if (listPages.includes(state.page)) await loadList(state.page);
   if (state.page === 'graph' && state.tenant) {
     state.lists.graph = await request(`/admin/graph-edges?${new URLSearchParams({ tenant_id: state.tenant })}`);
@@ -2316,6 +2390,12 @@ async function handleAction(target) {
   if (action === 'go-docs')        { route('documentation');     return; }
   if (action === 'go-tables')      { route('tables');            return; }
   if (action === 'go-files')       { route('files');             return; }
+  if (action === 'ingest-explorer-kind') {
+    if (state.explorerKind === 'files') { route('files'); return; }
+    state.ingestType = { records: 'Record', memories: 'Memory', documents: 'Document' }[state.explorerKind] || 'Memory';
+    route('ingestion-recall');
+    return;
+  }
   if (action === 'delete-table') {
     const name = target.dataset.name;
     if (!name) return;
@@ -2348,12 +2428,19 @@ async function handleAction(target) {
   if (action === 'choose-tenant') {
     state.tenant = target.dataset.tenant;
     state.collection = '';
+    state.explorerSearch = '';
     await hydratePage();
     return;
   }
   if (action === 'choose-collection') {
     state.collection = target.dataset.collection;
-    persist(); render();
+    persist();
+    await hydratePage();
+    return;
+  }
+  if (action === 'choose-explorer-kind') {
+    state.explorerKind = target.dataset.kind;
+    render();
     return;
   }
   if (action === 'tab')     { state.tab    = target.dataset.tab; render(); return; }
@@ -2474,6 +2561,7 @@ root.addEventListener('change', (event) => {
   if (event.target.id === 'globalTenant') {
     state.tenant = event.target.value;
     state.collection = '';
+    state.explorerSearch = '';
     persist();
     hydratePage().catch(showError);
   }
@@ -2496,6 +2584,21 @@ root.addEventListener('change', (event) => {
     state.ingestType = event.target.value;
     render();
   }
+});
+
+root.addEventListener('input', (event) => {
+  if (event.target.id !== 'explorerCollectionSearch') return;
+  const query = event.target.value.trim().toLowerCase();
+  state.explorerSearch = event.target.value;
+  const nodes = [...root.querySelectorAll('[data-collection-node]')];
+  let visible = 0;
+  nodes.forEach((node) => {
+    const matches = node.dataset.collectionNode.includes(query);
+    node.hidden = !matches;
+    if (matches) visible += 1;
+  });
+  const empty = root.querySelector('[data-search-empty]');
+  if (empty) empty.hidden = visible > 0;
 });
 
 root.addEventListener('dragover', (event) => {

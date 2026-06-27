@@ -2,26 +2,27 @@
 
 ## Nome da feature
 
-**Data Explorer Workspace v0.1**
+**Guided Workspace Onboarding v0.1**
 
 ## Por que importa
 
-O Data Explorer possui abas logica, JSON e fisica, mas ainda se comporta como
-uma pagina vazia de records. Um desenvolvedor deve selecionar tenant, navegar
-collections e tipos, inspecionar payloads como colunas e abrir detalhes completos
-sem entender primeiro a arquitetura interna do Hippocore.
+O Dashboard mostra onboarding apenas quando nao ha tenants e depois vira uma
+grade de estatisticas. Desenvolvedores novos precisam de um caminho persistente
+e orientado por estado entre banco vazio, primeira query e primeiro recall sem
+saber antecipadamente qual pagina ou tipo de objeto usar.
 
 ## Comportamento
 
-- Adicionar busca de collection e acao contextual para criar collection na arvore.
-- Mostrar Records, Memories, Documents e Files dentro da collection selecionada,
-  com contagens derivadas das listas carregadas no escopo do tenant.
-- Selecionar um tipo carrega e exibe esse tipo sem sair do Explorer.
-- Renderizar chaves do payload de records como colunas logicas, mantendo ids e
-  nome da table visiveis.
-- Manter Raw JSON para objetos persistidos completos e Physical Info para
-  lineage, kind, timestamps, source, metadata, referencias e versao.
-- Empty states orientam criacao de collection ou ingestao do primeiro item.
+- Mostrar checklist com cinco passos: criar tenant, criar collection, adicionar
+  primeiro dado, executar SQL e testar recall/contexto.
+- Derivar tenant, collection e dados dos stats; registrar sucesso de SQL e recall
+  localmente apenas para progresso da UI.
+- Dar ao primeiro passo incompleto uma acao primaria para o fluxo correto e
+  manter passos concluidos visualmente marcados.
+- Separar status operacional, tenant ativo, storage e health da API das
+  contagens de dados e acoes rapidas.
+- Retirar JSON bruto do foco do Dashboard e apontar para Observabilidade.
+- Exibir a proxima acao de setup na sidebar enquanto o onboarding estiver incompleto.
 
 ## Arquivos provaveis
 
@@ -32,22 +33,21 @@ sem entender primeiro a arquitetura interna do Hippocore.
 
 ## Criterios de aceitacao
 
-- Explorer navega tenant -> collection -> tipo de dado em uma tela.
-- Busca filtra collections sem mudar o escopo do tenant.
-- Campos do payload aparecem como colunas logicas em ordem determinista.
-- Views JSON e fisica expoem dados completos sem misturar detalhes de storage na
-  tabela logica padrao.
-- Todo texto novo esta completo em ingles e portugues.
-- Auth e isolamento permanecem inalterados; portao de qualidade verde.
+- Usuario novo sempre ve uma proxima acao clara ate concluir os cinco passos.
+- Progresso atualiza apos tenant, collection, ingestao, SQL e recall com sucesso.
+- JSON bruto deixa de ser painel primario do Dashboard.
+- Stats, navegacao, auth e isolamento existentes permanecem inalterados.
+- Todo texto novo esta em ingles e portugues; portao de qualidade verde.
 
 ## Testes
 
-- Assertions de assets cobrem busca, selecao de tipo, colunas de payload e tres views.
-- Testes existentes de isolamento e listas admin continuam verdes.
+- Assertions de assets cobrem derivacao de passos, rota da proxima acao e flags
+  locais de SQL/recall.
+- Testes de integracao admin existentes continuam verdes.
 - Check JavaScript e portao Rust completo passam.
 
 ## Fora de escopo
 
-- Editar ou excluir objetos arbitrarios pela tabela do Explorer.
-- Novos endpoints backend de agregacao/contagem.
-- Tabelas virtualizadas, migracoes de schema ou migracao React/Vite.
+- Estado de onboarding por usuario persistido no servidor ou analytics.
+- Tour overlay, command palette ou migracao de framework.
+- Alterar schemas, retrieval ou persistencia.

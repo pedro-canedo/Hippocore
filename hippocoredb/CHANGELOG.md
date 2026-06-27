@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Data Explorer Workspace v0.1
+
+- Data Explorer now navigates tenant, collection, and Records/Memories/Documents/
+  Files from one screen, with per-type counts for the active collection.
+- Added collection search and contextual create/ingest actions without adding a
+  new aggregation endpoint; existing tenant-scoped list APIs are loaded in parallel.
+- Record payload keys render as deterministic logical columns alongside stable
+  object id and table columns.
+- Raw JSON preserves complete objects, while Physical Info exposes kind,
+  lineage, source, metadata, timestamps, version, and full detail drawers.
+- Added responsive tree/selection styles and asset regression assertions for
+  search, type navigation, payload projection, and parallel loading.
+
 ### Added — Control Plane i18n Completeness v0.1
 
 - Centralized all Control Plane navigation, onboarding, page, form, empty-state,

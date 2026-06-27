@@ -211,3 +211,19 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
   unfinished input to local storage.
 - **Trade-offs**: Catalog maintenance is manual and static tests cannot replace
   full browser automation. A future bundled frontend may adopt an i18n library.
+
+## ADR-014: Data Explorer composes existing scoped list endpoints
+
+- **Decision**: Load Records, Memories, Documents, and Files concurrently from
+  their existing tenant/collection-scoped admin endpoints and derive active
+  collection counts in the Control Plane.
+- **Context**: The Explorer needs type counts and instant switching, but the
+  current data volume is local-first and every required scoped list already
+  exists. A new aggregation contract would duplicate behavior before scale is
+  measured.
+- **Reason**: Reusing stable endpoints preserves tenant isolation, keeps the
+  server unchanged, and provides a complete workspace with a small UI-only
+  increment.
+- **Trade-offs**: Opening or changing a collection makes four parallel local
+  requests. If measured object volume makes this expensive, a summarized admin
+  endpoint or pagination can replace client-derived counts later.
