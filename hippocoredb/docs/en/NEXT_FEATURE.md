@@ -2,29 +2,32 @@
 
 ## Feature name
 
-**Control Plane TS — Recall v0.6**
+**Control Plane TS — File Upload (drag-and-drop) v0.7**
 
 ## Why it matters
 
-The console can now create, browse, and query data. The signature capability —
-RAG recall — is still only in `/admin`. Porting Recall to `/console` lets
-operators test retrieval (vector/text/hybrid) with scores and matched terms
-right where they ingested the data, completing the product's core demo loop in
-the new typed UI.
+Ingestion in `/console` covers Memory, Record, and Document, but not files. The
+classic console has drag-and-drop upload (PDF/CSV/TXT/MD/JSON) via
+`POST /admin/tenants/{tid}/files`. Porting it completes ingestion parity and is
+the last common write path missing from the TypeScript console.
 
 ## Behavior
 
-- Add a **Recall** page to the sidebar, gated on an active tenant.
-- A query box with an optional collection scope, mode selector
-  (vector/text/hybrid), and `top_k`, calling `POST /admin/tenants/{tid}/recall`.
-- Render results as cards showing kind, score, matched terms, and a text
-  snippet, plus a Raw JSON toggle for the full response.
-- Surface typed `ApiError` inline; empty results show a clear empty state.
+- Add a drop zone to the Ingestion page (or a dedicated Files tab) accepting
+  `.pdf`, `.txt`, `.md`, `.csv`, `.json`, gated on tenant + collection.
+- Upload via `XMLHttpRequest` to surface real upload progress (a progress bar),
+  posting multipart `file` + `collection` to `POST /admin/tenants/{tid}/files`.
+- Show a success banner with the server's dispatch result
+  (`{ file_id, kind, count, name }`) and refresh Dashboard counts; clicking the
+  zone also opens a file picker.
+- Unsupported types and server errors render inline.
 
 ## Likely files
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (add `recall` + result types)
-- `crates/hippocore-server/admin-ui/src/views/RecallView.tsx` (new)
+- `crates/hippocore-server/admin-ui/src/api.ts` (XHR upload helper + progress)
+- `crates/hippocore-server/admin-ui/src/views/IngestionView.tsx` (drop zone) or
+  a new `views/FilesView.tsx`
+- `crates/hippocore-server/admin-ui/src/components/DropZone.tsx` (new)
 - `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Rebuilt assets in `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
@@ -32,20 +35,20 @@ the new typed UI.
 
 ## Acceptance criteria
 
-- Running a query returns ranked results with scores and matched terms for the
-  active tenant; mode and top_k are honored; tenant isolation holds.
-- Empty results and errors render without crashing the view.
+- Dropping or selecting a supported file uploads it with a visible progress bar
+  and shows the dispatch result; the data appears in the Data Explorer.
+- Unsupported extensions and server errors render inline without crashing.
 - `pnpm type-check` and `pnpm build` pass; the Rust gate is green.
 - New user-facing copy exists in English and Portuguese.
 
 ## Tests
 
 - `/console` assets stay public (existing integration test).
-- Existing recall endpoint tests stay green.
+- Existing file-upload endpoint tests stay green.
 - `tsc --noEmit` strict passes; build updates `src/console/`.
 
 ## Out of scope
 
-- Context builder / chat (later increments).
-- File upload / drag-and-drop, Integrations, Prompts, Observability.
-- Tuning MMR/dedup/min-score knobs beyond mode and top_k.
+- Integrations (LLM), Prompts, Context builder/Chat, Observability, Graph.
+- Bulk/multi-file queues beyond sequential uploads.
+- Retiring `/admin`.

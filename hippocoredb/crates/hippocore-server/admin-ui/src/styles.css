@@ -585,6 +585,67 @@ kbd {
   padding: 1px 5px;
 }
 
+/* ── Recall ──────────────────────────────────────────── */
+.recall-controls {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.recall-controls .field {
+  margin: 0;
+  min-width: 140px;
+}
+.recall-controls input[type="number"] {
+  width: 90px;
+}
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  padding-bottom: 9px;
+}
+.recall-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.recall-card {
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.recall-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.recall-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.term {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--mono);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

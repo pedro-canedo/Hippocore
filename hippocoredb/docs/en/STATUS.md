@@ -4,7 +4,20 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TS — Ingestion v0.5**:
+**Control Plane TS — Recall v0.6**:
+
+- New **Recall** page in `/console`, gated on an active tenant, calling the
+  existing `POST /admin/tenants/{tid}/recall`.
+- Query box with an optional collection scope, `top_k`, and dedup-chunks / MMR
+  toggles (the admin recall endpoint defaults to hybrid mode, so no mode picker).
+- Results render as cards showing kind, score, matched terms, and a text
+  snippet, with a Raw JSON toggle for the full response; empty results and typed
+  `ApiError` are handled inline.
+- This completes the core demo loop (ingest → browse → query → recall) in the
+  TypeScript console.
+- No server changes; assets rebuilt and embedded.
+
+Previous: **Control Plane TS — Ingestion v0.5**:
 
 - New **Ingestion** page in `/console`, gated on an active tenant and a target
   collection selector (reusing the per-tenant collection memory).

@@ -330,3 +330,28 @@ export function createDocument(
 ): Promise<CreatedDocument> {
   return postTenant<CreatedDocument>(session, tenantId, "documents", body);
 }
+
+export interface RecallItem {
+  id: string;
+  document_id: string | null;
+  score: number;
+  text: string;
+  kind: string;
+  matched_terms: string[];
+}
+
+export interface RecallBody {
+  query: string;
+  collection?: string;
+  top_k?: number;
+  dedup_chunks?: boolean;
+  mmr?: boolean;
+}
+
+export function recall(
+  session: string,
+  tenantId: string,
+  body: RecallBody,
+): Promise<RecallItem[]> {
+  return postTenant<RecallItem[]>(session, tenantId, "recall", body);
+}

@@ -27,6 +27,7 @@ import { CollectionsView } from "./views/CollectionsView";
 import { DataExplorerView } from "./views/DataExplorerView";
 import { SqlEditorView } from "./views/SqlEditorView";
 import { IngestionView } from "./views/IngestionView";
+import { RecallView } from "./views/RecallView";
 
 export function App() {
   const [session, setSession] = useState<string>(() => loadSession());
@@ -101,7 +102,10 @@ export function App() {
   useEffect(() => {
     if (
       session &&
-      (view === "collections" || view === "explorer" || view === "ingestion")
+      (view === "collections" ||
+        view === "explorer" ||
+        view === "ingestion" ||
+        view === "recall")
     ) {
       void loadCollections(session, activeTenant);
     }
@@ -222,6 +226,13 @@ export function App() {
       )}
       {view === "sql" && (
         <SqlEditorView session={session} activeTenant={activeTenant} />
+      )}
+      {view === "recall" && (
+        <RecallView
+          session={session}
+          activeTenant={activeTenant}
+          collections={collections}
+        />
       )}
       <Toast message={toast} />
     </Shell>

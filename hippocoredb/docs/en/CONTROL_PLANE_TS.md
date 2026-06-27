@@ -90,6 +90,8 @@ cargo clippy --workspace --all-targets -- -D warnings
   with Run/`Ctrl+Enter`, deterministic columns, and a Raw JSON toggle.
 - Ingestion: create Memory, Record (JSON payload), and Document in the active
   tenant/collection, with client-side JSON validation.
+- Recall: test retrieval via `POST /admin/tenants/{tid}/recall` with optional
+  collection scope, `top_k`, dedup/MMR toggles, and result cards.
 - Shared session key (`hippocore.adminSession`) with the `/admin` console.
 
 ## Migration plan

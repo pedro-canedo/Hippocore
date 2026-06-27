@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: Recall v0.6
+
+- New Recall page in `/console` (gated on an active tenant) over the existing
+  `POST /admin/tenants/{tid}/recall`: query box, optional collection scope,
+  `top_k`, and dedup-chunks / MMR toggles.
+- Results render as cards (kind, score, matched terms, snippet) with a Raw JSON
+  toggle; empty results and typed `ApiError` handled inline.
+- Typed `recall` + `RecallItem` added to the API client.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TS: Ingestion v0.5
 
 - New Ingestion page in `/console` (gated on an active tenant + collection)
