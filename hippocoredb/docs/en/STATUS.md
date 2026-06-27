@@ -4,7 +4,20 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**File Upload with Drag-and-Drop v0.1**:
+**Ingestion & Recall UX Hardening v0.1**:
+
+- Collection inputs on the Ingestion & Recall page autocomplete from the
+  selected tenant's loaded collections.
+- Memory, Document, Record, and File type cards now show only their relevant
+  fields and action; File opens the existing upload page.
+- Recall results render as cards with kind, score, matched terms, text, and a
+  copy-id action, with Raw JSON still available.
+- `build_context` renders token count, included/dropped item counts, and the
+  formatted context block, with Raw JSON still available.
+- The HTTP recall response now preserves the core `matched_terms` field.
+- The updated workflow has complete English and Portuguese copy.
+
+Previous: **File Upload with Drag-and-Drop v0.1**:
 
 - New `POST /admin/tenants/{tid}/files` multipart endpoint (axum `multipart` feature).
   Dispatch by extension:

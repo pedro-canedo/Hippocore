@@ -135,6 +135,10 @@ async fn admin_assets_are_public() {
         "function DataTable",
         "function JsonViewer",
         "function DetailDrawer",
+        "function RecallCards",
+        "function ContextResult",
+        "knownCollections",
+        "matched_terms",
         "/admin/sql",
     ] {
         assert!(js.contains(marker), "missing admin asset marker {marker}");
@@ -349,6 +353,7 @@ async fn full_flow_tenant_collection_memory_recall() {
     let arr = results.as_array().unwrap();
     assert!(!arr.is_empty());
     assert!(arr[0]["text"].as_str().unwrap().contains("axum"));
+    assert_eq!(arr[0]["matched_terms"], json!(["ergonomic"]));
 }
 
 // --- document ---

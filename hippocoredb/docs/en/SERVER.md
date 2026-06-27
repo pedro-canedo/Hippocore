@@ -67,6 +67,10 @@ environment variable. The server refuses to start if no key is provided.
 | `POST` | `/tenants/:tid/documents` | Store a document (`{"collection":"col","text":"...","id":null}`) |
 | `POST` | `/tenants/:tid/graph/traverse` | BFS graph traversal (see below) |
 
+Recall responses contain `id`, `document_id`, `score`, `text`, `kind`, and
+`matched_terms`. The latter is the deduplicated intersection between query
+tokens and result text tokens; it is empty for pure-vector matches.
+
 ### Graph traversal request body
 
 ```json

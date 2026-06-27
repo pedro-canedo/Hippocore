@@ -26,6 +26,7 @@ pub struct RecallResultItem {
     pub score: f32,
     pub text: String,
     pub kind: String,
+    pub matched_terms: Vec<String>,
 }
 
 pub async fn recall(
@@ -55,6 +56,7 @@ pub async fn recall(
             score: r.score,
             text: r.text,
             kind: format!("{:?}", r.kind),
+            matched_terms: r.matched_terms,
         })
         .collect();
     Ok(Json(items))

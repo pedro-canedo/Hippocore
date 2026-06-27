@@ -182,3 +182,17 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
   If Control Plane state management grows beyond this foundation, a bundled
   frontend build can replace the static assets later without changing the core
   database model.
+
+## ADR-012: HTTP retrieval responses preserve user-facing evidence
+
+- **Decision**: Server response adapters preserve retrieval evidence required
+  to explain a result, beginning with `matched_terms`, instead of reducing core
+  results to identifiers, text, and a final score only.
+- **Context**: The core already computes deterministic retrieval diagnostics,
+  but the recall HTTP handler discarded `matched_terms`, preventing the Control
+  Plane and API clients from explaining lexical matches.
+- **Reason**: Hippocore's product promise includes grounded, auditable context.
+  Exposing already-computed evidence is additive, costs no extra retrieval work,
+  and keeps clients from reimplementing query analysis inconsistently.
+- **Trade-offs**: Response objects become slightly larger. New evidence fields
+  remain additive so existing clients continue to deserialize known fields.

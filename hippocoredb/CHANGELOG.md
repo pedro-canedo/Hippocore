@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Ingestion & Recall UX Hardening v0.1
+
+- The Control Plane ingestion form now offers tenant-scoped collection
+  autocomplete and type-specific fields/actions for Memory, Document, Record,
+  and File workflows.
+- Recall results render as structured cards with kind, score, matched terms,
+  text, and copyable item IDs, while preserving a Raw JSON view.
+- `build_context` results render token count, included/dropped item counts, and
+  formatted context text, with the original response available as Raw JSON.
+- HTTP recall responses now expose the core `matched_terms` field. This is an
+  additive response change and does not alter ranking or persistence.
+- Added responsive result-card styles and bilingual copy for the updated flow.
+
 ### Added — File Upload with Drag-and-Drop v0.1
 
 - `POST /admin/tenants/{tid}/files` — multipart upload endpoint (axum `multipart` feature).

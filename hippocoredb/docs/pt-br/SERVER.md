@@ -66,6 +66,10 @@ A chave é definida via `--api-key <key>` (flag CLI) ou variável de ambiente
 | `POST` | `/tenants/:tid/documents` | Armazenar documento (`{"collection":"col","text":"...","id":null}`) |
 | `POST` | `/tenants/:tid/graph/traverse` | Travessia BFS do grafo (ver abaixo) |
 
+Respostas de recall contem `id`, `document_id`, `score`, `text`, `kind` e
+`matched_terms`. O ultimo campo e a intersecao deduplicada entre tokens da
+consulta e do texto do resultado; ele fica vazio em matches puramente vetoriais.
+
 ### Corpo da requisição de travessia de grafo
 
 ```json

@@ -1,48 +1,48 @@
-# Próxima Feature
+# Proxima Feature
 
 ## Nome da feature
 
-**Ingestion & Recall UX Hardening v0.1**
+**Control Plane i18n Completeness v0.1**
 
 ## Por que importa
 
-A pagina Ingestion & Recall agora funciona de ponta a ponta, mas a experiencia
-ainda e baseada em formularios simples. Usuarios que nao sabem qual collection
-usar precisam sair da pagina para verificar. Adicionar autocomplete de collection
-(populado da lista carregada), renderizacao de cards de resultado de recall
-(em vez de dump JSON bruto) e contagem de tokens para build_context tornara
-o ciclo ingestao → recall muito mais fluido sem mudancas no servidor.
+O seletor de idioma traduz apenas parte da interface. Ainda existem textos em
+ingles na navegacao, onboarding, headers, empty states, formularios, toasts e
+erros, criando um produto com idioma misturado. Completar a fronteira PT/EN
+existente e requisito P0 antes de ampliar a UI.
 
 ## Comportamento
 
-- **Autocomplete de collection**: campos de collection nas secoes Store e Recall
-  auto-populam com `<datalist>` de `state.collections`.
-- **Cards de resultado de recall**: substituir `JsonViewer` por uma lista de cards
-  estruturados com score, badge de tipo, matched_terms, snippet de texto e
-  botao de copiar id.
-- **Resultado de build_context**: mostrar contagem de tokens, badges de
-  items incluidos/descartados e texto formatado em bloco `<pre>` legivel.
-- **Selecao de tipo por radio**: chaves Memory/Document/Record/File devem
-  mostrar/ocultar campos relevantes (ex: nome da tabela apenas para Record).
+- Mover todos os textos visiveis do Control Plane para o catalogo `I18N` existente.
+- Traduzir navegacao, onboarding, paginas de dados, SQL, arquivos, integracoes,
+  prompts, observabilidade, settings, acoes, erros e toasts.
+- Manter identificadores tecnicos como `tenant`, `collection`, `record`, SQL,
+  paths de endpoint, nomes de campos e providers quando traduzir reduzir precisao.
+- Alternar PT/EN renderiza a pagina ativa sem perder tenant, collection,
+  resultados, drafts ou sessao.
 
 ## Arquivos provaveis
 
-- `crates/hippocore-server/src/admin/app.js` (IngestionRecallPage, cards)
-- `crates/hippocore-server/src/admin/styles.css` (estilos de card de recall)
-- `docs/en/STATUS.md`
-- `docs/pt-br/STATUS.md`
-- `CHANGELOG.md`
+- `crates/hippocore-server/src/admin/app.js`
+- `crates/hippocore-server/tests/server_integration.rs`
+- docs bilingues de status/interface e `CHANGELOG.md`
 
 ## Criterios de aceitacao
 
-- Input de collection exibe datalist com collections conhecidas para o tenant selecionado.
-- Resultados de recall renderizam como cards, nao JSON bruto (exceto aba JSON).
-- Resultado de build_context mostra contagem de tokens + items incluidos/descartados + texto.
-- Selecao de tipo por radio exibe/oculta o campo de tabela dinamicamente.
-- Toda a funcionalidade existente preservada; portao de qualidade verde.
+- Toda frase e comando visivel segue o idioma selecionado.
+- Nao resta mistura PT/EN, exceto vocabulario tecnico documentado.
+- Troca de idioma preserva o estado do fluxo ativo.
+- Endpoints e autenticacao permanecem inalterados.
+- Check de sintaxe JavaScript e portao Rust completo ficam verdes.
+
+## Testes
+
+- Assertions dos assets cobrem marcadores dos catalogos ingles e portugues.
+- Auditoria estatica confirma que caminhos visiveis usam chaves de traducao.
+- Testes de integracao existentes do servidor continuam verdes.
 
 ## Fora de escopo
 
-- UI de upload de arquivo (drag-and-drop e feature separada).
-- Ingestao em lote (API batch disponivel mas UI fora de escopo aqui).
-- Streaming em tempo real de progresso de ingestao.
+- Terceiro idioma ou framework externo de localizacao.
+- Traduzir campos da API, sintaxe SQL, ids ou dados armazenados pelo usuario.
+- Migrar frontend para React/Vite.

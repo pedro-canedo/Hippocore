@@ -1262,6 +1262,88 @@ tr:hover td {
   font-size: 11.5px;
 }
 
+/* ─── Recall Results ────────────────────────────────────────────────────── */
+.recall-results {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.recall-card {
+  background: var(--glass-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 10px;
+  padding: 13px 14px;
+}
+
+.recall-card-head,
+.recall-card-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.recall-card-head { justify-content: space-between; }
+
+.recall-card p {
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.matched-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.matched-terms span {
+  background: var(--accent-dim);
+  border: 1px solid rgba(92,200,255,0.18);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 11px;
+  padding: 2px 7px;
+}
+
+.result-id {
+  color: var(--muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-result {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.context-metrics {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.context-metrics .stat { min-height: 76px; }
+
+.context-text {
+  max-height: 440px;
+  min-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .context-metrics { grid-template-columns: 1fr; }
+  .recall-card-head { align-items: flex-start; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .01ms !important;

@@ -2,49 +2,37 @@
 
 ## Dentro do escopo implementado
 
-- Biblioteca Rust embedded + CLI `hippocore`.
-- Modelo tipado: Tenant, Collection, Document, Chunk, Memory, Record, Source,
-  RecallResult, ItemKind.
-- Persistência local sem banco externo:
-  - WAL JSON-lines append-only;
-  - checksums por linha;
-  - snapshot atômico;
-  - recovery no open;
-  - compaction;
-  - erros tipados.
-- Retrieval:
-  - busca vetorial exata por cosine;
-  - busca textual BM25;
-  - recall híbrido;
-  - filtros por tenant, collection, user, tipo, kind e metadata;
-  - embedder determinístico local e embeddings fornecidos pelo usuário.
-- Dados:
-  - documentos chunked;
-  - memórias;
-  - records JSON-first com projeção de contexto.
-- API pública: `open`, `create_tenant`, `create_collection`,
-  `store_document`, `remember`, `put_record`, `recall`, `search`, `forget`,
-  `delete_document`, `delete_record`, `stats`, `compact`, `close`.
-- CLI: init, put-document, remember, put-record, recall, delete/forget, stats,
-  inspect, compact.
-- Testes determinísticos, exemplo e benchmarks básicos.
+- Biblioteca Rust embedded, CLI `hippocore`, servidor HTTP opcional e Control
+  Plane local embutido.
+- Tenants, collections, documents, chunks, memories, records, files, arestas de
+  grafo, auditoria, sources, metadata e resultados de recall/contexto tipados.
+- Persistencia local sem banco externo: WAL append-only com checksum, replay no
+  startup, snapshots atomicos, compactacao e erros tipados de recovery.
+- Indice vetorial cosseno exato e HNSW opcional, busca BM25, recall hibrido,
+  filtros por tenant, embeddings deterministas e embeddings do caller.
+- Montagem de contexto, validade temporal, supersession, contradicao advisory,
+  confidence weighting, expansao de grafo e auditoria de retrieval.
+- Records JSON-first, documents chunked, memories e ingestao de arquivos PDF,
+  CSV, JSON e texto.
+- Subconjunto SQL-like read-only e deliberadamente pequeno para records.
+- Fluxos admin para tenants, collections, tables, ingestao, SQL, recall,
+  contexto, providers, service keys, prompts, chat e observabilidade.
+- Testes deterministas, exemplos, documentacao e benchmarks basicos.
 
 ## Fora do escopo imediato
 
-- Cluster distribuído.
-- Autenticação/autorização de produção.
-- Cloud embedders obrigatórios.
-- GPU/HNSW/ANN.
-- Dashboard web completo.
-- SQL/query language completo.
-- PostgreSQL wire protocol.
-- Banco externo obrigatório.
+- Cluster distribuido, Raft/consensus ou replicacao multi-node.
+- Autorizacao de nivel de producao e identidade hospedada.
+- Servicos cloud de embedding obrigatorios ou indexacao somente por GPU.
+- Engine SQL completo, joins, expressoes arbitrarias ou PostgreSQL wire protocol.
+- Dependencia obrigatoria de banco externo.
 - `unsafe` Rust.
 
 ## Simplificações deliberadas
 
-- Estado vivo em memória.
-- Retrieval exato/brute-force.
-- Índice reconstruído no open.
-- Snapshot JSON ainda é suficiente para o MVP.
-- Records não têm schema rico ou índice por campo.
+- O estado vivo cabe em memoria; indices sao reconstruidos no open.
+- Retrieval exato continua sendo o default offline; HNSW e backend opcional.
+- Snapshot continua baseado em JSON.
+- Records sao JSON-first e ainda nao possuem schema rico ou indice por campo.
+- O Control Plane continua como app HTML/CSS/JavaScript zero-build embutido
+  enquanto contratos backend e fluxos de produto estabilizam.

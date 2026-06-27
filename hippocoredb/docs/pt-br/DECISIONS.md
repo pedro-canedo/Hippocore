@@ -123,3 +123,17 @@ versão em inglês em `docs/en/DECISIONS.md`.
   framework. Se o estado do Control Plane crescer alem desta fundacao, um build
   frontend empacotado pode substituir os assets estaticos sem mudar o modelo do
   banco core.
+
+## ADR-012: Respostas HTTP de retrieval preservam evidencias para o usuario
+
+- **Decisao**: adapters de resposta do servidor preservam evidencias de
+  retrieval necessarias para explicar resultados, comecando por
+  `matched_terms`, em vez de reduzir resultados do core a ids, texto e score.
+- **Contexto**: o core ja calcula diagnosticos deterministas de retrieval, mas
+  o handler HTTP de recall descartava `matched_terms`, impedindo o Control Plane
+  e clientes API de explicar matches lexicais.
+- **Motivo**: a promessa do Hippocore inclui contexto fundamentado e auditavel.
+  Expor evidencia ja calculada e aditivo, nao aumenta o trabalho de retrieval e
+  evita que clientes reimplementem analise de query de forma inconsistente.
+- **Trade-off**: objetos de resposta ficam um pouco maiores. Novos campos de
+  evidencia continuam aditivos para clientes existentes ignorarem sem quebra.

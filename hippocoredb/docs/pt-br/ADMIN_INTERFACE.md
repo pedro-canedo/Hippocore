@@ -125,16 +125,20 @@ de uma tela unica de debug:
 - Data Explorer com painel lateral tenant/collection, tabela, JSON bruto,
   informacao fisica e drawer de detalhe;
 - SQL Editor dedicado usando `POST /admin/sql`;
-- pagina guiada de ingestao/recall para escrita de Memory, Document e Record,
-  recall e `build_context` (criacao de record usa
-  `POST /admin/tenants/:tid/records`; import de File permanece Planned);
+- pagina guiada de ingestao/recall com autocomplete de collection no tenant e
+  acoes especificas para Memory, Document, Record e File (criacao de record usa
+  `POST /admin/tenants/:tid/records`; File abre o uploader existente);
+- cards de recall com tipo, score, termos encontrados, texto e id copiavel,
+  alem da visualizacao Raw JSON;
+- resultado de `build_context` com tokens, itens incluidos/descartados e texto
+  de contexto formatado, alem da visualizacao Raw JSON;
 - API Reference agrupada por dominio com status Implemented/Planned;
 - Observability separando health, stats, WAL, snapshot, audit, chunks e status
   de indice;
 - Service Keys para rotacionar API key ativa e salvar/validar registry de
   providers.
 
-Upload de arquivo via browser e Planned e exibido claramente na UI.
+Upload de arquivo esta disponivel na pagina Files para PDF, CSV, JSON, TXT e MD.
 O Control Plane complementa a CLI; ele nao substitui os fluxos
 embedded/local-first.
 

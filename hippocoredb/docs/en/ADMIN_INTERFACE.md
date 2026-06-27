@@ -138,15 +138,19 @@ screen:
 - Data Explorer with tenant/collection side panel, table view, raw JSON view,
   physical-info view, and detail drawer;
 - dedicated SQL Editor using `POST /admin/sql`;
-- guided ingestion/recall page for Memory, Document, and Record writes plus
-  recall and `build_context` (record creation uses
-  `POST /admin/tenants/:tid/records`; File import remains Planned);
+- guided ingestion/recall page with tenant-scoped collection autocomplete and
+  type-specific Memory, Document, Record, and File actions (record creation
+  uses `POST /admin/tenants/:tid/records`; File opens the existing uploader);
+- recall result cards showing type, score, matched terms, text, and copyable
+  item id, plus a Raw JSON view;
+- `build_context` result view showing token count, included/dropped items, and
+  formatted context text, plus a Raw JSON view;
 - API Reference grouped by domain with Implemented/Planned status;
 - Observability page separating health, stats, WAL, snapshot, audit, chunks, and
   index status;
 - Service Keys page for active API key rotation plus provider registry
   save/validate workflows.
 
-File upload from the browser is Planned and shown explicitly in the UI.
+File upload is available from the Files page for PDF, CSV, JSON, TXT, and MD.
 The Control Plane complements the CLI; it does not replace embedded/local-first
 workflows.

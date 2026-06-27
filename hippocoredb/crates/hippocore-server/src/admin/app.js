@@ -41,7 +41,12 @@ const I18N = {
     collection: 'Collection',
     collectionDescription: 'Collection description',
     collectionHelp: 'Collections are logical namespaces inside a tenant. Records, memories, documents, and file-derived context live under them.',
+    contextBuilt: 'Context built successfully.',
+    contextResult: 'Context result',
+    content: 'Content',
+    contentPlaceholder: 'Enter the knowledge you want Hippocore to retrieve later',
     copied: 'Copied!',
+    copyId: 'Copy ID',
     createCollection: 'Create collection',
     createTenant: 'Create tenant',
     currentTenant: 'Tenant',
@@ -50,33 +55,57 @@ const I18N = {
     dashboardLead: 'Overview of the active local database, tenant scope, object counts, and next actions.',
     documentation: 'Documentation',
     documents: 'Documents',
+    documentSingular: 'Document',
     empty: 'Nothing here yet.',
     error: 'Error',
     files: 'Files',
+    fileSingular: 'File',
     getStarted: 'Get started',
     graph: 'Graph',
     graphLead: 'Inspect graph edges between context items. Multi-hop traversal is available through the service API.',
     health: 'Health',
     ingestLead: 'Store context and immediately test recall / build_context in the selected tenant.',
+    ingestionRecall: 'Ingestion & Recall',
+    ingestRequired: 'Tenant, collection, and content are required.',
+    implemented: 'Implemented',
+    itemsDropped: 'Items dropped',
+    itemsIncluded: 'Items included',
+    jsonPayload: 'JSON payload',
     language: 'Language',
     lastOperation: 'Last operation',
     login: 'Sign in',
     loginLead: 'Use the admin credentials configured for this local server.',
     logout: 'Sign out',
     memories: 'Memories',
+    memorySingular: 'Memory',
+    memoryStored: 'Memory stored. Run recall to retrieve it.',
+    memoryStoredToast: 'Memory stored successfully.',
     memoryText: 'Memory text',
     name: 'Name',
     noTenant: 'Select tenant',
+    noRecallResults: 'No recall results',
+    noRecallResultsDesc: 'Try a broader query or ingest relevant context into this collection.',
     objectCounts: 'Object counts',
     observabilityLead: 'Operational view over health, stats, storage, WAL, snapshot, audit, and index status.',
     openDataExplorer: 'Open Data Explorer',
+    openFileUploader: 'Open file uploader',
     openSql: 'Open SQL Editor',
     planned: 'Planned',
     providerLead: 'Manage local LLM provider registry and rotate the service API key used by automation.',
     refresh: 'Refresh',
     records: 'Records',
+    recordSingular: 'Record',
+    recordJsonInvalid: 'Content must be valid JSON for records.',
+    recordObjectRequired: 'Record payload must be a JSON object.',
+    recordRequired: 'Tenant, collection, and a JSON payload are required.',
+    recordStored: 'Record stored.',
     recall: 'Run recall',
+    recallCompleted: 'Recall completed.',
     recallQuery: 'Recall query',
+    recallReady: 'Enter a natural-language query to inspect retrieved context.',
+    recallRequired: 'Tenant and query are required.',
+    recallResults: 'Recall results',
+    rawJson: 'Raw JSON',
     rotateKey: 'Rotate key',
     run: 'Run',
     save: 'Save',
@@ -86,6 +115,9 @@ const I18N = {
     sqlExamples: 'Examples',
     sqlLead: 'Run the supported read-only SQL-like record query layer with tenant isolation enforced by the backend.',
     storeDocument: 'Store document',
+    storeContext: 'Store context',
+    documentStored: 'Document stored and chunked. Run recall to retrieve its chunks.',
+    documentStoredToast: 'Document stored and chunked.',
     storeMemory: 'Store memory',
     storeRecord: 'Store record',
     storeType: 'Type',
@@ -94,6 +126,7 @@ const I18N = {
     tenantId: 'Tenant id',
     tenants: 'Tenants',
     title: 'Title',
+    tokens: 'Tokens',
     welcome: 'Welcome to Hippocore',
     welcomeDesc: 'A local-first, AI-native memory and context database. Start by creating your first tenant to isolate your data.',
     noTenantDesc: 'You have no tenants yet. A tenant is the top-level isolation boundary for all your data, memories, and queries. Create one to begin.',
@@ -110,7 +143,12 @@ const I18N = {
     collection: 'Collection',
     collectionDescription: 'Descricao da collection',
     collectionHelp: 'Collections sao namespaces logicos dentro de um tenant. Records, memorias, documentos e contexto de arquivos vivem nelas.',
+    contextBuilt: 'Contexto montado com sucesso.',
+    contextResult: 'Resultado do contexto',
+    content: 'Conteudo',
+    contentPlaceholder: 'Digite o conhecimento que o Hippocore deve recuperar depois',
     copied: 'Copiado!',
+    copyId: 'Copiar ID',
     createCollection: 'Criar collection',
     createTenant: 'Criar tenant',
     currentTenant: 'Tenant',
@@ -119,33 +157,57 @@ const I18N = {
     dashboardLead: 'Visao geral do banco local ativo, escopo do tenant, contagens de objetos e proximas acoes.',
     documentation: 'Documentacao',
     documents: 'Documentos',
+    documentSingular: 'Documento',
     empty: 'Nada para mostrar ainda.',
     error: 'Erro',
     files: 'Arquivos',
+    fileSingular: 'Arquivo',
     getStarted: 'Comecar agora',
     graph: 'Grafo',
     graphLead: 'Inspecione arestas entre itens de contexto. Travessia multi-hop esta disponivel pela API de servico.',
     health: 'Health',
     ingestLead: 'Armazene contexto e teste recall/build_context no tenant selecionado.',
+    ingestionRecall: 'Ingestao e Recall',
+    ingestRequired: 'Tenant, collection e conteudo sao obrigatorios.',
+    implemented: 'Implementado',
+    itemsDropped: 'Itens descartados',
+    itemsIncluded: 'Itens incluidos',
+    jsonPayload: 'Payload JSON',
     language: 'Idioma',
     lastOperation: 'Ultima operacao',
     login: 'Entrar',
     loginLead: 'Use as credenciais admin configuradas para este servidor local.',
     logout: 'Sair',
     memories: 'Memorias',
+    memorySingular: 'Memoria',
+    memoryStored: 'Memoria armazenada. Execute recall para recupera-la.',
+    memoryStoredToast: 'Memoria armazenada com sucesso.',
     memoryText: 'Texto da memoria',
     name: 'Nome',
     noTenant: 'Selecionar tenant',
+    noRecallResults: 'Nenhum resultado de recall',
+    noRecallResultsDesc: 'Tente uma consulta mais ampla ou ingira contexto relevante nesta collection.',
     objectCounts: 'Contagens',
     observabilityLead: 'Visao operacional de health, stats, storage, WAL, snapshot, audit e status de indice.',
     openDataExplorer: 'Abrir Data Explorer',
+    openFileUploader: 'Abrir upload de arquivos',
     openSql: 'Abrir SQL Editor',
     planned: 'Planned',
     providerLead: 'Gerencie providers LLM locais e rotacione a API key usada por automacoes.',
     refresh: 'Atualizar',
     records: 'Records',
+    recordSingular: 'Record',
+    recordJsonInvalid: 'O conteudo deve ser JSON valido para records.',
+    recordObjectRequired: 'O payload do record deve ser um objeto JSON.',
+    recordRequired: 'Tenant, collection e payload JSON sao obrigatorios.',
+    recordStored: 'Record armazenado.',
     recall: 'Executar recall',
+    recallCompleted: 'Recall concluido.',
     recallQuery: 'Consulta de recall',
+    recallReady: 'Digite uma pergunta em linguagem natural para inspecionar o contexto recuperado.',
+    recallRequired: 'Tenant e consulta sao obrigatorios.',
+    recallResults: 'Resultados do recall',
+    rawJson: 'JSON bruto',
     rotateKey: 'Rotacionar chave',
     run: 'Executar',
     save: 'Salvar',
@@ -155,6 +217,9 @@ const I18N = {
     sqlExamples: 'Exemplos',
     sqlLead: 'Execute a camada read-only de query estilo SQL com isolamento de tenant aplicado pelo backend.',
     storeDocument: 'Salvar documento',
+    storeContext: 'Armazenar contexto',
+    documentStored: 'Documento armazenado e dividido em chunks. Execute recall para recupera-los.',
+    documentStoredToast: 'Documento armazenado e dividido em chunks.',
     storeMemory: 'Salvar memoria',
     storeRecord: 'Salvar record',
     storeType: 'Tipo',
@@ -163,6 +228,7 @@ const I18N = {
     tenantId: 'Tenant id',
     tenants: 'Tenants',
     title: 'Titulo',
+    tokens: 'Tokens',
     welcome: 'Bem-vindo ao Hippocore',
     welcomeDesc: 'Um banco de dados local-first de memoria e contexto para aplicacoes de IA. Comece criando seu primeiro tenant.',
     noTenantDesc: 'Voce ainda nao tem tenants. Um tenant isola dados, colecoes e consultas. Crie o primeiro para comecar.',
@@ -537,6 +603,11 @@ const state = {
   collection: localStorage.getItem('hippocore.collection') || '',
   tab:        'logical',
   sqlTab:     'table',
+  recallTab:  'results',
+  recallKind: 'recall',
+  recallQuery:'',
+  ingestType: 'Memory',
+  ingestDraft:{ collection: '', table: 'data', content: '' },
   docSection: 'overview',
   bootstrap:  null,
   collections:[],
@@ -659,6 +730,11 @@ function TextAreaField(label, id, value = '', attrs = '') {
   return `<label class="field wide"><span>${esc(label)}</span><textarea id="${esc(id)}" ${attrs}>${esc(value)}</textarea></label>`;
 }
 
+function CollectionDatalist(id) {
+  const names = [...new Set((state.collections || []).map((collection) => collection.name).filter(Boolean))];
+  return `<datalist id="${esc(id)}">${names.map((name) => `<option value="${esc(name)}"></option>`).join('')}</datalist>`;
+}
+
 function Tabs(tabs, active, action) {
   return `<div class="tabs">${tabs.map((tab) => `<button type="button" data-action="${action}" data-tab="${esc(tab.id)}" aria-selected="${tab.id === active}">${esc(tab.label)}</button>`).join('')}</div>`;
 }
@@ -677,6 +753,56 @@ function PageHeader(title, lead, actions = '') {
 function DetailDrawer() {
   if (!state.detail) return '';
   return `<div class="drawer-backdrop" data-action="close-detail"></div><aside class="drawer"><div class="drawer-head"><h3>${esc(state.detail.title)}</h3><button class="icon" data-action="close-detail" type="button">✕</button></div><div class="drawer-body">${JsonViewer(state.detail.value)}</div></aside>`;
+}
+
+function RecallCards(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return EmptyState(t('noRecallResults'), t('noRecallResultsDesc'));
+  }
+  return `<div class="recall-results">${items.map((item) => {
+    const score = Number.isFinite(Number(item.score)) ? Number(item.score).toFixed(3) : '—';
+    const terms = Array.isArray(item.matched_terms) ? item.matched_terms : [];
+    return `<article class="recall-card">
+      <div class="recall-card-head">
+        <div class="recall-card-badges">${StatusBadge(item.kind || 'Unknown')} ${StatusBadge(`score ${score}`, 'ok')}</div>
+        <button class="ghost" type="button" data-action="copy-code" data-code="${esc(item.id)}">${esc(t('copyId'))}</button>
+      </div>
+      <p>${esc(item.text || '')}</p>
+      ${terms.length > 0 ? `<div class="matched-terms">${terms.map((term) => `<span>${esc(term)}</span>`).join('')}</div>` : ''}
+      <code class="result-id">${esc(item.id)}</code>
+    </article>`;
+  }).join('')}</div>`;
+}
+
+function ContextResult(result) {
+  if (!result || typeof result !== 'object') {
+    return EmptyState(t('contextResult'), t('recallReady'));
+  }
+  return `<div class="context-result">
+    <div class="context-metrics">
+      ${StatCard(t('tokens'), result.token_count ?? 0)}
+      ${StatCard(t('itemsIncluded'), result.items_included ?? 0)}
+      ${StatCard(t('itemsDropped'), result.items_dropped ?? 0)}
+    </div>
+    <pre class="context-text">${esc(result.text || '')}</pre>
+  </div>`;
+}
+
+function RecallResultView() {
+  const result = state.lists.recallResult;
+  const tabs = Tabs([
+    { id: 'results', label: state.recallKind === 'context' ? t('contextResult') : t('recallResults') },
+    { id: 'json', label: t('rawJson') },
+  ], state.recallTab, 'recall-tab');
+  if (!result) {
+    return `${tabs}${EmptyState(t('recallResults'), t('recallReady'))}`;
+  }
+  const content = state.recallTab === 'json'
+    ? JsonViewer(result)
+    : state.recallKind === 'context'
+      ? ContextResult(result)
+      : RecallCards(result);
+  return `${tabs}${content}`;
 }
 
 /* ─── App Shell ──────────────────────────────────────────────────────────── */
@@ -1054,46 +1180,70 @@ function FilesPage() {
 }
 
 function IngestionRecallPage() {
-  const kindStatus = { Memory: 'Implemented', Document: 'Implemented', Record: 'Implemented', File: 'Planned' };
   const hasTenant = !!state.tenant;
-  return `${PageHeader('Ingestion & Recall', t('ingestLead'))}
+  if (!hasTenant) {
+    return `${PageHeader(t('ingestionRecall'), t('ingestLead'))}
+      ${EmptyState(t('noTenant'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))}`;
+  }
+
+  const typeLabels = {
+    Memory: t('memorySingular'),
+    Document: t('documentSingular'),
+    Record: t('recordSingular'),
+    File: t('fileSingular'),
+  };
+  const draft = state.ingestDraft;
+  const collection = draft.collection || state.collection;
+  const isRecord = state.ingestType === 'Record';
+  const isFile = state.ingestType === 'File';
+  const contentPlaceholder = isRecord
+    ? '{"engine":"postgresql","status":"online"}'
+    : t('contentPlaceholder');
+  const storeAction = state.ingestType === 'Memory'
+    ? ActionButton(t('storeMemory'), 'store-memory', 'primary')
+    : state.ingestType === 'Document'
+      ? ActionButton(t('storeDocument'), 'store-document', 'primary')
+      : state.ingestType === 'Record'
+        ? ActionButton(t('storeRecord'), 'store-record', 'primary')
+        : ActionButton(t('openFileUploader'), 'go-files', 'primary');
+
+  return `${PageHeader(t('ingestionRecall'), t('ingestLead'))}
     <section class="grid cols-2">
       <div class="panel">
-        <h3>Store context</h3>
+        <h3>${esc(t('storeContext'))}</h3>
         <div class="radio-grid" style="margin-bottom:14px">
           ${['Memory','Document','Record','File'].map((kind) => `
             <label class="radio-card">
-              <input type="radio" name="ingestType" value="${kind}" ${kind === 'Memory' ? 'checked' : ''} />
-              <strong>${kind}</strong>
-              <span>${kindStatus[kind]}</span>
+              <input type="radio" name="ingestType" value="${kind}" ${kind === state.ingestType ? 'checked' : ''} />
+              <strong>${esc(typeLabels[kind])}</strong>
+              <span>${esc(t('implemented'))}</span>
             </label>`).join('')}
         </div>
         <div class="form-grid">
           ${FormField(t('tenantId'), 'ingestTenant', state.tenant)}
-          ${FormField(t('collection'), 'ingestCollection', state.collection)}
-          ${FormField(t('table'), 'ingestTable', 'data')}
-          ${TextAreaField('Content / JSON payload', 'ingestContent', '', 'placeholder="Enter text content, or a JSON object for records"')}
+          ${FormField(t('collection'), 'ingestCollection', collection, 'text', 'list="knownCollections" autocomplete="off"')}
+          ${isRecord ? FormField(t('table'), 'ingestTable', draft.table || 'data') : ''}
+          ${isFile ? '' : TextAreaField(isRecord ? t('jsonPayload') : t('content'), 'ingestContent', draft.content, `placeholder="${esc(contentPlaceholder)}"`)}
         </div>
         <div class="page-actions" style="margin-top:12px">
-          ${ActionButton(t('storeMemory'), 'store-memory', 'primary')}
-          ${ActionButton(t('storeDocument'), 'store-document')}
-          ${ActionButton(t('storeRecord'), 'store-record')}
+          ${storeAction}
         </div>
       </div>
       <div class="panel">
-        <h3>Recall & build_context</h3>
+        <h3>${esc(t('recall'))} &amp; build_context</h3>
         <div class="form-grid" style="margin-bottom:12px">
           ${FormField(t('tenantId'), 'recallTenant', state.tenant)}
-          ${FormField(t('collection'), 'recallCollection', state.collection)}
-          ${FormField(t('recallQuery'), 'recallInput', '', 'text', 'placeholder="Enter a natural language query"')}
+          ${FormField(t('collection'), 'recallCollection', state.collection, 'text', 'list="knownCollections" autocomplete="off"')}
+          ${FormField(t('recallQuery'), 'recallInput', state.recallQuery, 'text', `placeholder="${esc(t('recallReady'))}"`)}
         </div>
         <div class="page-actions" style="margin-bottom:14px">
           ${ActionButton(t('recall'), 'run-recall', 'primary')}
           ${ActionButton(t('buildContext'), 'build-context')}
         </div>
-        <div id="recallResult">${JsonViewer(state.lists.recallResult || { status: 'ready — enter a query and click Run recall' })}</div>
+        <div id="recallResult">${RecallResultView()}</div>
       </div>
-    </section>`;
+    </section>
+    ${CollectionDatalist('knownCollections')}`;
 }
 
 function GraphPage() {
@@ -1553,13 +1703,14 @@ async function storeMemory() {
   const tenant = document.getElementById('ingestTenant')?.value.trim() || state.tenant;
   const collection = document.getElementById('ingestCollection')?.value.trim() || state.collection;
   const text = document.getElementById('ingestContent')?.value.trim();
-  if (!tenant || !collection || !text) throw new Error('tenant, collection, and content required');
+  if (!tenant || !collection || !text) throw new Error(t('ingestRequired'));
   state.lists.ingestResult = await request(`/admin/tenants/${encodeURIComponent(tenant)}/memories`, {
     method: 'POST',
     body: JSON.stringify({ collection, text, memory_type: 'semantic' }),
   });
-  state.lastOperation = 'Memory stored. Run recall to retrieve it.';
-  showToast('Memory stored successfully.');
+  state.ingestDraft = { collection, table: state.ingestDraft.table, content: '' };
+  state.lastOperation = t('memoryStored');
+  showToast(t('memoryStoredToast'));
   await hydratePage();
 }
 
@@ -1567,13 +1718,14 @@ async function storeDocument() {
   const tenant = document.getElementById('ingestTenant')?.value.trim() || state.tenant;
   const collection = document.getElementById('ingestCollection')?.value.trim() || state.collection;
   const text = document.getElementById('ingestContent')?.value.trim();
-  if (!tenant || !collection || !text) throw new Error('tenant, collection, and content required');
+  if (!tenant || !collection || !text) throw new Error(t('ingestRequired'));
   state.lists.ingestResult = await request(`/admin/tenants/${encodeURIComponent(tenant)}/documents`, {
     method: 'POST',
     body: JSON.stringify({ collection, text }),
   });
-  state.lastOperation = 'Document stored and chunked. Run recall to retrieve chunks.';
-  showToast('Document stored and chunked.');
+  state.ingestDraft = { collection, table: state.ingestDraft.table, content: '' };
+  state.lastOperation = t('documentStored');
+  showToast(t('documentStoredToast'));
   await hydratePage();
 }
 
@@ -1582,18 +1734,19 @@ async function storeRecord() {
   const collection = document.getElementById('ingestCollection')?.value.trim() || state.collection;
   const table = document.getElementById('ingestTable')?.value.trim() || 'data';
   const raw = document.getElementById('ingestContent')?.value.trim();
-  if (!tenant || !collection || !raw) throw new Error('tenant, collection, and JSON payload required');
+  if (!tenant || !collection || !raw) throw new Error(t('recordRequired'));
   let payload;
-  try { payload = JSON.parse(raw); } catch { throw new Error('Content must be valid JSON for records'); }
+  try { payload = JSON.parse(raw); } catch { throw new Error(t('recordJsonInvalid')); }
   if (typeof payload !== 'object' || Array.isArray(payload) || payload === null) {
-    throw new Error('Record payload must be a JSON object');
+    throw new Error(t('recordObjectRequired'));
   }
   state.lists.ingestResult = await request(`/admin/tenants/${encodeURIComponent(tenant)}/records`, {
     method: 'POST',
     body: JSON.stringify({ collection, table, payload }),
   });
-  state.lastOperation = 'Record stored.';
-  showToast('Record stored.');
+  state.ingestDraft = { collection, table, content: '' };
+  state.lastOperation = t('recordStored');
+  showToast(t('recordStored'));
   await hydratePage();
 }
 
@@ -1601,7 +1754,7 @@ async function runRecall(kind) {
   const tenant = document.getElementById('recallTenant')?.value.trim() || state.tenant;
   const collection = document.getElementById('recallCollection')?.value.trim() || state.collection;
   const query = document.getElementById('recallInput')?.value.trim();
-  if (!tenant || !query) throw new Error('tenant and query required');
+  if (!tenant || !query) throw new Error(t('recallRequired'));
   const path = kind === 'context' ? 'context' : 'recall';
   const body = kind === 'context'
     ? { query, collection: collection || null, max_tokens: 1024, include_related: true }
@@ -1610,7 +1763,10 @@ async function runRecall(kind) {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  state.lastOperation = kind === 'context' ? 'Context built successfully.' : 'Recall completed.';
+  state.recallKind = kind;
+  state.recallTab = 'results';
+  state.recallQuery = query;
+  state.lastOperation = kind === 'context' ? t('contextBuilt') : t('recallCompleted');
   render();
 }
 
@@ -1769,6 +1925,7 @@ async function handleAction(target) {
   if (action === 'go-keys')        { route('integrations');      return; }
   if (action === 'go-docs')        { route('documentation');     return; }
   if (action === 'go-tables')      { route('tables');            return; }
+  if (action === 'go-files')       { route('files');             return; }
   if (action === 'delete-table') {
     const name = target.dataset.name;
     if (!name) return;
@@ -1811,6 +1968,7 @@ async function handleAction(target) {
   }
   if (action === 'tab')     { state.tab    = target.dataset.tab; render(); return; }
   if (action === 'sql-tab') { state.sqlTab = target.dataset.tab; render(); return; }
+  if (action === 'recall-tab') { state.recallTab = target.dataset.tab; render(); return; }
   if (action === 'doc-section') { state.docSection = target.dataset.section; render(); return; }
   if (action === 'use-sql') {
     const el = document.getElementById('sqlInput');
@@ -1937,6 +2095,15 @@ root.addEventListener('change', (event) => {
   if (event.target.id === 'fileInput' && event.target.files.length > 0) {
     handleDroppedFiles(event.target.files);
     event.target.value = '';
+  }
+  if (event.target.name === 'ingestType') {
+    state.ingestDraft = {
+      collection: document.getElementById('ingestCollection')?.value.trim() || state.collection,
+      table: document.getElementById('ingestTable')?.value.trim() || state.ingestDraft.table || 'data',
+      content: document.getElementById('ingestContent')?.value || '',
+    };
+    state.ingestType = event.target.value;
+    render();
   }
 });
 

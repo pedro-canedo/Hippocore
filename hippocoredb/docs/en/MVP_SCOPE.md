@@ -2,45 +2,38 @@
 
 ## In scope (implemented)
 
-- Embedded Rust library + `hippocore` CLI.
-- Strongly-typed model: Tenant, Collection, Document, Chunk, Memory, Embedding,
-  Metadata, Source, RecallResult, MemoryType, ItemKind.
-- Local persistence with **no external database**:
-  - data directory initialization,
-  - append-only JSON-lines WAL,
-  - startup recovery (snapshot + WAL replay),
-  - atomic snapshot writes (temp + fsync + rename),
-  - compaction (snapshot + WAL truncation),
-  - typed errors for invalid/corrupted data; safe recovery of torn trailing WAL.
-- Retrieval:
-  - exact vector search (cosine similarity),
-  - text search via an inverted index (BM25),
-  - hybrid recall fusing vector + text,
-  - filters: tenant, collection, user_id, memory type, item kind, metadata,
-  - deterministic built-in embedder; user-provided embeddings accepted.
-- Public API: `open`, `create_tenant`, `create_collection`, `store_document`,
-  `remember`, `recall`, `search`, `stats`, `compact`, `close` (all return
-  typed `Result`).
-- CLI: `init`, `put-document`, `remember`, `recall`, `stats`, `inspect`.
-- Deterministic tests, an example, and baseline benchmarks.
-- Documentation set (this folder + README/ROADMAP/CHANGELOG).
+- Embedded Rust library, `hippocore` CLI, optional HTTP server, and embedded
+  local Control Plane.
+- Typed tenants, collections, documents, chunks, memories, records, files,
+  graph edges, audit records, sources, metadata, and recall/context results.
+- Local persistence with no external database: checksummed append-only WAL,
+  startup replay, atomic snapshots, compaction, and typed recovery errors.
+- Exact cosine and optional HNSW vector indexes, BM25 text search, hybrid
+  recall, tenant-scoped filters, deterministic embeddings, and caller-provided
+  embeddings.
+- Context assembly, temporal validity, supersession, contradiction advisory,
+  confidence weighting, graph expansion, and retrieval audit records.
+- JSON-first records, chunked documents, memories, and PDF/CSV/JSON/text file
+  ingestion.
+- A deliberately small read-only SQL-like subset for structured records.
+- Admin flows for tenants, collections, tables, data ingestion, SQL, recall,
+  context, providers, service keys, prompts, chat, and observability.
+- Deterministic tests, examples, documentation, and baseline benchmarks.
 
 ## Explicitly out of scope (this MVP)
 
-- Distributed clustering, Raft/consensus, multi-node replication.
-- Production authentication / authorization.
-- Cloud embedding providers; GPU indexing.
-- HNSW / ANN approximate indexes.
-- Web dashboard.
-- A SQL or complex query language.
-- External database dependency.
+- Distributed clustering, Raft/consensus, or multi-node replication.
+- Production-grade authorization and hosted identity management.
+- Mandatory cloud embedding services or GPU-only indexing.
+- A full SQL engine, joins, arbitrary expressions, or PostgreSQL wire protocol.
+- An external database dependency.
 - `unsafe` Rust (forbidden).
 
 ## Deliberate simplifications
 
-- The full state lives in memory; data must fit in RAM.
-- Retrieval is exact/brute-force (O(n) over a tenant's entries).
-- The index is updated incrementally on write and fully rebuilt on open.
-- Documents are embedded with the built-in embedder per chunk; user-provided
-  embeddings are supported for **memories** and **queries**.
-- Hybrid fusion uses min-max normalization across the candidate set.
+- The live state fits in memory; indexes are rebuilt on open.
+- Exact retrieval remains the offline default; HNSW is an optional backend.
+- Snapshot storage remains JSON-based.
+- Records are JSON-first and do not yet have rich schemas or per-field indexes.
+- The Control Plane remains a zero-build embedded HTML/CSS/JavaScript app while
+  backend contracts and product workflows stabilize.

@@ -4,7 +4,20 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Upload de Arquivos com Drag-and-Drop v0.1**:
+**Ingestion & Recall UX Hardening v0.1**:
+
+- Campos de collection na pagina Ingestion & Recall usam autocomplete com as
+  collections carregadas do tenant selecionado.
+- Cards Memory, Document, Record e File mostram apenas campos e acao relevantes;
+  File abre a pagina de upload existente.
+- Resultados de recall aparecem em cards com tipo, score, termos encontrados,
+  texto e acao de copiar id, mantendo a visualizacao Raw JSON.
+- `build_context` mostra tokens, itens incluidos/descartados e o bloco de
+  contexto formatado, mantendo a visualizacao Raw JSON.
+- A resposta HTTP de recall agora preserva o campo `matched_terms` do core.
+- O fluxo atualizado possui copia completa em ingles e portugues.
+
+Anterior: **Upload de Arquivos com Drag-and-Drop v0.1**:
 
 - Novo endpoint `POST /admin/tenants/{tid}/files` multipart (feature `multipart` do axum).
   Dispatch por extensão:
