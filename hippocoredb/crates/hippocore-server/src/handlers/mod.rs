@@ -7,4 +7,5 @@ pub mod memories;
 pub mod recall;
 pub mod records;
 pub mod stats;
+pub mod tables;
 pub mod tenants;

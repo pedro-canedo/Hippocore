@@ -164,6 +164,14 @@ pub fn build_router(state: AppState) -> Router {
             post(handlers::files::upload_file),
         )
         .route(
+            "/admin/tenants/{tid}/tables",
+            get(handlers::tables::list_tables),
+        )
+        .route(
+            "/admin/tenants/{tid}/tables/{table}",
+            delete(handlers::tables::delete_table),
+        )
+        .route(
             "/admin/tenants/{tid}/recall",
             post(handlers::recall::recall),
         )

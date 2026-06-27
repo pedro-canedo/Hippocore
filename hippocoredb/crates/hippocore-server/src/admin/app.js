@@ -6,6 +6,7 @@ const NAV = [
   ['operate', 'Data Explorer',    'data-explorer'],
   ['operate', 'SQL Editor',       'sql-editor'],
   ['data',    'Collections',      'collections'],
+  ['data',    'Tables',           'tables'],
   ['data',    'Records',          'records'],
   ['data',    'Memories',         'memories'],
   ['data',    'Documents',        'documents'],
@@ -939,6 +940,45 @@ function CollectionsPage() {
     </section>`;
 }
 
+function TablesPage() {
+  const hasTenant = !!state.tenant;
+  const hasCollection = !!state.collection;
+  const tables = state.lists.tables || [];
+  const tableHtml = tables.length === 0
+    ? EmptyState(
+        'No tables yet',
+        'Tables are created automatically when you store a record with a table name. Use Ingestion & Recall or upload a CSV file.',
+        ActionButton('Store record', 'go-ingest')
+      )
+    : `<div class="table-wrap"><table>
+        <thead><tr><th>Table name</th><th>Records</th><th></th></tr></thead>
+        <tbody>${tables.map((row) =>
+          `<tr>
+            <td><strong>${esc(row.name)}</strong></td>
+            <td>${esc(String(row.record_count))}</td>
+            <td><button class="ghost" type="button" data-action="delete-table" data-name="${esc(row.name)}" style="color:var(--red)">Delete all</button></td>
+          </tr>`
+        ).join('')}</tbody>
+      </table></div>`;
+  return `${PageHeader('Tables', 'Logical namespaces inside a collection that group structured records.', ActionButton(t('refresh'), 'refresh'))}
+    <section class="grid cols-2">
+      <div class="panel">
+        ${!hasTenant
+          ? EmptyState('No tenant selected', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+          : !hasCollection
+            ? EmptyState('No collection selected', t('noCollectionDesc'), ActionButton('Go to Collections', 'go-collections', 'primary'))
+            : tableHtml
+        }
+      </div>
+      <div class="panel">
+        <h3>About tables</h3>
+        <p style="color:var(--muted);font-size:13.5px;line-height:1.6">Tables are logical namespaces within a collection for structured <strong>Records</strong>. They are created automatically when the first record is stored with that table name.</p>
+        <div class="notice" style="margin-top:12px">Deleting a table removes all its records permanently. Collections and other data types (Memories, Documents) are unaffected.</div>
+        <div class="notice warning" style="margin-top:10px">Tables are queryable via the SQL Editor: <code>SELECT * FROM table_name LIMIT 10</code></div>
+      </div>
+    </section>`;
+}
+
 function ObjectListPage(kind) {
   const rows = annotateRows(state.lists[kind] || [], kind);
   const labels = { records: t('records'), memories: t('memories'), documents: t('documents'), files: t('files') };
@@ -1253,6 +1293,7 @@ function renderPage() {
   if (state.page === 'data-explorer')   return AppShell(DataExplorerPage());
   if (state.page === 'sql-editor')      return AppShell(SqlEditorPage());
   if (state.page === 'collections')     return AppShell(CollectionsPage());
+  if (state.page === 'tables')          return AppShell(TablesPage());
   if (['records','memories','documents'].includes(state.page)) return AppShell(ObjectListPage(state.page));
   if (state.page === 'files') return AppShell(FilesPage());
   if (state.page === 'ingestion-recall') return AppShell(IngestionRecallPage());
@@ -1315,6 +1356,10 @@ async function hydratePage() {
   if (listPages.includes(state.page)) await loadList(state.page);
   if (state.page === 'graph' && state.tenant) {
     state.lists.graph = await request(`/admin/graph-edges?${new URLSearchParams({ tenant_id: state.tenant })}`);
+  }
+  if (state.page === 'tables' && state.tenant && state.collection) {
+    const params = new URLSearchParams({ collection: state.collection });
+    state.lists.tables = await request(`/admin/tenants/${encodeURIComponent(state.tenant)}/tables?${params}`);
   }
   render();
 }
@@ -1515,6 +1560,21 @@ async function handleAction(target) {
   if (action === 'go-ingest')      { route('ingestion-recall');  return; }
   if (action === 'go-keys')        { route('service-keys');      return; }
   if (action === 'go-docs')        { route('documentation');     return; }
+  if (action === 'go-tables')      { route('tables');            return; }
+  if (action === 'delete-table') {
+    const name = target.dataset.name;
+    if (!name) return;
+    if (!window.confirm(`Delete table "${name}" and all its records? This cannot be undone.`)) return;
+    const params = new URLSearchParams({ collection: state.collection });
+    await request(
+      `/admin/tenants/${encodeURIComponent(state.tenant)}/tables/${encodeURIComponent(name)}?${params}`,
+      { method: 'DELETE' }
+    );
+    state.lastOperation = `Table "${name}" deleted.`;
+    showToast(`Table "${name}" deleted.`);
+    await hydratePage();
+    return;
+  }
   if (action === 'focus-tenant-form') {
     document.getElementById('tenantFormId')?.focus();
     return;
