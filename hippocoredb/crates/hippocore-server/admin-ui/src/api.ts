@@ -91,6 +91,12 @@ export interface FileRow {
   [key: string]: unknown;
 }
 
+export interface SqlResult {
+  command: string;
+  row_count: number;
+  rows: RecordRow[];
+}
+
 export class ApiError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
@@ -252,4 +258,18 @@ export function listFiles(
   collection: string,
 ): Promise<FileRow[]> {
   return listEntities<FileRow>(session, "/admin/files", tenantId, collection);
+}
+
+export async function runSql(
+  session: string,
+  tenantId: string,
+  sql: string,
+): Promise<SqlResult> {
+  const res = await fetch("/admin/sql", {
+    method: "POST",
+    headers: authHeaders(session),
+    body: JSON.stringify({ tenant_id: tenantId, sql }),
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as SqlResult;
 }

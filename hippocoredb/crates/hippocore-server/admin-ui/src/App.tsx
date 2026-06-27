@@ -25,6 +25,7 @@ import { DashboardView } from "./views/DashboardView";
 import { TenantsView } from "./views/TenantsView";
 import { CollectionsView } from "./views/CollectionsView";
 import { DataExplorerView } from "./views/DataExplorerView";
+import { SqlEditorView } from "./views/SqlEditorView";
 
 export function App() {
   const [session, setSession] = useState<string>(() => loadSession());
@@ -206,6 +207,9 @@ export function App() {
           activeTenant={activeTenant}
           collections={collections}
         />
+      )}
+      {view === "sql" && (
+        <SqlEditorView session={session} activeTenant={activeTenant} />
       )}
       <Toast message={toast} />
     </Shell>

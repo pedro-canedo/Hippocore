@@ -87,6 +87,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 - Página Collections: listar e criar para o tenant ativo.
 - Data Explorer: navegação read-only de Records/Memories/Documents/Files do
   tenant ativo e de uma collection lembrada por tenant, com drawer JSON.
+- SQL Editor: `SELECT` read-only sobre payloads de records via `POST /admin/sql`,
+  com Run/`Ctrl+Enter`, colunas deterministas e toggle Raw JSON.
 - Chave de sessão compartilhada (`hippocore.adminSession`) com o console `/admin`.
 
 ## Plano de migração

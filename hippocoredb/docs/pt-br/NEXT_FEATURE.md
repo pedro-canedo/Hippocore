@@ -2,33 +2,34 @@
 
 ## Nome da feature
 
-**Control Plane TS — SQL Editor v0.4**
+**Control Plane TS — Ingestion v0.5**
 
 ## Por que importa
 
-O Data Explorer navega records por collection; o próximo passo é consultá-los.
-Portar o SQL Editor read-only para o `/console` dá aos operadores o poder do
-endpoint existente `POST /admin/sql` (`SELECT` escopado por tenant sobre payloads
-de records) dentro do novo console tipado, completando o loop central de "ver e
-consultar seus dados".
+O console TypeScript já navega e consulta dados, mas não consegue criar nenhum.
+O próximo passo de maior valor é a ingestão: criar Memories, Records e Documents
+no tenant e na collection ativos, para o `/console` se tornar autossuficiente no
+loop central de escrita sem recorrer ao `/admin`.
 
 ## Comportamento
 
-- Adicionar uma página **SQL Editor** à sidebar, condicionada a um tenant ativo.
-- Um textarea de query com botão Run e `Ctrl/Cmd + Enter` para executar contra
-  `POST /admin/sql` com `{ tenant_id, sql }`.
-- Renderizar resultados de sucesso como tabela com colunas deterministas de
-  payload e um toggle Raw JSON; mostrar a duração observada no cliente e a
-  contagem de linhas.
-- Expor erros estruturados de validação/parse via o `ApiError` tipado.
-- Manter a query atual no estado da view; snippets de exemplo preenchem o editor
-  sem executar automaticamente. Explicar brevemente que campos sem prefixo
-  mapeiam para `payload.<field>`.
+- Adicionar uma página **Ingestion** à sidebar, condicionada a um tenant ativo e
+  a um seletor de collection (reutilizando a memória de collection por tenant).
+- Três formulários tipados:
+  - **Memory**: texto, tipo de memória, confiança opcional → `POST
+    /admin/tenants/{tid}/memories`.
+  - **Record**: nome da tabela + payload JSON (validado no cliente) → `POST
+    /admin/tenants/{tid}/records`.
+  - **Document**: texto (e título/metadata opcionais) → `POST
+    /admin/tenants/{tid}/documents`.
+- Cada criação bem-sucedida limpa o formulário, mostra um toast e atualiza as
+  contagens do Dashboard; o `ApiError` tipado renderiza inline.
+- JSON inválido no payload de Record é detectado antes do envio.
 
 ## Arquivos provaveis
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (adicionar `runSql`)
-- `crates/hippocore-server/admin-ui/src/views/SqlEditorView.tsx` (novo)
+- `crates/hippocore-server/admin-ui/src/api.ts` (adicionar calls de ingestão)
+- `crates/hippocore-server/admin-ui/src/views/IngestionView.tsx` (novo)
 - `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Assets rebuildados em `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
@@ -36,21 +37,21 @@ consultar seus dados".
 
 ## Criterios de aceitacao
 
-- Botão Run e `Ctrl/Cmd + Enter` executam o mesmo request escopado por tenant.
-- Resultados mostram colunas deterministas de payload e uma visão JSON completa;
-  duração e contagem de linhas aparecem.
-- Erros de parse/validação renderizam inline sem quebrar a view.
+- Criar Memory, Record e Document persiste no tenant e collection ativos e
+  aparece no Data Explorer.
+- JSON inválido de Record é rejeitado no cliente com mensagem clara.
+- Contagens do Dashboard atualizam após cada criação.
 - `pnpm type-check` e `pnpm build` passam; o portão Rust fica verde.
 - Texto novo voltado ao usuário existe em inglês e português.
 
 ## Testes
 
 - Assets de `/console` continuam públicos (teste de integração existente).
-- Testes do endpoint `/admin/sql` existente continuam verdes.
+- Testes dos endpoints de ingestão existentes continuam verdes.
 - `tsc --noEmit` strict passa; build atualiza `src/console/`.
 
 ## Fora de escopo
 
-- Expandir a gramática SQL ou adicionar escrita.
-- Histórico de queries, queries salvas, paginação ou export CSV.
-- Portar Ingestion & Recall, Integrations, Prompts, Observability.
+- Upload de arquivo / drag-and-drop (incremento futuro) e Recall.
+- Editar ou excluir entidades existentes.
+- Portar Integrations, Prompts ou Observability.

@@ -501,6 +501,49 @@ form .field {
   padding: 12px;
 }
 
+/* ── SQL Editor ──────────────────────────────────────── */
+.sql-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  resize: vertical;
+}
+.sql-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+.examples {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.small-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--glass-hi);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: SQL Editor v0.4
+
+- New SQL Editor page in `/console` (gated on an active tenant) running the
+  existing read-only `POST /admin/sql`; Run button and `Ctrl/Cmd + Enter`,
+  example snippets, deterministic payload columns, Raw JSON toggle, and
+  client-observed row count + duration.
+- Typed `runSql` added; `ApiError` parse/validation errors render inline.
+- Shared `format.ts` helper backs both Data Explorer and SQL Editor.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TS: Data Explorer (read) v0.3
 
 - New Data Explorer page in `/console` (gated on an active tenant) with a

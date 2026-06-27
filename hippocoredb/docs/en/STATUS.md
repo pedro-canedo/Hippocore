@@ -4,7 +4,21 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TS — Data Explorer (read) v0.3**:
+**Control Plane TS — SQL Editor v0.4**:
+
+- New **SQL Editor** page in `/console`, gated on an active tenant, running the
+  existing read-only `POST /admin/sql` (`SELECT` over record payloads).
+- A monospace editor with a Run button and `Ctrl/Cmd + Enter`; example snippets
+  populate the editor without auto-running.
+- Successful results render as a table with deterministic, sorted payload
+  columns (id/table stay as system columns), a Raw JSON toggle, and the
+  client-observed row count and duration.
+- Typed `ApiError` surfaces parse/validation errors inline without crashing.
+- Shared `format.ts` helper (record columns, cell, truncate) now backs both the
+  Data Explorer and the SQL Editor.
+- No server changes; assets rebuilt and embedded.
+
+Previous: **Control Plane TS — Data Explorer (read) v0.3**:
 
 - New **Data Explorer** page in `/console`, gated on an active tenant, with a
   collection selector whose choice is remembered per tenant in local storage.
