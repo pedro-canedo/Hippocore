@@ -66,6 +66,8 @@ pub struct AppState {
     pub(crate) admin_password: Arc<String>,
     pub(crate) admin_sessions: Arc<Mutex<HashSet<String>>>,
     pub(crate) llm_providers: Arc<Mutex<Vec<admin::LlmProviderConfig>>>,
+    pub(crate) http_client: reqwest::Client,
+    pub(crate) port: u16,
 }
 
 impl AppState {
@@ -89,6 +91,8 @@ impl AppState {
             admin_password: Arc::new(admin_password.into()),
             admin_sessions: Arc::new(Mutex::new(HashSet::new())),
             llm_providers: Arc::new(Mutex::new(providers)),
+            http_client: reqwest::Client::new(),
+            port: 8080,
         }
     }
 }
@@ -97,17 +101,20 @@ impl AppState {
 pub async fn serve(cfg: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     let db = Hippocore::open(Config::new(&cfg.data_dir))?;
     let providers = admin::load_llm_providers(&cfg.data_dir);
+    let port = cfg.port;
     let state = AppState {
         db: Arc::new(Mutex::new(db)),
-        api_key: Arc::new(Mutex::new(cfg.api_key.clone())),
+        api_key: Arc::new(Mutex::new(cfg.api_key)),
         admin_username: Arc::new(cfg.admin_username),
         admin_password: Arc::new(cfg.admin_password),
         admin_sessions: Arc::new(Mutex::new(HashSet::new())),
         llm_providers: Arc::new(Mutex::new(providers)),
+        http_client: reqwest::Client::new(),
+        port,
     };
 
     let app = build_router(state);
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", cfg.port)).await?;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }
@@ -142,6 +149,8 @@ pub fn build_router(state: AppState) -> Router {
             "/admin/llm-providers/validate",
             post(admin::validate_llm_provider),
         )
+        .route("/admin/llm-providers/ping", post(admin::ping_llm_provider))
+        .route("/admin/api-info", get(admin::api_info))
         .route("/admin/tenants", post(handlers::tenants::create_tenant))
         .route(
             "/admin/tenants/{tid}/collections",

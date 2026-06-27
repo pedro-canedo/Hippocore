@@ -16,7 +16,7 @@ const NAV = [
   ['admin',   'API Reference',    'api-reference'],
   ['admin',   'Documentation',    'documentation'],
   ['admin',   'Tenants',          'tenants'],
-  ['admin',   'Service Keys',     'service-keys'],
+  ['admin',   'Integrations',     'integrations'],
   ['admin',   'Observability',    'observability'],
   ['admin',   'Settings',         'settings'],
 ];
@@ -549,6 +549,10 @@ const state = {
   lastOperation: '',
   uploadProgress: 0,
   uploadResult: null,
+  apiInfo: null,
+  traefikDomain: '',
+  traefikPath: '/api',
+  traefikConfig: '',
 };
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -1181,30 +1185,52 @@ function TenantsPage() {
     </section>`;
 }
 
-function ServiceKeysPage() {
+function IntegrationsPage() {
   const providers = annotateRows(state.providers || [], 'providers');
-  return `${PageHeader('Service Keys', t('providerLead'), ActionButton(t('rotateKey'), 'rotate-key', 'danger'))}
+  const apiKey = state.bootstrap?.config?.api_key_set;
+  const keyLen = state.bootstrap?.config?.api_key_length ?? '—';
+  const apiInfo = state.apiInfo || {};
+  const baseUrl = apiInfo.base_url || 'http://localhost:8080';
+  const keyHint = apiInfo.api_key_hint || '****...';
+  const traefikDomain = state.traefikDomain || '';
+  const traefikPath  = state.traefikPath  || '/api';
+
+  const traefikYaml = traefikDomain
+    ? `# Add these labels to your hippocore service in docker-compose.yml
+labels:
+  - "traefik.enable=true"
+  - "traefik.http.routers.hippocore.rule=Host(\`${esc(traefikDomain)}\`) && PathPrefix(\`${esc(traefikPath)}\`)"
+  - "traefik.http.routers.hippocore.entrypoints=websecure"
+  - "traefik.http.routers.hippocore.tls.certresolver=letsencrypt"
+  - "traefik.http.middlewares.hippocore-strip.stripprefix.prefixes=${esc(traefikPath)}"
+  - "traefik.http.routers.hippocore.middlewares=hippocore-strip"
+  - "traefik.http.services.hippocore.loadbalancer.server.port=8080"` : '';
+
+  const composeSnippet = `services:
+  hippocore:
+    image: hippocore:latest
+    environment:
+      - HIPPOCORE_ADMIN_PASSWORD=\${HIPPOCORE_ADMIN_PASSWORD}
+      - HIPPOCORE_API_KEY=\${HIPPOCORE_API_KEY}
+      - HIPPOCORE_OLLAMA_URL=http://ollama:11434
+      - HIPPOCORE_OLLAMA_MODEL=llama3.2
+    volumes:
+      - ./hippocore-data:/data
+    ports:
+      - "8080:8080"`;
+
+  return `${PageHeader('Integrations', 'LLM brain configuration, API exposure, and infrastructure wiring.', ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-2">
       <div class="panel">
-        <h3>Service API key</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">The service API key authenticates calls to tenant-facing endpoints (<code>/tenants/*</code>). Rotate it at any time — the new key is active immediately.</p>
-        ${StatusBadge(state.bootstrap?.config?.api_key_set ? 'Configured' : 'Not set', state.bootstrap?.config?.api_key_set ? 'ok' : 'error')}
-        <p class="muted" style="font-size:12px;margin-top:8px">Key length: ${esc(state.bootstrap?.config?.api_key_length ?? '—')}</p>
-        <div class="page-actions" style="margin-top:14px">
-          ${ActionButton(t('rotateKey'), 'rotate-key', 'danger')}
-        </div>
+        <h3>LLM Brain</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">Configure the language model that powers context recall and the Chat API.</p>
+        ${DataTable(providers, [{key:'id',label:'id'},{key:'kind',label:'kind'},{key:'model',label:'model'},{key:'api_key_set',label:'key set'}], 'No providers configured.', 'Add a provider below.')}
       </div>
       <div class="panel">
-        <h3>LLM Providers</h3>
-        ${DataTable(providers, [{key:'id',label:'id'},{key:'kind',label:'kind'},{key:'model',label:'model'},{key:'api_key_set',label:'key set'}], 'No providers', 'Configure an LLM provider for embedding generation.')}
-      </div>
-    </section>
-    <section class="grid cols-2">
-      <div class="panel">
-        <h3>Provider registry</h3>
+        <h3>Add / update provider</h3>
         <div class="form-grid">
           ${FormField('Provider id', 'providerId', 'ollama')}
-          ${FormField('Kind', 'providerKind', 'ollama')}
+          ${FormField('Kind (ollama / openrouter / openai)', 'providerKind', 'ollama')}
           ${FormField('Base URL', 'providerUrl', 'http://localhost:11434')}
           ${FormField('Model', 'providerModel', 'llama3.2')}
           ${FormField('API key (optional)', 'providerKey', '', 'password')}
@@ -1212,12 +1238,50 @@ function ServiceKeysPage() {
         <div class="page-actions" style="margin-top:12px">
           ${ActionButton(t('save'), 'save-provider', 'primary')}
           ${ActionButton('Validate', 'validate-provider')}
+          ${ActionButton('Ping', 'ping-provider')}
+        </div>
+        ${state.providerResult ? `<div class="notice ${state.providerResult.ok === true ? '' : state.providerResult.ok === false ? 'warning' : ''}" style="margin-top:12px">
+          ${state.providerResult.ok === true ? '✓ ' : state.providerResult.ok === false ? '✗ ' : ''}
+          ${esc(state.providerResult.message ?? JSON.stringify(state.providerResult))}
+          ${state.providerResult.latency_ms !== undefined ? ` (${state.providerResult.latency_ms}ms)` : ''}
+        </div>` : ''}
+      </div>
+    </section>
+    <section class="grid cols-2">
+      <div class="panel">
+        <h3>API Exposure</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">The service API key authenticates calls to tenant-facing endpoints. Rotate at any time.</p>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          ${StatusBadge(apiKey ? 'API key configured' : 'Not set', apiKey ? 'ok' : 'error')}
+          <span style="color:var(--muted);font-size:12px">length: ${esc(String(keyLen))}</span>
+        </div>
+        <label class="field"><span>Base URL</span><input value="${esc(baseUrl)}" readonly onclick="this.select()"></label>
+        <label class="field" style="margin-top:8px"><span>API key hint</span><input value="${esc(keyHint)}" readonly onclick="this.select()"></label>
+        <div class="notice" style="margin-top:10px;font-size:12px">
+          <strong>curl example — recall:</strong><br>
+          <code>curl -X POST ${esc(baseUrl)}/tenants/MY_TENANT/recall \\<br>&nbsp;&nbsp;-H "X-Api-Key: YOUR_KEY" \\<br>&nbsp;&nbsp;-H "Content-Type: application/json" \\<br>&nbsp;&nbsp;-d '{"query":"what is...","collection":"main"}'</code>
+        </div>
+        <div class="page-actions" style="margin-top:14px">
+          ${ActionButton(t('rotateKey'), 'rotate-key', 'danger')}
         </div>
       </div>
       <div class="panel">
-        <h3>Provider result</h3>
-        ${JsonViewer(state.providerResult || { status: 'ready' })}
+        <h3>Traefik Config Generator</h3>
+        <div class="form-grid">
+          ${FormField('Domain (e.g. api.example.com)', 'traefikDomain', traefikDomain)}
+          ${FormField('Path prefix (e.g. /api)', 'traefikPath', traefikPath || '/api')}
+        </div>
+        <div class="page-actions" style="margin-top:10px">
+          ${ActionButton('Generate labels', 'generate-traefik', 'primary')}
+        </div>
+        ${traefikYaml ? `<pre style="background:var(--glass-md);border-radius:8px;padding:12px;font-size:11.5px;overflow-x:auto;margin-top:12px;white-space:pre-wrap">${esc(traefikYaml)}</pre>
+          <div class="page-actions" style="margin-top:6px">${ActionButton('Copy', 'copy-traefik')}</div>` : ''}
       </div>
+    </section>
+    <section class="panel">
+      <h3>Docker Compose snippet</h3>
+      <pre style="background:var(--glass-md);border-radius:8px;padding:14px;font-size:12px;overflow-x:auto;white-space:pre-wrap">${esc(composeSnippet)}</pre>
+      <div class="page-actions" style="margin-top:8px">${ActionButton('Copy snippet', 'copy-compose')}</div>
     </section>`;
 }
 
@@ -1301,7 +1365,7 @@ function renderPage() {
   if (state.page === 'api-reference')   return AppShell(ApiReferencePage());
   if (state.page === 'documentation')   return AppShell(DocumentationPage());
   if (state.page === 'tenants')         return AppShell(TenantsPage());
-  if (state.page === 'service-keys')    return AppShell(ServiceKeysPage());
+  if (state.page === 'integrations')    return AppShell(IntegrationsPage());
   if (state.page === 'observability')   return AppShell(ObservabilityPage());
   if (state.page === 'settings')        return AppShell(SettingsPage());
   return AppShell(DashboardPage());
@@ -1360,6 +1424,9 @@ async function hydratePage() {
   if (state.page === 'tables' && state.tenant && state.collection) {
     const params = new URLSearchParams({ collection: state.collection });
     state.lists.tables = await request(`/admin/tenants/${encodeURIComponent(state.tenant)}/tables?${params}`);
+  }
+  if (state.page === 'integrations') {
+    state.apiInfo = await request('/admin/api-info').catch(() => null);
   }
   render();
 }
@@ -1531,6 +1598,17 @@ async function validateProvider() {
   render();
 }
 
+async function pingProvider() {
+  const id = document.getElementById('providerId')?.value.trim();
+  if (!id) { showError('Enter the provider id to ping'); return; }
+  state.providerResult = await request('/admin/llm-providers/ping', {
+    method: 'POST',
+    body: JSON.stringify({ id }),
+  });
+  state.lastOperation = `Provider "${id}" pinged.`;
+  render();
+}
+
 function openDetail(list, index) {
   const rows = list === 'sql'
     ? state.sqlResult?.rows || []
@@ -1558,7 +1636,7 @@ async function handleAction(target) {
   if (action === 'go-sql')         { route('sql-editor');        return; }
   if (action === 'go-explorer')    { route('data-explorer');     return; }
   if (action === 'go-ingest')      { route('ingestion-recall');  return; }
-  if (action === 'go-keys')        { route('service-keys');      return; }
+  if (action === 'go-keys')        { route('integrations');      return; }
   if (action === 'go-docs')        { route('documentation');     return; }
   if (action === 'go-tables')      { route('tables');            return; }
   if (action === 'delete-table') {
@@ -1620,6 +1698,26 @@ async function handleAction(target) {
   if (action === 'rotate-key')        { await rotateKey();             return; }
   if (action === 'save-provider')     { await saveProvider();          return; }
   if (action === 'validate-provider') { await validateProvider();      return; }
+  if (action === 'ping-provider')     { await pingProvider();          return; }
+  if (action === 'generate-traefik') {
+    state.traefikDomain = document.getElementById('traefikDomain')?.value.trim() || '';
+    state.traefikPath   = document.getElementById('traefikPath')?.value.trim() || '/api';
+    render();
+    return;
+  }
+  if (action === 'copy-traefik') {
+    const pre = document.querySelector('pre');
+    if (pre) navigator.clipboard?.writeText(pre.textContent).catch(() => {});
+    showToast('Copied to clipboard');
+    return;
+  }
+  if (action === 'copy-compose') {
+    const pres = document.querySelectorAll('pre');
+    const last = pres[pres.length - 1];
+    if (last) navigator.clipboard?.writeText(last.textContent).catch(() => {});
+    showToast('Copied to clipboard');
+    return;
+  }
   if (action === 'detail')            { openDetail(target.dataset.list, target.dataset.index); return; }
   if (action === 'close-detail')      { state.detail = null; render(); return; }
   if (action === 'copy-code')         { copyCode(target.dataset.code); return; }

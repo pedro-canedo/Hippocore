@@ -475,6 +475,92 @@ fn provider_snippet(provider: &LlmProviderConfig) -> String {
     )
 }
 
+#[derive(Deserialize)]
+pub struct PingRequest {
+    pub id: String,
+}
+
+#[derive(Serialize)]
+pub struct PingResponse {
+    pub ok: bool,
+    pub message: String,
+    pub latency_ms: u64,
+}
+
+pub async fn ping_llm_provider(
+    State(state): State<AppState>,
+    Json(body): Json<PingRequest>,
+) -> Result<Json<PingResponse>, ServerError> {
+    let (kind, base_url, api_key) = {
+        let providers = state.llm_providers.lock().unwrap();
+        let p = providers.iter().find(|p| p.id == body.id).ok_or_else(|| {
+            ServerError(
+                StatusCode::NOT_FOUND,
+                format!("provider '{}' not found", body.id),
+            )
+        })?;
+        (p.kind.clone(), p.base_url.clone(), p.api_key.clone())
+    };
+
+    let start = std::time::Instant::now();
+    let result = match kind.as_str() {
+        "ollama" => {
+            let url = format!("{}/api/tags", base_url.trim_end_matches('/'));
+            state.http_client.get(&url).send().await
+        }
+        "openrouter" | "openai" => {
+            let url = format!("{}/models", base_url.trim_end_matches('/'));
+            let mut req = state.http_client.get(&url);
+            if let Some(key) = &api_key {
+                req = req.bearer_auth(key);
+            }
+            req.send().await
+        }
+        _ => {
+            let url = format!("{}/models", base_url.trim_end_matches('/'));
+            state.http_client.get(&url).send().await
+        }
+    };
+    let latency_ms = start.elapsed().as_millis() as u64;
+
+    match result {
+        Ok(resp) if resp.status().is_success() => Ok(Json(PingResponse {
+            ok: true,
+            message: format!("reachable (HTTP {})", resp.status().as_u16()),
+            latency_ms,
+        })),
+        Ok(resp) => Ok(Json(PingResponse {
+            ok: false,
+            message: format!("HTTP {}", resp.status().as_u16()),
+            latency_ms,
+        })),
+        Err(e) => Ok(Json(PingResponse {
+            ok: false,
+            message: e.to_string(),
+            latency_ms,
+        })),
+    }
+}
+
+#[derive(Serialize)]
+pub struct ApiInfoResponse {
+    pub base_url: String,
+    pub api_key_hint: String,
+}
+
+pub async fn api_info(State(state): State<AppState>) -> Json<ApiInfoResponse> {
+    let key = state.api_key.lock().unwrap().clone();
+    let hint = if key.len() >= 4 {
+        format!("{}...", &key[..4])
+    } else {
+        "****".into()
+    };
+    Json(ApiInfoResponse {
+        base_url: format!("http://localhost:{}", state.port),
+        api_key_hint: hint,
+    })
+}
+
 const ADMIN_HTML: &str = include_str!("admin/index.html");
 const ADMIN_CSS: &str = include_str!("admin/styles.css");
 const ADMIN_JS: &str = include_str!("admin/app.js");
