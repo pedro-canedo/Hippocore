@@ -1,10 +1,32 @@
 # Hippocore DB — Status
 
-_Last updated: 2026-06-26._
+_Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Guided Workspace Onboarding v0.1**:
+**Control Plane TypeScript Rebuild — Foundation v0.1**:
+
+- New React + Vite + TypeScript admin console under
+  `crates/hippocore-server/admin-ui/`, served at **`/console`**. The classic
+  zero-build vanilla-JS console stays at **`/admin`** during the migration.
+- First migrated slice is a real **Login → Dashboard** flow: authenticates via
+  `POST /admin/login`, then renders server status and bootstrap stats (tenant,
+  collection, memory, document, record, file, graph-edge and index counts) from
+  `GET /admin/bootstrap`, with refresh and sign-out. Typed API client and
+  session module establish the pattern for future page ports.
+- `vite build` emits flat, non-hashed assets (`index.html`, `index.js`,
+  `index.css`) into `crates/hippocore-server/src/console/`, which is committed
+  and embedded into the binary with `include_str!`. This keeps `cargo build`
+  and the Docker image free of any Node dependency, and the `dist/` name is
+  avoided because `.dockerignore` excludes `**/dist`.
+- Three new public routes (`/console`, `/console/index.js`, `/console/index.css`)
+  serve the embedded assets; no existing route or behavior changed.
+- Frontend quality gate adds `pnpm type-check` (`tsc --noEmit`) and `pnpm build`
+  alongside the Rust gate. New integration test asserts the console page and
+  assets are public with the correct content types.
+- See [CONTROL_PLANE_TS.md](CONTROL_PLANE_TS.md) and ADR-016.
+
+Previous: **Guided Workspace Onboarding v0.1**:
 
 - Dashboard now keeps a five-step checklist visible from empty database through
   tenant, collection, first data, SQL, and recall/context completion.

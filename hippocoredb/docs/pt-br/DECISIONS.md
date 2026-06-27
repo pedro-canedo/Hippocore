@@ -180,3 +180,33 @@ versão em inglês em `docs/en/DECISIONS.md`.
 - **Trade-off**: progresso SQL/recall nao sincroniza entre browsers e pode ser
   apagado com storage local. Persistencia no servidor so deve vir com requisito
   multiusuario real.
+
+## ADR-016: Migrar o Control Plane para React + Vite + TypeScript, embarcado em build time
+
+- **Decisao**: Reconstruir o Control Plane admin como app React + Vite +
+  TypeScript em `crates/hippocore-server/admin-ui/`, servido em `/console`. O
+  `vite build` emite assets planos sem hash (`index.html`, `index.js`,
+  `index.css`) em `crates/hippocore-server/src/console/`, que e commitado e
+  embarcado via `include_str!`. O console legado vanilla-JS zero-build permanece
+  em `/admin` ate as paginas serem portadas uma a uma.
+- **Contexto**: O console vanilla-JS passou de 130 KB em um unico `app.js`, sem
+  type-safety, sem modelo de componentes e com uma camada i18n manual extensa. A
+  direcao de produto pede uma UI admin mais rica e sustentavel; type checking e
+  um framework de componentes reduzem regressoes conforme a superficie cresce.
+- **Alternativas consideradas**:
+  - Permanecer em vanilla JS (rejeitado: teto de manutenibilidade e type-safety).
+  - Svelte ou Preact (viaveis; React escolhido pela maturidade do ecossistema e
+    familiaridade para um dashboard admin multi-pagina).
+  - Servir um diretorio `dist/` em runtime ou via `rust-embed` (rejeitado: quebra
+    a distribuicao single-binary e a garantia de `cargo build` offline/sem Node;
+    `**/dist` tambem e excluido pelo `.dockerignore`).
+- **Motivo**: Commitar os assets buildados em `src/console/` e embarca-los com
+  `include_str!` preserva a propriedade single-binary sem dependencia externa:
+  `cargo build`, CI e a imagem Docker nunca precisam de Node. O front-end e
+  rebuildado explicitamente com `pnpm build` e o output re-commitado quando muda.
+  Servir o novo app em `/console` permite migrar pagina a pagina sem risco ao
+  console `/admin` em funcionamento.
+- **Trade-off**: Dois consoles coexistem durante a migracao. Mudancas de
+  front-end exigem `pnpm build` manual e commit dos assets regenerados, alem de
+  toolchain Node apenas para desenvolvimento do front-end (nunca para buildar ou
+  rodar o servidor). O bundle embarcado adiciona ~200 KB ao binario.

@@ -34,5 +34,8 @@
 - Retrieval exato continua sendo o default offline; HNSW e backend opcional.
 - Snapshot continua baseado em JSON.
 - Records sao JSON-first e ainda nao possuem schema rico ou indice por campo.
-- O Control Plane continua como app HTML/CSS/JavaScript zero-build embutido
-  enquanto contratos backend e fluxos de produto estabilizam.
+- O Control Plane esta migrando para um app React + Vite + TypeScript servido em
+  `/console`; o app legado vanilla-JS zero-build permanece em `/admin` ate a
+  migracao concluir. O build TypeScript e commitado e embarcado via
+  `include_str!`, entao `cargo build` e a imagem Docker continuam sem precisar
+  de toolchain Node. Veja ADR-016.

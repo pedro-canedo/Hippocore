@@ -241,3 +241,33 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
 - **Trade-offs**: SQL/recall progress does not synchronize across browsers and
   can be cleared with browser storage. Server-persisted onboarding can be added
   only if a real multi-user requirement appears.
+
+## ADR-016: Migrate the Control Plane to React + Vite + TypeScript, embedded at build time
+
+- **Decision**: Rebuild the admin Control Plane as a React + Vite + TypeScript
+  app in `crates/hippocore-server/admin-ui/`, served at `/console`. `vite build`
+  emits flat, non-hashed assets (`index.html`, `index.js`, `index.css`) into
+  `crates/hippocore-server/src/console/`, which is committed and embedded with
+  `include_str!`. The legacy zero-build vanilla-JS console stays at `/admin`
+  until pages are ported one by one.
+- **Context**: The vanilla-JS console grew past 130 KB in a single `app.js` with
+  no type safety, no component model, and a large hand-rolled i18n layer. The
+  product direction is a richer, maintainable admin UI; type checking and a
+  component framework reduce regressions as surface area grows.
+- **Alternatives considered**:
+  - Stay on vanilla JS (rejected: maintainability and type-safety ceiling).
+  - Svelte or Preact (viable; React chosen for ecosystem maturity and the team's
+    familiarity for a multi-page admin dashboard).
+  - Serve a `dist/` directory at runtime or via `rust-embed` (rejected: breaks
+    single-binary distribution and the offline/no-Node `cargo build` guarantee;
+    `**/dist` is also excluded by `.dockerignore`).
+- **Reason**: Committing the built assets under `src/console/` and embedding them
+  with `include_str!` keeps the single-binary, no-external-dependency property:
+  `cargo build`, CI, and the Docker image never need Node. The frontend is
+  rebuilt explicitly with `pnpm build` and the output re-committed when it
+  changes. Serving the new app at `/console` lets the migration proceed page by
+  page with zero risk to the working `/admin` console.
+- **Trade-offs**: Two consoles coexist during the migration. Frontend changes
+  require a manual `pnpm build` and committing regenerated assets, plus a Node
+  toolchain for frontend development only (never for building or running the
+  server). The embedded bundle adds ~200 KB to the binary.

@@ -35,5 +35,8 @@
 - Exact retrieval remains the offline default; HNSW is an optional backend.
 - Snapshot storage remains JSON-based.
 - Records are JSON-first and do not yet have rich schemas or per-field indexes.
-- The Control Plane remains a zero-build embedded HTML/CSS/JavaScript app while
-  backend contracts and product workflows stabilize.
+- The Control Plane is migrating to a React + Vite + TypeScript app served at
+  `/console`; the legacy zero-build vanilla-JS app stays at `/admin` until the
+  port completes. The TypeScript build is committed and embedded with
+  `include_str!`, so `cargo build` and the Docker image still need no Node
+  toolchain. See ADR-016.

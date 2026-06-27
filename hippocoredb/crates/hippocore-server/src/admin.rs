@@ -33,6 +33,30 @@ pub async fn app_js() -> impl IntoResponse {
     )
 }
 
+/// New TypeScript Control Plane (React + Vite), served at `/console`. The
+/// classic vanilla-JS console at `/admin` is kept during the migration. Assets
+/// are produced by `admin-ui` (`pnpm build`) into `src/console/` and embedded.
+pub async fn console_page() -> Html<&'static str> {
+    Html(CONSOLE_HTML)
+}
+
+pub async fn console_js() -> impl IntoResponse {
+    (
+        [(
+            header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        CONSOLE_JS,
+    )
+}
+
+pub async fn console_css() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        CONSOLE_CSS,
+    )
+}
+
 #[derive(Serialize)]
 pub struct AdminConfigResponse {
     pub api_key_set: bool,
@@ -564,3 +588,7 @@ pub async fn api_info(State(state): State<AppState>) -> Json<ApiInfoResponse> {
 const ADMIN_HTML: &str = include_str!("admin/index.html");
 const ADMIN_CSS: &str = include_str!("admin/styles.css");
 const ADMIN_JS: &str = include_str!("admin/app.js");
+
+const CONSOLE_HTML: &str = include_str!("console/index.html");
+const CONSOLE_CSS: &str = include_str!("console/index.css");
+const CONSOLE_JS: &str = include_str!("console/index.js");

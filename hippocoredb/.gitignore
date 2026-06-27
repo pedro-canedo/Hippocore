@@ -5,3 +5,6 @@ Cargo.lock
 /data
 /dat
 /hippocore-data
+# frontend (admin-ui) — node deps only; built assets in src/console/ ARE tracked
+**/node_modules
+**/*.tsbuildinfo

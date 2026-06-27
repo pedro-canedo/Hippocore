@@ -126,6 +126,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/admin/styles.css", get(admin::styles))
         .route("/admin/app.js", get(admin::app_js))
         .route("/admin/login", post(admin::login))
+        .route("/console", get(admin::console_page))
+        .route("/console/index.js", get(admin::console_js))
+        .route("/console/index.css", get(admin::console_css))
         .route("/", get(admin::root));
 
     // Human admin routes require an admin session. The service API key is also

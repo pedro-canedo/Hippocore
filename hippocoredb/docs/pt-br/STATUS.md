@@ -1,10 +1,34 @@
 # Hippocore DB — Status
 
-_Última atualização: 2026-06-26._
+_Última atualização: 2026-06-27._
 
 ## Implementado por último
 
-**Guided Workspace Onboarding v0.1**:
+**Reconstrução TypeScript do Control Plane — Fundação v0.1**:
+
+- Novo console admin React + Vite + TypeScript em
+  `crates/hippocore-server/admin-ui/`, servido em **`/console`**. O console
+  clássico vanilla-JS zero-build permanece em **`/admin`** durante a migração.
+- Primeira fatia migrada é um fluxo real **Login → Dashboard**: autentica via
+  `POST /admin/login` e renderiza status do servidor e stats do bootstrap
+  (contagens de tenant, collection, memory, document, record, file, aresta de
+  grafo e entradas indexadas) de `GET /admin/bootstrap`, com refresh e logout.
+  Cliente de API tipado e módulo de sessão estabelecem o padrão para portar as
+  próximas páginas.
+- `vite build` emite assets planos sem hash (`index.html`, `index.js`,
+  `index.css`) em `crates/hippocore-server/src/console/`, que é commitado e
+  embarcado no binário via `include_str!`. Isso mantém `cargo build` e a imagem
+  Docker livres de qualquer dependência Node; o nome `dist/` é evitado porque o
+  `.dockerignore` exclui `**/dist`.
+- Três novas rotas públicas (`/console`, `/console/index.js`,
+  `/console/index.css`) servem os assets embarcados; nenhuma rota ou
+  comportamento existente foi alterado.
+- O portão de qualidade do front-end adiciona `pnpm type-check` (`tsc --noEmit`)
+  e `pnpm build` junto ao portão Rust. Novo teste de integração garante que a
+  página e os assets do console são públicos com os content types corretos.
+- Veja [CONTROL_PLANE_TS.md](CONTROL_PLANE_TS.md) e ADR-016.
+
+Anterior: **Guided Workspace Onboarding v0.1**:
 
 - Dashboard mantem checklist de cinco passos entre banco vazio, tenant,
   collection, primeiro dado, SQL e recall/contexto.

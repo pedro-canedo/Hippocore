@@ -5,6 +5,22 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TypeScript Rebuild: Foundation v0.1
+
+- New React + Vite + TypeScript admin console under
+  `crates/hippocore-server/admin-ui/`, served at `/console`. The legacy
+  zero-build vanilla-JS console stays at `/admin` during the migration.
+- First migrated slice: a typed Login → Dashboard flow (`POST /admin/login`,
+  `GET /admin/bootstrap`) showing server status and database counts, with a
+  typed API client (`src/api.ts`) and shared session module.
+- `vite build` emits flat, non-hashed assets into
+  `crates/hippocore-server/src/console/` (committed), embedded with
+  `include_str!`; `cargo build` and the Docker image need no Node toolchain.
+- Three public routes: `/console`, `/console/index.js`, `/console/index.css`.
+- Frontend gate adds `pnpm type-check` and `pnpm build`. New integration test
+  `console_page_and_assets_are_public` covers the page and asset content types.
+- Architecture decision recorded as ADR-016; feature doc `CONTROL_PLANE_TS.md`.
+
 ### Added — Guided Workspace Onboarding v0.1
 
 - Dashboard now provides a persistent five-step setup checklist for tenant,

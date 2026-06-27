@@ -193,6 +193,86 @@ async fn admin_assets_are_public() {
     }
 }
 
+#[tokio::test]
+async fn console_page_and_assets_are_public() {
+    let dir = TempDir::new().unwrap();
+    let app = test_app(&dir);
+
+    // The TypeScript console HTML shell is public and references its bundle.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/console")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let html = String::from_utf8(html.to_vec()).unwrap();
+    assert!(html.contains("Hippocore Control Plane"));
+    assert!(html.contains("/console/index.js"));
+    assert!(html.contains("/console/index.css"));
+    assert!(html.contains("id=\"root\""));
+
+    // The built JavaScript bundle is public and non-empty.
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/console/index.js")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let ctype = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    assert!(
+        ctype.contains("javascript"),
+        "unexpected content-type: {ctype}"
+    );
+    let js = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(js.len() > 1000, "console bundle unexpectedly small");
+
+    // The built stylesheet is public with the right content type.
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/console/index.css")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let ctype = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    assert!(
+        ctype.contains("text/css"),
+        "unexpected content-type: {ctype}"
+    );
+    let css = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    assert!(!css.is_empty(), "console stylesheet is empty");
+}
+
 // --- auth ---
 
 #[tokio::test]
