@@ -4,7 +4,22 @@ _Última atualização: 2026-06-27._
 
 ## Implementado por último
 
-**Control Plane TS — SQL Editor v0.4**:
+**Control Plane TS — Ingestion v0.5**:
+
+- Nova página **Ingestion** no `/console`, condicionada a um tenant ativo e a um
+  seletor de collection alvo (reutilizando a memória de collection por tenant).
+- Três formulários tipados criam dados no escopo ativo: **Memory**
+  (texto + tipo semantic/episodic/procedural), **Record** (table + payload JSON
+  validado no cliente) e **Document** (texto), via os endpoints existentes
+  `POST /admin/tenants/{tid}/{memories,records,documents}`.
+- Cada sucesso limpa o formulário, mostra um toast e atualiza as contagens do
+  Dashboard; o `ApiError` tipado renderiza inline e JSON inválido de Record é
+  detectado antes do envio.
+- O console TypeScript agora cobre o loop completo criar → navegar → consultar
+  sem recorrer ao `/admin`.
+- Sem mudanças no servidor; assets rebuildados e embarcados.
+
+Anterior: **Control Plane TS — SQL Editor v0.4**:
 
 - Nova página **SQL Editor** no `/console`, condicionada a um tenant ativo,
   executando o `POST /admin/sql` read-only existente (`SELECT` sobre payloads de

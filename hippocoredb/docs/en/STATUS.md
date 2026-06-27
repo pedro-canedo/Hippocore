@@ -4,7 +4,21 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TS — SQL Editor v0.4**:
+**Control Plane TS — Ingestion v0.5**:
+
+- New **Ingestion** page in `/console`, gated on an active tenant and a target
+  collection selector (reusing the per-tenant collection memory).
+- Three typed forms create data in the active scope: **Memory**
+  (text + type semantic/episodic/procedural), **Record** (table + JSON payload
+  validated client-side), and **Document** (text), via the existing
+  `POST /admin/tenants/{tid}/{memories,records,documents}` endpoints.
+- Each success clears the form, shows a toast, and refreshes Dashboard counts;
+  typed `ApiError` renders inline and invalid Record JSON is caught before send.
+- The TypeScript console now covers the full create → browse → query loop
+  without falling back to `/admin`.
+- No server changes; assets rebuilt and embedded.
+
+Previous: **Control Plane TS — SQL Editor v0.4**:
 
 - New **SQL Editor** page in `/console`, gated on an active tenant, running the
   existing read-only `POST /admin/sql` (`SELECT` over record payloads).

@@ -273,3 +273,60 @@ export async function runSql(
   if (!res.ok) return parseError(res);
   return (await res.json()) as SqlResult;
 }
+
+async function postTenant<T>(
+  session: string,
+  tenantId: string,
+  resource: string,
+  body: unknown,
+): Promise<T> {
+  const res = await fetch(
+    `/admin/tenants/${encodeURIComponent(tenantId)}/${resource}`,
+    {
+      method: "POST",
+      headers: authHeaders(session),
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as T;
+}
+
+export interface CreatedMemory {
+  id: string;
+  collection: string;
+}
+
+export function createMemory(
+  session: string,
+  tenantId: string,
+  body: { collection: string; text: string; memory_type: string },
+): Promise<CreatedMemory> {
+  return postTenant<CreatedMemory>(session, tenantId, "memories", body);
+}
+
+export interface CreatedRecord {
+  id: string;
+  table: string;
+}
+
+export function createRecord(
+  session: string,
+  tenantId: string,
+  body: { collection: string; table: string; payload: unknown },
+): Promise<CreatedRecord> {
+  return postTenant<CreatedRecord>(session, tenantId, "records", body);
+}
+
+export interface CreatedDocument {
+  id: string;
+  chunk_count: number;
+}
+
+export function createDocument(
+  session: string,
+  tenantId: string,
+  body: { collection: string; text: string },
+): Promise<CreatedDocument> {
+  return postTenant<CreatedDocument>(session, tenantId, "documents", body);
+}

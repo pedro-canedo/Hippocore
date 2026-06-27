@@ -88,6 +88,8 @@ cargo clippy --workspace --all-targets -- -D warnings
   active tenant and a per-tenant-remembered collection, with a JSON drawer.
 - SQL Editor: read-only `SELECT` over record payloads via `POST /admin/sql`,
   with Run/`Ctrl+Enter`, deterministic columns, and a Raw JSON toggle.
+- Ingestion: create Memory, Record (JSON payload), and Document in the active
+  tenant/collection, with client-side JSON validation.
 - Shared session key (`hippocore.adminSession`) with the `/admin` console.
 
 ## Migration plan

@@ -26,6 +26,7 @@ import { TenantsView } from "./views/TenantsView";
 import { CollectionsView } from "./views/CollectionsView";
 import { DataExplorerView } from "./views/DataExplorerView";
 import { SqlEditorView } from "./views/SqlEditorView";
+import { IngestionView } from "./views/IngestionView";
 
 export function App() {
   const [session, setSession] = useState<string>(() => loadSession());
@@ -98,7 +99,10 @@ export function App() {
   }, [session, refresh]);
 
   useEffect(() => {
-    if (session && (view === "collections" || view === "explorer")) {
+    if (
+      session &&
+      (view === "collections" || view === "explorer" || view === "ingestion")
+    ) {
       void loadCollections(session, activeTenant);
     }
   }, [session, view, activeTenant, loadCollections]);
@@ -206,6 +210,14 @@ export function App() {
           session={session}
           activeTenant={activeTenant}
           collections={collections}
+        />
+      )}
+      {view === "ingestion" && (
+        <IngestionView
+          session={session}
+          activeTenant={activeTenant}
+          collections={collections}
+          onChanged={onCollectionsChanged}
         />
       )}
       {view === "sql" && (

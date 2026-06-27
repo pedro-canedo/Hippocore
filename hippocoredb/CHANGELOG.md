@@ -5,6 +5,16 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: Ingestion v0.5
+
+- New Ingestion page in `/console` (gated on an active tenant + collection)
+  with typed Memory, Record, and Document forms over the existing
+  `POST /admin/tenants/{tid}/{memories,records,documents}` endpoints.
+- Client-side JSON validation for Record payloads; inline `ApiError`; success
+  clears the form, toasts, and refreshes Dashboard counts.
+- Typed `createMemory`/`createRecord`/`createDocument` added to the API client.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TS: SQL Editor v0.4
 
 - New SQL Editor page in `/console` (gated on an active tenant) running the
