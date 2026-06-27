@@ -196,3 +196,18 @@ Meaningful decisions for the Hippocore DB MVP. Newest last.
   and keeps clients from reimplementing query analysis inconsistently.
 - **Trade-offs**: Response objects become slightly larger. New evidence fields
   remain additive so existing clients continue to deserialize known fields.
+
+## ADR-013: Control Plane localization uses an embedded catalog
+
+- **Decision**: Keep English and Portuguese copy in the embedded `I18N` catalog
+  and make runtime renderers reference catalog keys. Preserve active form values
+  with a transient DOM snapshot when switching language; do not persist drafts.
+- **Context**: The zero-build Control Plane had partial translations and mixed
+  hardcoded English with catalog-based text. A framework migration solely for
+  localization would add build complexity without improving backend contracts.
+- **Reason**: A matched internal catalog keeps deployment unchanged, makes
+  missing translations auditable, and lets every active view rerender
+  immediately. A transient snapshot preserves UX without writing passwords or
+  unfinished input to local storage.
+- **Trade-offs**: Catalog maintenance is manual and static tests cannot replace
+  full browser automation. A future bundled frontend may adopt an i18n library.

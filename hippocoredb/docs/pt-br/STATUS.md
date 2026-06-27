@@ -4,7 +4,21 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**Ingestion & Recall UX Hardening v0.1**:
+**Control Plane i18n Completeness v0.1**:
+
+- Toda copia runtime do Control Plane agora vem de catalogos equivalentes com
+  278 chaves em ingles e portugues, incluindo navegacao, paginas, formularios,
+  acoes, erros, toasts, integracoes, prompts e observabilidade.
+- Identificadores tecnicos, SQL, paths, nomes de provider e dados do usuario
+  preservam suas formas originais para manter precisao.
+- Trocar idioma renderiza a pagina ativa preservando valores transitorios de
+  formularios, tenant/collection, resultados, sessao e detalhes.
+- Mensagens de operacao e toast preservam chaves de traducao e mudam junto com
+  o restante da interface.
+- Testes de integracao verificam ambos os catalogos e rejeitam regressoes
+  conhecidas de texto hardcoded nos renderizadores runtime.
+
+Anterior: **Ingestion & Recall UX Hardening v0.1**:
 
 - Campos de collection na pagina Ingestion & Recall usam autocomplete com as
   collections carregadas do tenant selecionado.

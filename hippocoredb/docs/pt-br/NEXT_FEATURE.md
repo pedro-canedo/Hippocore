@@ -2,47 +2,52 @@
 
 ## Nome da feature
 
-**Control Plane i18n Completeness v0.1**
+**Data Explorer Workspace v0.1**
 
 ## Por que importa
 
-O seletor de idioma traduz apenas parte da interface. Ainda existem textos em
-ingles na navegacao, onboarding, headers, empty states, formularios, toasts e
-erros, criando um produto com idioma misturado. Completar a fronteira PT/EN
-existente e requisito P0 antes de ampliar a UI.
+O Data Explorer possui abas logica, JSON e fisica, mas ainda se comporta como
+uma pagina vazia de records. Um desenvolvedor deve selecionar tenant, navegar
+collections e tipos, inspecionar payloads como colunas e abrir detalhes completos
+sem entender primeiro a arquitetura interna do Hippocore.
 
 ## Comportamento
 
-- Mover todos os textos visiveis do Control Plane para o catalogo `I18N` existente.
-- Traduzir navegacao, onboarding, paginas de dados, SQL, arquivos, integracoes,
-  prompts, observabilidade, settings, acoes, erros e toasts.
-- Manter identificadores tecnicos como `tenant`, `collection`, `record`, SQL,
-  paths de endpoint, nomes de campos e providers quando traduzir reduzir precisao.
-- Alternar PT/EN renderiza a pagina ativa sem perder tenant, collection,
-  resultados, drafts ou sessao.
+- Adicionar busca de collection e acao contextual para criar collection na arvore.
+- Mostrar Records, Memories, Documents e Files dentro da collection selecionada,
+  com contagens derivadas das listas carregadas no escopo do tenant.
+- Selecionar um tipo carrega e exibe esse tipo sem sair do Explorer.
+- Renderizar chaves do payload de records como colunas logicas, mantendo ids e
+  nome da table visiveis.
+- Manter Raw JSON para objetos persistidos completos e Physical Info para
+  lineage, kind, timestamps, source, metadata, referencias e versao.
+- Empty states orientam criacao de collection ou ingestao do primeiro item.
 
 ## Arquivos provaveis
 
 - `crates/hippocore-server/src/admin/app.js`
+- `crates/hippocore-server/src/admin/styles.css`
 - `crates/hippocore-server/tests/server_integration.rs`
 - docs bilingues de status/interface e `CHANGELOG.md`
 
 ## Criterios de aceitacao
 
-- Toda frase e comando visivel segue o idioma selecionado.
-- Nao resta mistura PT/EN, exceto vocabulario tecnico documentado.
-- Troca de idioma preserva o estado do fluxo ativo.
-- Endpoints e autenticacao permanecem inalterados.
-- Check de sintaxe JavaScript e portao Rust completo ficam verdes.
+- Explorer navega tenant -> collection -> tipo de dado em uma tela.
+- Busca filtra collections sem mudar o escopo do tenant.
+- Campos do payload aparecem como colunas logicas em ordem determinista.
+- Views JSON e fisica expoem dados completos sem misturar detalhes de storage na
+  tabela logica padrao.
+- Todo texto novo esta completo em ingles e portugues.
+- Auth e isolamento permanecem inalterados; portao de qualidade verde.
 
 ## Testes
 
-- Assertions dos assets cobrem marcadores dos catalogos ingles e portugues.
-- Auditoria estatica confirma que caminhos visiveis usam chaves de traducao.
-- Testes de integracao existentes do servidor continuam verdes.
+- Assertions de assets cobrem busca, selecao de tipo, colunas de payload e tres views.
+- Testes existentes de isolamento e listas admin continuam verdes.
+- Check JavaScript e portao Rust completo passam.
 
 ## Fora de escopo
 
-- Terceiro idioma ou framework externo de localizacao.
-- Traduzir campos da API, sintaxe SQL, ids ou dados armazenados pelo usuario.
-- Migrar frontend para React/Vite.
+- Editar ou excluir objetos arbitrarios pela tabela do Explorer.
+- Novos endpoints backend de agregacao/contagem.
+- Tabelas virtualizadas, migracoes de schema ou migracao React/Vite.

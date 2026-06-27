@@ -137,3 +137,17 @@ versão em inglês em `docs/en/DECISIONS.md`.
   evita que clientes reimplementem analise de query de forma inconsistente.
 - **Trade-off**: objetos de resposta ficam um pouco maiores. Novos campos de
   evidencia continuam aditivos para clientes existentes ignorarem sem quebra.
+
+## ADR-013: Localizacao do Control Plane usa catalogo embutido
+
+- **Decisao**: manter textos em ingles e portugues no catalogo `I18N` embutido e
+  fazer renderizadores runtime referenciarem chaves. Na troca de idioma,
+  preservar formularios com snapshot transitorio do DOM sem persistir drafts.
+- **Contexto**: o Control Plane zero-build tinha traducoes parciais misturadas
+  com textos hardcoded em ingles. Migrar framework apenas por localizacao
+  adicionaria complexidade de build sem melhorar contratos backend.
+- **Motivo**: catalogos equivalentes mantem o deploy atual, permitem auditar
+  traducoes ausentes e renderizam qualquer view ativa imediatamente. O snapshot
+  transitorio preserva UX sem gravar senhas ou input incompleto no local storage.
+- **Trade-off**: manutencao do catalogo e manual e testes estaticos nao substituem
+  automacao de browser. Um frontend empacotado futuro pode adotar biblioteca i18n.

@@ -127,7 +127,9 @@ screen:
   integrations;
 - static frontend assets (`index.html`, `styles.css`, `app.js`) embedded in the
   server binary for simple Docker/local deployment;
-- Portuguese and English UI copy;
+- complete Portuguese and English UI copy across navigation, onboarding, data
+  pages, SQL, ingestion, integrations, prompts, observability, actions, errors,
+  and toasts; switching language preserves active form drafts and results;
 - app shell with fixed sidebar, topbar, global tenant selector, session status,
   refresh action, breadcrumbs, responsive layout, and dark theme;
 - domain pages: Dashboard, Data Explorer, SQL Editor, Collections, Records,

@@ -114,7 +114,9 @@ de uma tela unica de debug:
   máquina-a-máquina;
 - assets estáticos (`index.html`, `styles.css`, `app.js`) embutidos no binário
   do servidor para facilitar deploy local/Docker;
-- copia de UI em portugues e ingles;
+- copia completa em portugues e ingles para navegacao, onboarding, paginas de
+  dados, SQL, ingestao, integracoes, prompts, observabilidade, acoes, erros e
+  toasts; trocar idioma preserva drafts e resultados ativos;
 - app shell com sidebar fixa, topbar, selector global de tenant, status de
   sessao, acao de refresh, breadcrumbs, layout responsivo e tema dark;
 - paginas por dominio: Dashboard, Data Explorer, SQL Editor, Collections,

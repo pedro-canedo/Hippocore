@@ -5,6 +5,19 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane i18n Completeness v0.1
+
+- Centralized all Control Plane navigation, onboarding, page, form, empty-state,
+  action, validation, toast, and operational copy in the existing EN/PT catalog.
+- Language switching now updates the active page without losing form drafts,
+  selected tenant/collection, query results, session, or detail state.
+- Local operation and toast messages retain translation keys so visible status
+  changes language with the rest of the interface.
+- API field names, SQL syntax, endpoint paths, stored data, and established
+  Hippocore concepts remain untranslated where precision is more important.
+- Added integration assertions for both catalogs and a regression audit against
+  hardcoded English in runtime page renderers.
+
 ### Added — Ingestion & Recall UX Hardening v0.1
 
 - The Control Plane ingestion form now offers tenant-scoped collection

@@ -140,8 +140,38 @@ async fn admin_assets_are_public() {
         "knownCollections",
         "matched_terms",
         "/admin/sql",
+        "dataExplorer: 'Data Explorer'",
+        "dataExplorer: 'Explorador de Dados'",
+        "function captureFormState",
+        "function messageText",
+        "t(GROUP_LABELS[group])",
     ] {
         assert!(js.contains(marker), "missing admin asset marker {marker}");
+    }
+
+    let runtime = js.split("const state =").nth(1).unwrap();
+    for hardcoded_copy in [
+        "PageHeader('Dashboard'",
+        "<strong>Create a tenant</strong>",
+        "<h3>Quick actions</h3>",
+        "PageHeader('Data Explorer'",
+        "PageHeader('SQL Editor'",
+        "PageHeader('Collections'",
+        "PageHeader('Files'",
+        "PageHeader('Graph'",
+        "PageHeader('API Reference'",
+        "PageHeader('Tenants'",
+        "PageHeader('Integrations'",
+        "PageHeader('System Prompts'",
+        "PageHeader('Observability'",
+        "PageHeader('Settings'",
+        "showToast('Copied to clipboard')",
+        "throw new Error('select a tenant first')",
+    ] {
+        assert!(
+            !runtime.contains(hardcoded_copy),
+            "hardcoded admin copy returned: {hardcoded_copy}"
+        );
     }
 }
 

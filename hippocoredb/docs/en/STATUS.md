@@ -4,7 +4,21 @@ _Last updated: 2026-06-26._
 
 ## What was implemented last
 
-**Ingestion & Recall UX Hardening v0.1**:
+**Control Plane i18n Completeness v0.1**:
+
+- All runtime Control Plane copy now comes from matching 278-key English and
+  Portuguese catalogs, including navigation, pages, forms, actions, errors,
+  toasts, integrations, prompts, and observability.
+- Technical identifiers, SQL, endpoint paths, provider names, and stored user
+  data retain their precise original forms.
+- Switching language rerenders the active page while preserving transient form
+  values, tenant/collection selection, results, session, and detail state.
+- Operation and toast messages retain translation keys, so status already on
+  screen changes language too.
+- Integration tests assert bilingual catalog markers and reject known hardcoded
+  runtime page copy regressions.
+
+Previous: **Ingestion & Recall UX Hardening v0.1**:
 
 - Collection inputs on the Ingestion & Recall page autocomplete from the
   selected tenant's loaded collections.

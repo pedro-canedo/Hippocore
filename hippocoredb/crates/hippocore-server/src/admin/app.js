@@ -2,31 +2,31 @@
 const root = document.getElementById('app');
 
 const NAV = [
-  ['operate', 'Dashboard',        'dashboard'],
-  ['operate', 'Data Explorer',    'data-explorer'],
-  ['operate', 'SQL Editor',       'sql-editor'],
-  ['data',    'Collections',      'collections'],
-  ['data',    'Tables',           'tables'],
-  ['data',    'Records',          'records'],
-  ['data',    'Memories',         'memories'],
-  ['data',    'Documents',        'documents'],
-  ['data',    'Files',            'files'],
-  ['context', 'Ingestion & Recall','ingestion-recall'],
-  ['context', 'Graph',            'graph'],
-  ['admin',   'API Reference',    'api-reference'],
-  ['admin',   'Prompts',          'prompts'],
-  ['admin',   'Documentation',    'documentation'],
-  ['admin',   'Tenants',          'tenants'],
-  ['admin',   'Integrations',     'integrations'],
-  ['admin',   'Observability',    'observability'],
-  ['admin',   'Settings',         'settings'],
+  ['operate', 'dashboard',        'dashboard'],
+  ['operate', 'dataExplorer',     'data-explorer'],
+  ['operate', 'sqlEditor',        'sql-editor'],
+  ['data',    'collections',      'collections'],
+  ['data',    'tables',           'tables'],
+  ['data',    'records',          'records'],
+  ['data',    'memories',         'memories'],
+  ['data',    'documents',        'documents'],
+  ['data',    'files',            'files'],
+  ['context', 'ingestionRecall',  'ingestion-recall'],
+  ['context', 'graph',            'graph'],
+  ['admin',   'apiReference',     'api-reference'],
+  ['admin',   'prompts',          'prompts'],
+  ['admin',   'documentation',    'documentation'],
+  ['admin',   'tenants',          'tenants'],
+  ['admin',   'integrations',     'integrations'],
+  ['admin',   'observability',    'observability'],
+  ['admin',   'settings',         'settings'],
 ];
 
 const GROUP_LABELS = {
-  operate: { en: 'Workspace',  pt: 'Workspace' },
-  data:    { en: 'Data',       pt: 'Dados'     },
-  context: { en: 'Context',    pt: 'Contexto'  },
-  admin:   { en: 'Admin',      pt: 'Admin'     },
+  operate: 'workspace',
+  data:    'data',
+  context: 'context',
+  admin:   'admin',
 };
 
 const I18N = {
@@ -127,6 +127,184 @@ const I18N = {
     tenants: 'Tenants',
     title: 'Title',
     tokens: 'Tokens',
+    aboutTables: 'About tables',
+    addOrUpdateProvider: 'Add or update provider',
+    admin: 'Admin',
+    apiExposure: 'API exposure',
+    apiKeyConfigured: 'API key configured',
+    apiKeyNotSet: 'API key not set',
+    apiReference: 'API Reference',
+    auditLog: 'Audit log',
+    auditRecords: 'Audit records',
+    cancel: 'Cancel',
+    chunkCount: 'Chunk count',
+    collectionCreated: 'Collection "{name}" created.',
+    collectionCreatedNext: 'Collection "{name}" created. Next: store your first memory or record.',
+    collectionCreateNotice: 'After creating a collection, store records, memories, and documents through Ingestion & Recall or the API.',
+    collectionNameRequired: 'Collection name is required.',
+    collectionSelectBeforeCreate: 'Select a tenant in the topbar before creating a collection.',
+    collectionOptional: 'Collection (optional)',
+    collections: 'Collections',
+    context: 'AI Context',
+    copy: 'Copy',
+    copySnippet: 'Copy snippet',
+    copiedToClipboard: 'Copied to clipboard.',
+    createCollectionStepDesc: 'Organize data into logical namespaces',
+    createTenantStepDesc: 'Isolate your data with a named tenant',
+    dashboard: 'Dashboard',
+    data: 'Data',
+    dataExplorer: 'Data Explorer',
+    dataExplorerNotice: 'Collections are logical namespaces. Records are JSON-first structured data projected into context.',
+    delete: 'Delete',
+    deleteAll: 'Delete all',
+    deletePromptConfirm: 'Delete prompt "{name}"?',
+    deleteTableConfirm: 'Delete table "{name}" and all its records? This cannot be undone.',
+    detail: 'Details',
+    diskBytes: 'Disk bytes',
+    docsGettingStarted: 'Getting Started',
+    docsGuides: 'Guides',
+    docsLead: 'Complete reference for Hippocore DB: concepts, guides, API, and architecture.',
+    docsNotFound: 'Not found',
+    docsReference: 'Reference',
+    docsSectionNotFound: 'Section not found.',
+    dropFiles: 'Drag and drop files here, or click to browse',
+    editPrompt: 'Edit prompt',
+    emptyDefault: 'No data to display.',
+    errorMessage: 'Error: {message}',
+    fileCountChunks: 'chunks',
+    fileCountRows: 'rows',
+    filesLead: 'Upload PDF, CSV, TXT, MD, or JSON. Hippocore stores each file as searchable documents or structured records.',
+    generateLabels: 'Generate labels',
+    graphEdges: 'Graph edges',
+    graphEmptyDesc: 'Graph edges are created by explicit API operations between context items.',
+    graphWorkbench: 'Graph workbench',
+    graphWorkbenchLead: 'Interactive edge creation is planned. Multi-hop traversal is available through POST /tenants/:tid/graph/traverse.',
+    healthEndpoint: 'Health endpoint',
+    indexHealth: 'Index health',
+    indexedEntries: 'Indexed entries',
+    ingestContext: 'Ingest context',
+    ingestContextStepDesc: 'Store memories, documents, and records',
+    ingestItems: 'Ingest {type}',
+    integrations: 'Integrations',
+    integrationsLead: 'Configure the LLM brain, API exposure, and infrastructure integration.',
+    isolationScope: 'isolation scope',
+    keyLength: 'length',
+    llmBrain: 'LLM brain',
+    llmBrainLead: 'Configure the language model used by context recall and the Chat API.',
+    logStream: 'Log stream',
+    logicalView: 'Logical View',
+    newPrompt: 'New prompt',
+    newServiceKeyTitle: 'New service key: copy it now because it is shown once',
+    noCollectionSelected: 'No collection selected',
+    noCollections: 'No collections',
+    noCollectionsYet: 'No collections yet',
+    noDataSelected: 'No data selected',
+    noDataSelectedDesc: 'Choose a tenant and collection, then select a data type to browse.',
+    noGraphEdges: 'No graph edges',
+    noObservabilityData: 'No observability data',
+    noItems: 'No {type}',
+    noProviders: 'No providers configured',
+    noProvidersDesc: 'Add a provider using the form.',
+    noPrompts: 'No prompts yet',
+    noPromptsDesc: 'Create a prompt template for the Chat API.',
+    noResults: 'No results',
+    noResultsDesc: 'Run a SQL query to see results here.',
+    noTables: 'No tables yet',
+    noTablesDesc: 'Tables are created automatically when you store a record with a table name or upload CSV data.',
+    noTenantSelected: 'No tenant selected',
+    noTenants: 'No tenants yet',
+    objectListLead: '{type} scoped to the active tenant.',
+    objectListEmpty: 'No {type} exist in this tenant yet. Use Ingestion & Recall to create the first item.',
+    observability: 'Observability',
+    offline: 'Offline',
+    online: 'Online',
+    physicalInfo: 'Physical Info',
+    physicalInfoNote: 'WAL, snapshot, chunks, audit, and index status are operational objects, not logical tables.',
+    ping: 'Ping',
+    plannedDetail: 'Planned',
+    promptContentHelp: 'Content: use {{context}} and {{query}} as placeholders',
+    defaultPrompt: 'You are a helpful AI assistant.\n\nContext:\n{{context}}\n\nAnswer the following question:\n{{query}}',
+    promptDeleteDone: 'Prompt "{name}" deleted.',
+    promptDescriptionOptional: 'Description (optional)',
+    promptGlobalTenant: 'Tenant id (leave blank for global)',
+    promptIdOptional: 'Prompt id (optional)',
+    promptNameContentRequired: 'Name and content are required.',
+    promptLibrary: 'Prompt library',
+    promptSaved: 'Prompt "{name}" saved.',
+    prompts: 'Prompts',
+    promptsLead: 'Reusable system prompt templates for the RAG to LLM pipeline.',
+    providerApiKeyOptional: 'API key (optional)',
+    providerBaseUrl: 'Base URL',
+    providerId: 'Provider id',
+    providerIdRequired: 'Enter a provider id to test.',
+    providerKind: 'Kind (ollama / openrouter / openai)',
+    providerModel: 'Model',
+    providerPinged: 'Provider "{id}" pinged.',
+    providerSaved: 'Provider configuration saved.',
+    providerSavedToast: 'Provider saved.',
+    providerValidated: 'Provider validated locally.',
+    question: 'Question',
+    questionPlaceholder: 'Ask anything...',
+    questionRequired: 'Enter a question.',
+    quickActions: 'Quick actions',
+    recallAndContext: 'Recall and Context',
+    rawStats: 'Raw stats',
+    response: 'Response',
+    runRecallStepDesc: 'Query your context with hybrid search',
+    runtimeConfiguration: 'Runtime configuration',
+    runtimeConfigurationLead: 'Embedding runtime, reindex controls, hybrid_alpha tuning, and richer table settings are planned.',
+    selectTenantFirst: 'Select a tenant first',
+    selectTenantTopbar: 'Select a tenant in the topbar first.',
+    send: 'Send',
+    serviceApiKeyLead: 'The service API key authenticates tenant-facing endpoints and can be rotated at any time.',
+    serviceKeys: 'Service Keys',
+    serviceKeyRotated: 'Service API key rotated.',
+    serviceKeyRotatedToast: 'Key rotated. Copy it from the detail drawer.',
+    settings: 'Settings',
+    settingsLead: 'Interface preferences and planned runtime configuration.',
+    settingsLanguageLead: 'Change language from the topbar. Runtime preferences will be added here later.',
+    signedIn: 'Signed in successfully.',
+    snapshotDetails: 'Snapshot details',
+    structuredLogStream: 'Structured log stream',
+    sqlEditor: 'SQL Editor',
+    sqlErrorMessage: 'SQL error: {message}',
+    sqlQuery: 'SQL query',
+    sqlReturned: 'SQL returned {count} row(s).',
+    sqlSupportNotice: 'Supported syntax: SELECT * FROM table with equality filters and LIMIT.',
+    storeFirstRecord: 'Store record',
+    storedFiles: 'Stored files',
+    tableName: 'Table name',
+    tableDeleted: 'Table "{name}" deleted.',
+    tableResult: 'Table',
+    tableRecords: 'Records',
+    tables: 'Tables',
+    tablesAboutLead: 'Tables are logical namespaces inside a collection for structured Records. They are created with the first record using that table name.',
+    tablesDeleteNotice: 'Deleting a table permanently removes its records. Collections, Memories, and Documents are unaffected.',
+    tablesLead: 'Logical namespaces inside a collection that group structured records.',
+    tablesQueryNotice: 'Query tables in SQL Editor with: SELECT * FROM table_name LIMIT 10',
+    tenantCreated: 'Tenant "{id}" created. Now create a collection.',
+    tenantCreatedNext: 'Tenant "{id}" created. Next: create a collection.',
+    tenantIdRequired: 'Tenant id is required.',
+    tenantRequired: 'Tenant is required.',
+    tenantLead: 'Tenants are the top-level isolation boundary for data, memories, and queries.',
+    tenantPurpose: 'A tenant isolates data, collections, queries, and API keys. Create one per customer, environment, or use case.',
+    testChat: 'Test chat (RAG to LLM)',
+    upload: 'Upload',
+    uploadCollectionRequired: 'Collection is required. Fill the collection field above the upload area.',
+    uploadComplete: '{name} uploaded successfully.',
+    uploadLastOperation: 'Uploaded {name} as {kind}.',
+    uploadNetworkError: 'Network error during upload.',
+    unknown: 'Unknown',
+    uploadMapping: 'PDF -> chunked Document | CSV -> SQL-queryable Records | JSON array -> Records | JSON object, TXT, and MD -> Document',
+    apiCurlExample: 'curl example: recall',
+    composeSnippet: 'Docker Compose snippet',
+    traefikComment: 'Add these labels to the hippocore service in docker-compose.yml',
+    traefikDomain: 'Domain (for example, api.example.com)',
+    traefikGenerator: 'Traefik config generator',
+    traefikPath: 'Path prefix (for example, /api)',
+    validate: 'Validate',
+    walEntries: 'WAL entries',
+    workspace: 'Workspace',
     welcome: 'Welcome to Hippocore',
     welcomeDesc: 'A local-first, AI-native memory and context database. Start by creating your first tenant to isolate your data.',
     noTenantDesc: 'You have no tenants yet. A tenant is the top-level isolation boundary for all your data, memories, and queries. Create one to begin.',
@@ -165,7 +343,7 @@ const I18N = {
     getStarted: 'Comecar agora',
     graph: 'Grafo',
     graphLead: 'Inspecione arestas entre itens de contexto. Travessia multi-hop esta disponivel pela API de servico.',
-    health: 'Health',
+    health: 'Saude',
     ingestLead: 'Armazene contexto e teste recall/build_context no tenant selecionado.',
     ingestionRecall: 'Ingestao e Recall',
     ingestRequired: 'Tenant, collection e conteudo sao obrigatorios.',
@@ -192,7 +370,7 @@ const I18N = {
     openDataExplorer: 'Abrir Data Explorer',
     openFileUploader: 'Abrir upload de arquivos',
     openSql: 'Abrir SQL Editor',
-    planned: 'Planned',
+    planned: 'Planejado',
     providerLead: 'Gerencie providers LLM locais e rotacione a API key usada por automacoes.',
     refresh: 'Atualizar',
     records: 'Records',
@@ -229,6 +407,184 @@ const I18N = {
     tenants: 'Tenants',
     title: 'Titulo',
     tokens: 'Tokens',
+    aboutTables: 'Sobre tables',
+    addOrUpdateProvider: 'Adicionar ou atualizar provider',
+    admin: 'Admin',
+    apiExposure: 'Exposicao da API',
+    apiKeyConfigured: 'API key configurada',
+    apiKeyNotSet: 'API key nao configurada',
+    apiReference: 'Referencia da API',
+    auditLog: 'Log de auditoria',
+    auditRecords: 'Registros de auditoria',
+    cancel: 'Cancelar',
+    chunkCount: 'Quantidade de chunks',
+    collectionCreated: 'Collection "{name}" criada.',
+    collectionCreatedNext: 'Collection "{name}" criada. Proximo passo: armazene a primeira memoria ou record.',
+    collectionCreateNotice: 'Depois de criar a collection, armazene records, memorias e documentos por Ingestao e Recall ou pela API.',
+    collectionNameRequired: 'O nome da collection e obrigatorio.',
+    collectionSelectBeforeCreate: 'Selecione um tenant no topbar antes de criar uma collection.',
+    collectionOptional: 'Collection (opcional)',
+    collections: 'Collections',
+    context: 'Contexto IA',
+    copy: 'Copiar',
+    copySnippet: 'Copiar trecho',
+    copiedToClipboard: 'Copiado para a area de transferencia.',
+    createCollectionStepDesc: 'Organize dados em namespaces logicos',
+    createTenantStepDesc: 'Isole seus dados em um tenant identificado',
+    dashboard: 'Dashboard',
+    data: 'Dados',
+    dataExplorer: 'Explorador de Dados',
+    dataExplorerNotice: 'Collections sao namespaces logicos. Records sao dados JSON estruturados e projetados para contexto.',
+    delete: 'Excluir',
+    deleteAll: 'Excluir todos',
+    deletePromptConfirm: 'Excluir o prompt "{name}"?',
+    deleteTableConfirm: 'Excluir a table "{name}" e todos os records? Esta acao nao pode ser desfeita.',
+    detail: 'Detalhes',
+    diskBytes: 'Bytes em disco',
+    docsGettingStarted: 'Primeiros passos',
+    docsGuides: 'Guias',
+    docsLead: 'Referencia completa do Hippocore DB: conceitos, guias, API e arquitetura.',
+    docsNotFound: 'Nao encontrado',
+    docsReference: 'Referencia',
+    docsSectionNotFound: 'Secao nao encontrada.',
+    dropFiles: 'Arraste arquivos aqui ou clique para selecionar',
+    editPrompt: 'Editar prompt',
+    emptyDefault: 'Nenhum dado para exibir.',
+    errorMessage: 'Erro: {message}',
+    fileCountChunks: 'chunks',
+    fileCountRows: 'linhas',
+    filesLead: 'Envie PDF, CSV, TXT, MD ou JSON. O Hippocore armazena cada arquivo como documentos pesquisaveis ou records estruturados.',
+    generateLabels: 'Gerar labels',
+    graphEdges: 'Arestas do grafo',
+    graphEmptyDesc: 'Arestas sao criadas por operacoes explicitas da API entre itens de contexto.',
+    graphWorkbench: 'Workbench do grafo',
+    graphWorkbenchLead: 'A criacao interativa de arestas esta planejada. A travessia multi-hop esta disponivel em POST /tenants/:tid/graph/traverse.',
+    healthEndpoint: 'Endpoint de health',
+    indexHealth: 'Saude do indice',
+    indexedEntries: 'Entradas indexadas',
+    ingestContext: 'Ingerir contexto',
+    ingestContextStepDesc: 'Armazene memorias, documentos e records',
+    ingestItems: 'Ingerir {type}',
+    integrations: 'Integracoes',
+    integrationsLead: 'Configure o cerebro LLM, exposicao da API e integracao de infraestrutura.',
+    isolationScope: 'escopo de isolamento',
+    keyLength: 'tamanho',
+    llmBrain: 'Cerebro LLM',
+    llmBrainLead: 'Configure o modelo de linguagem usado por recall de contexto e pela Chat API.',
+    logStream: 'Stream de logs',
+    logicalView: 'Visao Logica',
+    newPrompt: 'Novo prompt',
+    newServiceKeyTitle: 'Nova service key: copie agora, pois ela sera exibida uma unica vez',
+    noCollectionSelected: 'Nenhuma collection selecionada',
+    noCollections: 'Nenhuma collection',
+    noCollectionsYet: 'Nenhuma collection ainda',
+    noDataSelected: 'Nenhum dado selecionado',
+    noDataSelectedDesc: 'Escolha tenant e collection e depois selecione o tipo de dado.',
+    noGraphEdges: 'Nenhuma aresta de grafo',
+    noObservabilityData: 'Nenhum dado de observabilidade',
+    noItems: 'Nenhum item em {type}',
+    noProviders: 'Nenhum provider configurado',
+    noProvidersDesc: 'Adicione um provider pelo formulario.',
+    noPrompts: 'Nenhum prompt ainda',
+    noPromptsDesc: 'Crie um template de prompt para a Chat API.',
+    noResults: 'Nenhum resultado',
+    noResultsDesc: 'Execute uma query SQL para ver resultados.',
+    noTables: 'Nenhuma table ainda',
+    noTablesDesc: 'Tables sao criadas ao armazenar um record com nome de table ou ao enviar dados CSV.',
+    noTenantSelected: 'Nenhum tenant selecionado',
+    noTenants: 'Nenhum tenant ainda',
+    objectListLead: '{type} no escopo do tenant ativo.',
+    objectListEmpty: 'Ainda nao existem {type} neste tenant. Use Ingestao e Recall para criar o primeiro item.',
+    observability: 'Observabilidade',
+    offline: 'Offline',
+    online: 'Online',
+    physicalInfo: 'Informacoes Fisicas',
+    physicalInfoNote: 'WAL, snapshot, chunks, auditoria e status de indice sao objetos operacionais, nao tables logicas.',
+    ping: 'Testar conexao',
+    plannedDetail: 'Planejado',
+    promptContentHelp: 'Conteudo: use {{context}} e {{query}} como placeholders',
+    defaultPrompt: 'Voce e um assistente de IA util.\n\nContexto:\n{{context}}\n\nResponda a seguinte pergunta:\n{{query}}',
+    promptDeleteDone: 'Prompt "{name}" excluido.',
+    promptDescriptionOptional: 'Descricao (opcional)',
+    promptGlobalTenant: 'Tenant id (vazio para global)',
+    promptIdOptional: 'Prompt id (opcional)',
+    promptNameContentRequired: 'Nome e conteudo sao obrigatorios.',
+    promptLibrary: 'Biblioteca de prompts',
+    promptSaved: 'Prompt "{name}" salvo.',
+    prompts: 'Prompts',
+    promptsLead: 'Templates reutilizaveis de system prompt para o pipeline RAG para LLM.',
+    providerApiKeyOptional: 'API key (opcional)',
+    providerBaseUrl: 'URL base',
+    providerId: 'Id do provider',
+    providerIdRequired: 'Informe o id do provider para testar.',
+    providerKind: 'Tipo (ollama / openrouter / openai)',
+    providerModel: 'Modelo',
+    providerPinged: 'Provider "{id}" testado.',
+    providerSaved: 'Configuracao do provider salva.',
+    providerSavedToast: 'Provider salvo.',
+    providerValidated: 'Provider validado localmente.',
+    question: 'Pergunta',
+    questionPlaceholder: 'Pergunte qualquer coisa...',
+    questionRequired: 'Digite uma pergunta.',
+    quickActions: 'Acoes rapidas',
+    recallAndContext: 'Recall e Contexto',
+    rawStats: 'Stats brutos',
+    response: 'Resposta',
+    runRecallStepDesc: 'Consulte seu contexto com busca hibrida',
+    runtimeConfiguration: 'Configuracao de runtime',
+    runtimeConfigurationLead: 'Runtime de embeddings, reindex, ajuste de hybrid_alpha e configuracoes ricas de tables estao planejados.',
+    selectTenantFirst: 'Selecione um tenant primeiro',
+    selectTenantTopbar: 'Selecione um tenant no topbar primeiro.',
+    send: 'Enviar',
+    serviceApiKeyLead: 'A service API key autentica endpoints de tenants e pode ser rotacionada a qualquer momento.',
+    serviceKeys: 'Chaves de Servico',
+    serviceKeyRotated: 'Service API key rotacionada.',
+    serviceKeyRotatedToast: 'Chave rotacionada. Copie no drawer de detalhes.',
+    settings: 'Configuracoes',
+    settingsLead: 'Preferencias da interface e configuracoes futuras de runtime.',
+    settingsLanguageLead: 'Altere o idioma pelo topbar. Preferencias de runtime serao adicionadas aqui.',
+    signedIn: 'Login realizado com sucesso.',
+    snapshotDetails: 'Detalhes do snapshot',
+    structuredLogStream: 'Stream de logs estruturados',
+    sqlEditor: 'Editor SQL',
+    sqlErrorMessage: 'Erro SQL: {message}',
+    sqlQuery: 'Query SQL',
+    sqlReturned: 'SQL retornou {count} linha(s).',
+    sqlSupportNotice: 'Sintaxe suportada: SELECT * FROM table com filtros de igualdade e LIMIT.',
+    storeFirstRecord: 'Armazenar record',
+    storedFiles: 'Arquivos armazenados',
+    tableName: 'Nome da table',
+    tableDeleted: 'Table "{name}" excluida.',
+    tableResult: 'Tabela',
+    tableRecords: 'Records',
+    tables: 'Tables',
+    tablesAboutLead: 'Tables sao namespaces logicos dentro de uma collection para Records estruturados. Sao criadas com o primeiro record que usa aquele nome.',
+    tablesDeleteNotice: 'Excluir uma table remove seus records permanentemente. Collections, Memories e Documents nao sao afetados.',
+    tablesLead: 'Namespaces logicos dentro de uma collection que agrupam records estruturados.',
+    tablesQueryNotice: 'Consulte tables no Editor SQL com: SELECT * FROM table_name LIMIT 10',
+    tenantCreated: 'Tenant "{id}" criado. Agora crie uma collection.',
+    tenantCreatedNext: 'Tenant "{id}" criado. Proximo passo: crie uma collection.',
+    tenantIdRequired: 'O id do tenant e obrigatorio.',
+    tenantRequired: 'Tenant e obrigatorio.',
+    tenantLead: 'Tenants sao o limite superior de isolamento para dados, memorias e queries.',
+    tenantPurpose: 'Um tenant isola dados, collections, queries e API keys. Crie um por cliente, ambiente ou caso de uso.',
+    testChat: 'Testar chat (RAG para LLM)',
+    upload: 'Upload',
+    uploadCollectionRequired: 'Collection e obrigatoria. Preencha o campo acima da area de upload.',
+    uploadComplete: 'Upload de {name} concluido.',
+    uploadLastOperation: 'Upload de {name} como {kind}.',
+    uploadNetworkError: 'Erro de rede durante o upload.',
+    unknown: 'Desconhecido',
+    uploadMapping: 'PDF -> Document em chunks | CSV -> Records consultaveis por SQL | array JSON -> Records | objeto JSON, TXT e MD -> Document',
+    apiCurlExample: 'exemplo curl: recall',
+    composeSnippet: 'Trecho de Docker Compose',
+    traefikComment: 'Adicione estas labels ao servico hippocore no docker-compose.yml',
+    traefikDomain: 'Dominio (por exemplo, api.example.com)',
+    traefikGenerator: 'Gerador de configuracao Traefik',
+    traefikPath: 'Prefixo de path (por exemplo, /api)',
+    validate: 'Validar',
+    walEntries: 'Entradas no WAL',
+    workspace: 'Workspace',
     welcome: 'Bem-vindo ao Hippocore',
     welcomeDesc: 'Um banco de dados local-first de memoria e contexto para aplicacoes de IA. Comece criando seu primeiro tenant.',
     noTenantDesc: 'Voce ainda nao tem tenants. Um tenant isola dados, colecoes e consultas. Crie o primeiro para comecar.',
@@ -575,10 +931,10 @@ hippocore recall --db ./data --tenant acme --query "consulta" \\
 };
 
 const DOCS_NAV = [
-  ['start',    'Getting Started', ['overview','quickstart']],
-  ['concepts', 'Concepts',        ['concepts','data-model']],
-  ['guides',   'Guides',          ['sql-guide','rag-guide','cli-guide']],
-  ['reference','Reference',       ['api-auth','architecture']],
+  ['start',    'docsGettingStarted', ['overview','quickstart']],
+  ['concepts', 'concepts',          ['concepts','data-model']],
+  ['guides',   'docsGuides',         ['sql-guide','rag-guide','cli-guide']],
+  ['reference','docsReference',      ['api-auth','architecture']],
 ];
 
 const DOCS_LABELS = {
@@ -632,6 +988,23 @@ const state = {
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 function t(key) {
   return (I18N[state.lang] && I18N[state.lang][key]) || I18N.en[key] || key;
+}
+
+function tf(key, values = {}) {
+  return Object.entries(values).reduce(
+    (message, [name, value]) => message.replaceAll(`{${name}}`, String(value)),
+    t(key),
+  );
+}
+
+function message(key, values = {}) {
+  return { key, values };
+}
+
+function messageText(value) {
+  return value && typeof value === 'object' && value.key
+    ? tf(value.key, value.values)
+    : String(value || '');
 }
 
 function esc(value) {
@@ -693,8 +1066,23 @@ function showToast(message) {
 }
 
 function showError(err) {
-  state.lastOperation = `${t('error')}: ${err.message || err}`;
+  state.lastOperation = message('errorMessage', { message: err.message || err });
   showToast(state.lastOperation);
+}
+
+function captureFormState() {
+  return [...root.querySelectorAll('input[id], textarea[id], select[id]')]
+    .filter((field) => field.type !== 'file' && !['languageSelect', 'loginLang', 'settingsLanguage'].includes(field.id))
+    .map((field) => ({ id: field.id, type: field.type, value: field.value, checked: field.checked }));
+}
+
+function restoreFormState(fields) {
+  fields.forEach((saved) => {
+    const field = document.getElementById(saved.id);
+    if (!field) return;
+    if (saved.type === 'checkbox' || saved.type === 'radio') field.checked = saved.checked;
+    else field.value = saved.value;
+  });
 }
 
 /* ─── Base Components ────────────────────────────────────────────────────── */
@@ -741,9 +1129,9 @@ function Tabs(tabs, active, action) {
 
 function DataTable(rows, columns, emptyTitle = t('empty'), emptyDesc = '', emptyAction = '') {
   if (!rows || rows.length === 0) {
-    return EmptyState(emptyTitle, emptyDesc || 'No data to display.', emptyAction);
+    return EmptyState(emptyTitle, emptyDesc || t('emptyDefault'), emptyAction);
   }
-  return `<div class="table-wrap"><table><thead><tr>${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map((row, idx) => `<tr>${columns.map((c) => `<td>${esc(c.render ? c.render(row) : row[c.key])}</td>`).join('')}<td><button class="ghost" type="button" data-action="detail" data-list="${esc(row.__list || '')}" data-index="${idx}">Details</button></td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="table-wrap"><table><thead><tr>${columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map((row, idx) => `<tr>${columns.map((c) => `<td>${esc(c.render ? c.render(row) : row[c.key])}</td>`).join('')}<td><button class="ghost" type="button" data-action="detail" data-list="${esc(row.__list || '')}" data-index="${idx}">${esc(t('detail'))}</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function PageHeader(title, lead, actions = '') {
@@ -752,7 +1140,8 @@ function PageHeader(title, lead, actions = '') {
 
 function DetailDrawer() {
   if (!state.detail) return '';
-  return `<div class="drawer-backdrop" data-action="close-detail"></div><aside class="drawer"><div class="drawer-head"><h3>${esc(state.detail.title)}</h3><button class="icon" data-action="close-detail" type="button">✕</button></div><div class="drawer-body">${JsonViewer(state.detail.value)}</div></aside>`;
+  const title = state.detail.titleKey ? t(state.detail.titleKey) : state.detail.title;
+  return `<div class="drawer-backdrop" data-action="close-detail"></div><aside class="drawer"><div class="drawer-head"><h3>${esc(title)}</h3><button class="icon" data-action="close-detail" type="button">✕</button></div><div class="drawer-body">${JsonViewer(state.detail.value)}</div></aside>`;
 }
 
 function RecallCards(items) {
@@ -764,7 +1153,7 @@ function RecallCards(items) {
     const terms = Array.isArray(item.matched_terms) ? item.matched_terms : [];
     return `<article class="recall-card">
       <div class="recall-card-head">
-        <div class="recall-card-badges">${StatusBadge(item.kind || 'Unknown')} ${StatusBadge(`score ${score}`, 'ok')}</div>
+        <div class="recall-card-badges">${StatusBadge(item.kind || t('unknown'))} ${StatusBadge(`score ${score}`, 'ok')}</div>
         <button class="ghost" type="button" data-action="copy-code" data-code="${esc(item.id)}">${esc(t('copyId'))}</button>
       </div>
       <p>${esc(item.text || '')}</p>
@@ -808,12 +1197,12 @@ function RecallResultView() {
 /* ─── App Shell ──────────────────────────────────────────────────────────── */
 function Sidebar() {
   let currentGroup = '';
-  const nav = NAV.map(([group, label, id]) => {
+  const nav = NAV.map(([group, labelKey, id]) => {
     const groupLabel = group !== currentGroup
-      ? `<div class="group-label">${esc(GROUP_LABELS[group][state.lang] || GROUP_LABELS[group].en)}</div>`
+      ? `<div class="group-label">${esc(t(GROUP_LABELS[group]))}</div>`
       : '';
     currentGroup = group;
-    return `${groupLabel}<button type="button" data-route="${esc(id)}" aria-current="${state.page === id ? 'page' : 'false'}">${esc(label)}</button>`;
+    return `${groupLabel}<button type="button" data-route="${esc(id)}" aria-current="${state.page === id ? 'page' : 'false'}">${esc(t(labelKey))}</button>`;
   }).join('');
 
   const tenantCount = state.bootstrap?.tenants?.length ?? 0;
@@ -852,13 +1241,13 @@ function Topbar() {
 }
 
 function AppShell(content) {
-  return `<div class="app-shell">${Sidebar()}<div class="main">${Topbar()}<main class="content">${content}</main></div>${DetailDrawer()}${state.toast ? `<div class="toast">${esc(state.toast)}</div>` : ''}</div>`;
+  return `<div class="app-shell">${Sidebar()}<div class="main">${Topbar()}<main class="content">${content}</main></div>${DetailDrawer()}${state.toast ? `<div class="toast">${esc(messageText(state.toast))}</div>` : ''}</div>`;
 }
 
 /* ─── Pages ──────────────────────────────────────────────────────────────── */
 function pageTitle() {
   const item = NAV.find(([, , id]) => id === state.page);
-  return item ? item[1] : 'Dashboard';
+  return item ? t(item[1]) : t('dashboard');
 }
 
 function stats() {
@@ -877,23 +1266,23 @@ function DashboardPage() {
         <div class="onboarding-steps">
           <div class="onboarding-step">
             <div class="step-num">1</div>
-            <strong>Create a tenant</strong>
-            <span>Isolate your data with a named tenant</span>
+            <strong>${esc(t('createTenant'))}</strong>
+            <span>${esc(t('createTenantStepDesc'))}</span>
           </div>
           <div class="onboarding-step">
             <div class="step-num">2</div>
-            <strong>Create a collection</strong>
-            <span>Organize data into logical namespaces</span>
+            <strong>${esc(t('createCollection'))}</strong>
+            <span>${esc(t('createCollectionStepDesc'))}</span>
           </div>
           <div class="onboarding-step">
             <div class="step-num">3</div>
-            <strong>Ingest context</strong>
-            <span>Store memories, documents, and records</span>
+            <strong>${esc(t('ingestContext'))}</strong>
+            <span>${esc(t('ingestContextStepDesc'))}</span>
           </div>
           <div class="onboarding-step">
             <div class="step-num">4</div>
-            <strong>Run recall</strong>
-            <span>Query your context with hybrid search</span>
+            <strong>${esc(t('recall'))}</strong>
+            <span>${esc(t('runRecallStepDesc'))}</span>
           </div>
         </div>
         <div class="page-actions" style="margin-top:20px">
@@ -904,39 +1293,39 @@ function DashboardPage() {
     : '';
 
   const statCards = hasTenants ? `<section class="grid cols-4">
-    ${StatCard(t('serverStatus'), state.session ? 'Online' : 'Offline', 'GET /health')}
-    ${StatCard(t('currentTenant'), state.tenant || '—', 'isolation scope')}
-    ${StatCard('Tenants', s.tenants ?? '—')}
-    ${StatCard('Collections', s.collections ?? '—')}
-    ${StatCard('Records', s.records ?? '—')}
-    ${StatCard('Memories', s.memories ?? '—')}
-    ${StatCard('Documents', s.documents ?? '—')}
-    ${StatCard('Files', s.files ?? '—')}
-    ${StatCard('Graph edges', s.graph_edges ?? '—')}
-    ${StatCard('Audit records', s.audit_records ?? '—', `${s.audit_log_bytes ?? 0} B`)}
+    ${StatCard(t('serverStatus'), state.session ? t('online') : t('offline'), 'GET /health')}
+    ${StatCard(t('currentTenant'), state.tenant || '—', t('isolationScope'))}
+    ${StatCard(t('tenants'), s.tenants ?? '—')}
+    ${StatCard(t('collections'), s.collections ?? '—')}
+    ${StatCard(t('records'), s.records ?? '—')}
+    ${StatCard(t('memories'), s.memories ?? '—')}
+    ${StatCard(t('documents'), s.documents ?? '—')}
+    ${StatCard(t('files'), s.files ?? '—')}
+    ${StatCard(t('graphEdges'), s.graph_edges ?? '—')}
+    ${StatCard(t('auditRecords'), s.audit_records ?? '—', `${s.audit_log_bytes ?? 0} B`)}
     ${StatCard(t('dataDir'), state.bootstrap?.config?.data_dir || '—', 'local-first')}
-    ${StatCard('WAL entries', s.wal_entries ?? '—')}
+    ${StatCard(t('walEntries'), s.wal_entries ?? '—')}
   </section>` : '';
 
   const quick = [
     [t('createTenant'),    'go-tenants'],
     [t('createCollection'),'go-collections'],
-    ['Open SQL Editor',    'go-sql'],
-    ['Open Data Explorer', 'go-explorer'],
-    ['Ingest context',     'go-ingest'],
+    [t('openSql'),          'go-sql'],
+    [t('openDataExplorer'), 'go-explorer'],
+    [t('ingestContext'),    'go-ingest'],
     [t('rotateKey'),       'go-keys'],
     [t('documentation'),   'go-docs'],
   ].map(([label, action]) => `<button class="quick-action-card" type="button" data-action="${esc(action)}"><span>${esc(label)}</span><span class="qa-arrow">→</span></button>`).join('');
 
   const lastOp = state.lastOperation
-    ? `<div class="notice" style="margin-top:0">${esc(state.lastOperation)}</div>`
+    ? `<div class="notice" style="margin-top:0">${esc(messageText(state.lastOperation))}</div>`
     : '';
 
-  return `${PageHeader('Dashboard', t('dashboardLead'), ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('dashboard'), t('dashboardLead'), ActionButton(t('refresh'), 'refresh'))}
     ${welcomeOrEmpty}
     ${statCards}
     <section class="grid cols-2">
-      <div class="panel"><h3>Quick actions</h3><div class="actions-list">${quick}</div></div>
+      <div class="panel"><h3>${esc(t('quickActions'))}</h3><div class="actions-list">${quick}</div></div>
       <div class="panel"><h3>${esc(t('objectCounts'))}</h3>${JsonViewer(s)}</div>
     </section>
     ${lastOp}`;
@@ -946,21 +1335,21 @@ function DataExplorerPage() {
   const collections = state.collections || [];
   const rows = annotateRows(activeExplorerRows(), activeExplorerListName());
   const tabs = Tabs([
-    { id: 'logical',  label: 'Logical View' },
-    { id: 'json',     label: 'Raw JSON' },
-    { id: 'physical', label: 'Physical Info' },
+    { id: 'logical',  label: t('logicalView') },
+    { id: 'json',     label: t('rawJson') },
+    { id: 'physical', label: t('physicalInfo') },
   ], state.tab, 'tab');
   const main = state.tab === 'json'
     ? JsonViewer(rows)
     : state.tab === 'physical'
       ? PhysicalInfo(rows)
-      : DataTable(rows, logicalColumns(rows), 'No data selected', 'Choose a tenant and collection from the sidebar, or select a data type to browse.', '');
-  return `${PageHeader('Data Explorer', t('dataExplorerLead'), ActionButton(t('refresh'), 'refresh'))}
+      : DataTable(rows, logicalColumns(rows), t('noDataSelected'), t('noDataSelectedDesc'), '');
+  return `${PageHeader(t('dataExplorer'), t('dataExplorerLead'), ActionButton(t('refresh'), 'refresh'))}
     <div class="layout-split">
       <aside class="side-panel">
         <strong>${esc(t('tenants'))}</strong>
         <div class="tree">${tenantTree(collections)}</div>
-        <div class="notice">Collections are logical namespaces. Records are JSON-first structured data projected into context.</div>
+        <div class="notice">${esc(t('dataExplorerNotice'))}</div>
       </aside>
       <section class="panel">${tabs}${main}</section>
     </div>`;
@@ -969,11 +1358,11 @@ function DataExplorerPage() {
 function tenantTree(collections) {
   const tenants = state.bootstrap?.tenants || [];
   if (tenants.length === 0) {
-    return EmptyState('No tenants', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'));
+    return EmptyState(t('noTenants'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'));
   }
   return tenants.map((tenant) => {
     const nested = tenant.id === state.tenant
-      ? `<div class="nested">${collections.map((col) => `<button type="button" data-action="choose-collection" data-collection="${esc(col.name)}" ${col.name === state.collection ? 'style="background:rgba(92,200,255,0.08);border-color:rgba(92,200,255,0.2)"' : ''}>${esc(col.name)}</button>`).join('') || '<span class="muted" style="padding:6px 10px;font-size:12px">No collections yet</span>'}</div>`
+      ? `<div class="nested">${collections.map((col) => `<button type="button" data-action="choose-collection" data-collection="${esc(col.name)}" ${col.name === state.collection ? 'style="background:rgba(92,200,255,0.08);border-color:rgba(92,200,255,0.2)"' : ''}>${esc(col.name)}</button>`).join('') || `<span class="muted" style="padding:6px 10px;font-size:12px">${esc(t('noCollectionsYet'))}</span>`}</div>`
       : '';
     return `<div><button type="button" data-action="choose-tenant" data-tenant="${esc(tenant.id)}" ${tenant.id === state.tenant ? 'style="background:rgba(92,200,255,0.06);border-color:rgba(92,200,255,0.15)"' : ''}>${esc(tenant.id)} <span class="muted" style="font-size:12px">${esc(tenant.name)}</span></button>${nested}</div>`;
   }).join('');
@@ -1006,7 +1395,7 @@ function PhysicalInfo(rows) {
     selected_collection: state.collection || null,
     visible_rows: rows.length,
     stats: stats(),
-    notes: ['WAL, snapshot, chunks, audit, and index status are operational objects, not logical tables.'],
+    notes: [t('physicalInfoNote')],
   };
   return JsonViewer(payload);
 }
@@ -1021,19 +1410,19 @@ function SqlEditorPage() {
     ? `<pre class="result-error">${esc(state.sqlError)}</pre>`
     : state.sqlTab === 'json'
       ? JsonViewer(state.sqlResult)
-      : DataTable(annotateRows(state.sqlResult?.rows || [], 'sql'), logicalColumns(state.sqlResult?.rows || []), 'No results', 'Run a SQL query to see results here.');
-  return `${PageHeader('SQL Editor', t('sqlLead'), ActionButton(t('run'), 'run-sql', 'primary'))}
+      : DataTable(annotateRows(state.sqlResult?.rows || [], 'sql'), logicalColumns(state.sqlResult?.rows || []), t('noResults'), t('noResultsDesc'));
+  return `${PageHeader(t('sqlEditor'), t('sqlLead'), ActionButton(t('run'), 'run-sql', 'primary'))}
     <section class="sql-editor">
       <div class="panel">
         <label class="field">
-          <span>SQL Query</span>
+          <span>${esc(t('sqlQuery'))}</span>
           <textarea id="sqlInput" style="font-family:monospace;font-size:13px">select * from systems limit 10</textarea>
         </label>
         <div class="page-actions" style="margin-top:10px">
           ${ActionButton(t('run'), 'run-sql', 'primary')}
           ${state.tenant ? StatusBadge(`tenant: ${state.tenant}`, 'ok') : StatusBadge(t('noTenant'), 'planned')}
         </div>
-        <div class="notice warning" style="margin-top:10px">Only SELECT * FROM table with equality filters and LIMIT is supported.</div>
+        <div class="notice warning" style="margin-top:10px">${esc(t('sqlSupportNotice'))}</div>
       </div>
       <aside class="panel">
         <h3>${esc(t('sqlExamples'))}</h3>
@@ -1041,7 +1430,7 @@ function SqlEditorPage() {
       </aside>
     </section>
     <section class="panel">
-      ${Tabs([{ id:'table', label:'Table' },{ id:'json', label:'JSON' }], state.sqlTab, 'sql-tab')}
+      ${Tabs([{ id:'table', label:t('tableResult') },{ id:'json', label:'JSON' }], state.sqlTab, 'sql-tab')}
       ${result}
     </section>`;
 }
@@ -1049,18 +1438,18 @@ function SqlEditorPage() {
 function CollectionsPage() {
   const rows = annotateRows(state.collections || [], 'collections');
   const hasTenant = !!state.tenant;
-  return `${PageHeader('Collections', t('collectionHelp'), hasTenant ? ActionButton(t('createCollection'), 'create-collection', 'primary') : '')}
+  return `${PageHeader(t('collections'), t('collectionHelp'), hasTenant ? ActionButton(t('createCollection'), 'create-collection', 'primary') : '')}
     <section class="grid cols-2">
       <div class="panel">
         ${!hasTenant
-          ? EmptyState('Select a tenant first', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+          ? EmptyState(t('selectTenantFirst'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
           : DataTable(rows, [{key:'name',label:'name'},{key:'description',label:'description'},{key:'tenant_id',label:'tenant'}],
-              'No collections', t('noCollectionDesc'),
+              t('noCollections'), t('noCollectionDesc'),
               ActionButton(t('createCollection'), 'focus-collection-form'))}
       </div>
       <div class="panel">
         <h3>${esc(t('createCollection'))}</h3>
-        ${!hasTenant ? `<div class="notice warning">Select a tenant in the topbar before creating a collection.</div>` : ''}
+        ${!hasTenant ? `<div class="notice warning">${esc(t('collectionSelectBeforeCreate'))}</div>` : ''}
         <div class="form-grid" style="margin-top:12px">
           ${FormField(t('collection'), 'collectionName', state.collection)}
           ${FormField(t('collectionDescription'), 'collectionDescription')}
@@ -1068,7 +1457,7 @@ function CollectionsPage() {
         <div class="page-actions" style="margin-top:12px">
           ${ActionButton(t('save'), 'create-collection', 'primary')}
         </div>
-        <div class="notice" style="margin-top:14px">After creating a collection, you can store records, memories, and documents into it via Ingestion & Recall or the API.</div>
+        <div class="notice" style="margin-top:14px">${esc(t('collectionCreateNotice'))}</div>
       </div>
     </section>`;
 }
@@ -1079,35 +1468,35 @@ function TablesPage() {
   const tables = state.lists.tables || [];
   const tableHtml = tables.length === 0
     ? EmptyState(
-        'No tables yet',
-        'Tables are created automatically when you store a record with a table name. Use Ingestion & Recall or upload a CSV file.',
-        ActionButton('Store record', 'go-ingest')
+        t('noTables'),
+        t('noTablesDesc'),
+        ActionButton(t('storeFirstRecord'), 'go-ingest')
       )
     : `<div class="table-wrap"><table>
-        <thead><tr><th>Table name</th><th>Records</th><th></th></tr></thead>
+        <thead><tr><th>${esc(t('tableName'))}</th><th>${esc(t('tableRecords'))}</th><th></th></tr></thead>
         <tbody>${tables.map((row) =>
           `<tr>
             <td><strong>${esc(row.name)}</strong></td>
             <td>${esc(String(row.record_count))}</td>
-            <td><button class="ghost" type="button" data-action="delete-table" data-name="${esc(row.name)}" style="color:var(--red)">Delete all</button></td>
+            <td><button class="ghost" type="button" data-action="delete-table" data-name="${esc(row.name)}" style="color:var(--red)">${esc(t('deleteAll'))}</button></td>
           </tr>`
         ).join('')}</tbody>
       </table></div>`;
-  return `${PageHeader('Tables', 'Logical namespaces inside a collection that group structured records.', ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('tables'), t('tablesLead'), ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-2">
       <div class="panel">
         ${!hasTenant
-          ? EmptyState('No tenant selected', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+          ? EmptyState(t('noTenantSelected'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
           : !hasCollection
-            ? EmptyState('No collection selected', t('noCollectionDesc'), ActionButton('Go to Collections', 'go-collections', 'primary'))
+            ? EmptyState(t('noCollectionSelected'), t('noCollectionDesc'), ActionButton(t('collections'), 'go-collections', 'primary'))
             : tableHtml
         }
       </div>
       <div class="panel">
-        <h3>About tables</h3>
-        <p style="color:var(--muted);font-size:13.5px;line-height:1.6">Tables are logical namespaces within a collection for structured <strong>Records</strong>. They are created automatically when the first record is stored with that table name.</p>
-        <div class="notice" style="margin-top:12px">Deleting a table removes all its records permanently. Collections and other data types (Memories, Documents) are unaffected.</div>
-        <div class="notice warning" style="margin-top:10px">Tables are queryable via the SQL Editor: <code>SELECT * FROM table_name LIMIT 10</code></div>
+        <h3>${esc(t('aboutTables'))}</h3>
+        <p style="color:var(--muted);font-size:13.5px;line-height:1.6">${esc(t('tablesAboutLead'))}</p>
+        <div class="notice" style="margin-top:12px">${esc(t('tablesDeleteNotice'))}</div>
+        <div class="notice warning" style="margin-top:10px">${esc(t('tablesQueryNotice'))}</div>
       </div>
     </section>`;
 }
@@ -1117,22 +1506,22 @@ function ObjectListPage(kind) {
   const labels = { records: t('records'), memories: t('memories'), documents: t('documents'), files: t('files') };
   const label = labels[kind];
   const hasTenant = !!state.tenant;
-  return `${PageHeader(label, `Tenant-scoped ${label.toLowerCase()} list.`, ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(label, tf('objectListLead', { type: label }), ActionButton(t('refresh'), 'refresh'))}
     <section class="panel">
       ${!hasTenant
-        ? EmptyState('No tenant selected', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
-        : DataTable(rows, logicalColumns(rows), `No ${label.toLowerCase()}`, `No ${label.toLowerCase()} in this tenant yet. Go to Ingestion & Recall to store your first item.`,
-            ActionButton('Ingest ' + label.toLowerCase(), 'go-ingest'))}
+        ? EmptyState(t('noTenantSelected'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+        : DataTable(rows, logicalColumns(rows), tf('noItems', { type: label }), tf('objectListEmpty', { type: label }),
+            ActionButton(tf('ingestItems', { type: label }), 'go-ingest'))}
     </section>`;
 }
 
 function DropZone() {
   const types = [
-    ['.pdf', 'Document (chunks)'],
-    ['.txt', 'Document'],
-    ['.md',  'Document'],
-    ['.csv', 'Records (SQL)'],
-    ['.json','Document / Records'],
+    ['.pdf', `${t('documentSingular')} (${t('fileCountChunks')})`],
+    ['.txt', t('documentSingular')],
+    ['.md',  t('documentSingular')],
+    ['.csv', `${t('records')} (SQL)`],
+    ['.json',`${t('documentSingular')} / ${t('records')}`],
   ];
   const badges = types.map(([ext, kind]) =>
     `<span class="file-type-badge" title="${esc(kind)}">${esc(ext)}</span>`
@@ -1141,7 +1530,7 @@ function DropZone() {
     ? `<div class="drop-zone-progress"><div class="drop-zone-progress-bar" style="width:${state.uploadProgress}%"></div></div>`
     : '';
   return `<div class="drop-zone" id="dropZone" data-action="drop-zone-click">
-    <p class="drop-zone-hint">Drag &amp; drop files here, or click to browse</p>
+    <p class="drop-zone-hint">${esc(t('dropFiles'))}</p>
     <div class="drop-zone-types">${badges}</div>
     ${progress}
     <input type="file" id="fileInput" style="display:none" multiple accept=".pdf,.txt,.md,.csv,.json" />
@@ -1152,27 +1541,27 @@ function FilesPage() {
   const rows = annotateRows(state.lists.files || [], 'files');
   const hasTenant = !!state.tenant;
   const result = state.uploadResult
-    ? `<div class="upload-result">✓ ${esc(state.uploadResult.name)} → ${esc(state.uploadResult.kind)} (${state.uploadResult.count} ${state.uploadResult.kind === 'records' ? 'rows' : 'chunks'})</div>`
+    ? `<div class="upload-result">✓ ${esc(state.uploadResult.name)} → ${esc(state.uploadResult.kind)} (${state.uploadResult.count} ${esc(t(state.uploadResult.kind === 'records' ? 'fileCountRows' : 'fileCountChunks'))})</div>`
     : '';
-  return `${PageHeader('Files', 'Drag and drop PDF, CSV, TXT, MD, or JSON files. The server stores them automatically as documents or records.', ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('files'), t('filesLead'), ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-2">
       <div class="panel">
-        <h3>Upload</h3>
+        <h3>${esc(t('upload'))}</h3>
         ${!hasTenant
-          ? EmptyState('No tenant selected', t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
+          ? EmptyState(t('noTenantSelected'), t('noTenantDesc'), ActionButton(t('createTenant'), 'go-tenants', 'primary'))
           : `${FormField(t('collection'), 'fileCollection', state.collection)}
              ${DropZone()}
              ${result}`
         }
-        <div class="notice" style="margin-top:12px">PDF → Document (chunked for recall) · CSV → Records (SQL-queryable) · JSON array → Records · JSON object / TXT / MD → Document</div>
+        <div class="notice" style="margin-top:12px">${esc(t('uploadMapping'))}</div>
       </div>
       <div class="panel">
-        <h3>Stored files</h3>
+        <h3>${esc(t('storedFiles'))}</h3>
         ${DataTable(
           rows,
           [{key:'name',label:'name'},{key:'media_type',label:'type'},{key:'size_bytes',label:'bytes'},{key:'collection',label:'collection'}],
-          'No files uploaded',
-          'Drag a file into the upload zone on the left.',
+          t('empty'),
+          t('dropFiles'),
           ''
         )}
       </div>
@@ -1248,44 +1637,44 @@ function IngestionRecallPage() {
 
 function GraphPage() {
   const rows = annotateRows(state.lists.graph || [], 'graph');
-  return `${PageHeader('Graph', t('graphLead'), ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('graph'), t('graphLead'), ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-2">
       <div class="panel">
-        ${DataTable(rows, [{key:'id',label:'id'},{key:'from_id',label:'from'},{key:'to_id',label:'to'},{key:'relation',label:'relation'}], 'No graph edges', 'Graph edges are created when documents reference each other or when you use the service API to add edges explicitly.')}
+        ${DataTable(rows, [{key:'id',label:'id'},{key:'from_id',label:'from'},{key:'to_id',label:'to'},{key:'relation',label:'relation'}], t('noGraphEdges'), t('graphEmptyDesc'))}
       </div>
       <div class="panel">
-        <h3>Graph workbench</h3>
-        ${StatusBadge('Planned', 'planned')}
-        <p style="color:var(--muted);font-size:13.5px;margin-top:10px">Add-edge UI and interactive graph traversal are planned. Multi-hop traversal is available today via the service API endpoint <code>POST /tenants/:tid/graph/traverse</code>.</p>
+        <h3>${esc(t('graphWorkbench'))}</h3>
+        ${StatusBadge(t('planned'), 'planned')}
+        <p style="color:var(--muted);font-size:13.5px;margin-top:10px">${esc(t('graphWorkbenchLead'))}</p>
       </div>
     </section>`;
 }
 
 function ApiReferencePage() {
   const groups = [
-    ['Health', [['GET','/health','Implemented','curl http://localhost:8080/health']]],
-    ['Admin', [['GET','/admin/bootstrap','Implemented','curl -H "x-admin-session: SESSION" http://localhost:8080/admin/bootstrap'],['POST','/admin/login','Implemented','curl -X POST -H "Content-Type: application/json" -d \'{"username":"admin","password":"pw"}\' http://localhost:8080/admin/login']]],
-    ['Tenants', [['GET','/admin/tenants','Implemented','curl -H "x-admin-session: SESSION" http://localhost:8080/admin/tenants'],['POST','/admin/tenants','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"id":"acme","name":"Acme"}\' http://localhost:8080/admin/tenants']]],
-    ['Collections', [['GET','/admin/collections','Implemented','curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/collections?tenant_id=acme"'],['POST','/admin/tenants/:tid/collections','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"name":"support","description":"Support data"}\' http://localhost:8080/admin/tenants/acme/collections']]],
-    ['Records', [['GET','/admin/records','Implemented','curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/records?tenant_id=acme"'],['POST','/admin/tenants/:tid/records','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"collection":"support","table":"systems","payload":{"engine":"pg"}}\' http://localhost:8080/admin/tenants/acme/records']]],
-    ['Memories', [['GET','/admin/memories','Implemented','curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/memories?tenant_id=acme"'],['POST','/admin/tenants/:tid/memories','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"collection":"support","text":"fact","memory_type":"semantic"}\' http://localhost:8080/admin/tenants/acme/memories']]],
-    ['Documents', [['GET','/admin/documents','Implemented','curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/documents?tenant_id=acme"'],['POST','/admin/tenants/:tid/documents','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"collection":"support","text":"document text here"}\' http://localhost:8080/admin/tenants/acme/documents']]],
-    ['SQL', [['POST','/admin/sql','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"tenant_id":"acme","sql":"select * from systems limit 5"}\' http://localhost:8080/admin/sql']]],
-    ['Recall & Context', [
-      ['POST','/admin/tenants/:tid/recall','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"query":"postgresql","top_k":5,"min_score":0.2,"dedup_chunks":true,"mmr":true}\' http://localhost:8080/admin/tenants/acme/recall'],
-      ['POST','/admin/tenants/:tid/context','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"query":"postgresql","max_tokens":1024}\' http://localhost:8080/admin/tenants/acme/context'],
+    [t('health'), [['GET','/health',true,'curl http://localhost:8080/health']]],
+    [t('admin'), [['GET','/admin/bootstrap',true,'curl -H "x-admin-session: SESSION" http://localhost:8080/admin/bootstrap'],['POST','/admin/login',true,'curl -X POST -H "Content-Type: application/json" -d \'{"username":"admin","password":"pw"}\' http://localhost:8080/admin/login']]],
+    [t('tenants'), [['GET','/admin/tenants',true,'curl -H "x-admin-session: SESSION" http://localhost:8080/admin/tenants'],['POST','/admin/tenants',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"id":"acme","name":"Acme"}\' http://localhost:8080/admin/tenants']]],
+    [t('collections'), [['GET','/admin/collections',true,'curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/collections?tenant_id=acme"'],['POST','/admin/tenants/:tid/collections',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"name":"support","description":"Support data"}\' http://localhost:8080/admin/tenants/acme/collections']]],
+    [t('records'), [['GET','/admin/records',true,'curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/records?tenant_id=acme"'],['POST','/admin/tenants/:tid/records',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"collection":"support","table":"systems","payload":{"engine":"pg"}}\' http://localhost:8080/admin/tenants/acme/records']]],
+    [t('memories'), [['GET','/admin/memories',true,'curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/memories?tenant_id=acme"'],['POST','/admin/tenants/:tid/memories',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"collection":"support","text":"fact","memory_type":"semantic"}\' http://localhost:8080/admin/tenants/acme/memories']]],
+    [t('documents'), [['GET','/admin/documents',true,'curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/documents?tenant_id=acme"'],['POST','/admin/tenants/:tid/documents',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"collection":"support","text":"document text here"}\' http://localhost:8080/admin/tenants/acme/documents']]],
+    ['SQL', [['POST','/admin/sql',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"tenant_id":"acme","sql":"select * from systems limit 5"}\' http://localhost:8080/admin/sql']]],
+    [t('recallAndContext'), [
+      ['POST','/admin/tenants/:tid/recall',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"query":"postgresql","top_k":5,"min_score":0.2,"dedup_chunks":true,"mmr":true}\' http://localhost:8080/admin/tenants/acme/recall'],
+      ['POST','/admin/tenants/:tid/context',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"query":"postgresql","max_tokens":1024}\' http://localhost:8080/admin/tenants/acme/context'],
     ]],
-    ['Files', [['GET','/admin/files','Implemented','curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/files?tenant_id=acme"'],['POST','/admin/files','Planned','file upload/import — planned']]],
-    ['Graph', [['GET','/admin/graph-edges','Implemented','curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/graph-edges?tenant_id=acme"'],['POST','/tenants/:tid/graph/traverse','Implemented','service API with X-Api-Key']]],
-    ['Service Keys', [['POST','/admin/api-key/rotate','Implemented','curl -X POST -H "x-admin-session: SESSION" -d \'{"length":32}\' http://localhost:8080/admin/api-key/rotate']]],
+    [t('files'), [['GET','/admin/files',true,'curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/files?tenant_id=acme"'],['POST','/admin/tenants/:tid/files',true,'multipart form-data: collection + file']]],
+    [t('graph'), [['GET','/admin/graph-edges',true,'curl -H "x-admin-session: SESSION" "http://localhost:8080/admin/graph-edges?tenant_id=acme"'],['POST','/tenants/:tid/graph/traverse',true,'service API with X-Api-Key']]],
+    [t('serviceKeys'), [['POST','/admin/api-key/rotate',true,'curl -X POST -H "x-admin-session: SESSION" -d \'{"length":32}\' http://localhost:8080/admin/api-key/rotate']]],
   ];
   const panels = groups.map(([group, endpoints]) =>
-    `<div class="panel"><h3>${esc(group)}</h3>${endpoints.map(([method, path, status, curl]) =>
-      CodeBlock(`${method} ${path} ${StatusBadge(status, status === 'Implemented' ? 'ok' : 'planned')}`, curl,
-        `<button type="button" class="ghost" data-action="copy-code" data-code="${esc(curl)}">Copy</button>`)
+    `<div class="panel"><h3>${esc(group)}</h3>${endpoints.map(([method, path, implemented, curl]) =>
+      CodeBlock(`${method} ${path} ${StatusBadge(t(implemented ? 'implemented' : 'planned'), implemented ? 'ok' : 'planned')}`, curl,
+        `<button type="button" class="ghost" data-action="copy-code" data-code="${esc(curl)}">${esc(t('copy'))}</button>`)
     ).join('')}</div>`
   ).join('');
-  return `${PageHeader('API Reference', t('apiReferenceLead'))}<section class="grid cols-2">${panels}</section>`;
+  return `${PageHeader(t('apiReference'), t('apiReferenceLead'))}<section class="grid cols-2">${panels}</section>`;
 }
 
 function DocumentationPage() {
@@ -1294,17 +1683,17 @@ function DocumentationPage() {
   const doc = DOCS[docId];
   const content = doc
     ? (doc[lang] || doc.en)
-    : { title: 'Not found', content: '<p>Section not found.</p>' };
+    : { title: t('docsNotFound'), content: `<p>${esc(t('docsSectionNotFound'))}</p>` };
 
   const navItems = DOCS_NAV.map(([group, groupLabel, ids]) => {
     const items = ids.map((id) => {
       const label = (DOCS_LABELS[id] && DOCS_LABELS[id][lang]) || DOCS_LABELS[id]?.en || id;
       return `<button type="button" data-action="doc-section" data-section="${esc(id)}" aria-selected="${id === docId}">${esc(label)}</button>`;
     }).join('');
-    return `<div class="docs-group-label">${esc(groupLabel)}</div>${items}`;
+    return `<div class="docs-group-label">${esc(t(groupLabel))}</div>${items}`;
   }).join('');
 
-  return `${PageHeader(t('documentation'), 'Complete reference for Hippocore DB — concepts, guides, API, and architecture.')}
+  return `${PageHeader(t('documentation'), t('docsLead'))}
     <div class="docs-layout">
       <nav class="docs-nav">${navItems}</nav>
       <article class="docs-content">
@@ -1317,16 +1706,16 @@ function DocumentationPage() {
 function TenantsPage() {
   const rows = annotateRows(state.bootstrap?.tenants || [], 'tenants');
   const hasTenants = rows.length > 0;
-  return `${PageHeader('Tenants', 'Tenants are the top-level isolation boundary. All data, memories, and queries are scoped to one tenant.', ActionButton(t('createTenant'), 'create-tenant', 'primary'))}
+  return `${PageHeader(t('tenants'), t('tenantLead'), ActionButton(t('createTenant'), 'create-tenant', 'primary'))}
     <section class="grid cols-2">
       <div class="panel">
         ${!hasTenants
-          ? EmptyState('No tenants yet', t('noTenantDesc'), ActionButton(t('createTenant'), 'focus-tenant-form', 'primary'))
-          : DataTable(rows, [{key:'id',label:'id'},{key:'name',label:'name'}],'No tenants')}
+          ? EmptyState(t('noTenants'), t('noTenantDesc'), ActionButton(t('createTenant'), 'focus-tenant-form', 'primary'))
+          : DataTable(rows, [{key:'id',label:'id'},{key:'name',label:'name'}],t('noTenants'))}
       </div>
       <div class="panel">
         <h3>${esc(t('createTenant'))}</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 14px">A tenant isolates all data, collections, queries, and API keys. Create one per customer, environment, or use case.</p>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 14px">${esc(t('tenantPurpose'))}</p>
         <div class="form-grid">
           ${FormField(t('tenantId'), 'tenantFormId', '', 'text', 'placeholder="e.g. acme, dev, prod"')}
           ${FormField(t('name'), 'tenantFormName', '', 'text', 'placeholder="e.g. Acme Corp, Development"')}
@@ -1349,7 +1738,7 @@ function IntegrationsPage() {
   const traefikPath  = state.traefikPath  || '/api';
 
   const traefikYaml = traefikDomain
-    ? `# Add these labels to your hippocore service in docker-compose.yml
+    ? `# ${t('traefikComment')}
 labels:
   - "traefik.enable=true"
   - "traefik.http.routers.hippocore.rule=Host(\`${esc(traefikDomain)}\`) && PathPrefix(\`${esc(traefikPath)}\`)"
@@ -1372,26 +1761,26 @@ labels:
     ports:
       - "8080:8080"`;
 
-  return `${PageHeader('Integrations', 'LLM brain configuration, API exposure, and infrastructure wiring.', ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('integrations'), t('integrationsLead'), ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-2">
       <div class="panel">
-        <h3>LLM Brain</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">Configure the language model that powers context recall and the Chat API.</p>
-        ${DataTable(providers, [{key:'id',label:'id'},{key:'kind',label:'kind'},{key:'model',label:'model'},{key:'api_key_set',label:'key set'}], 'No providers configured.', 'Add a provider below.')}
+        <h3>${esc(t('llmBrain'))}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">${esc(t('llmBrainLead'))}</p>
+        ${DataTable(providers, [{key:'id',label:'id'},{key:'kind',label:'kind'},{key:'model',label:'model'},{key:'api_key_set',label:'key set'}], t('noProviders'), t('noProvidersDesc'))}
       </div>
       <div class="panel">
-        <h3>Add / update provider</h3>
+        <h3>${esc(t('addOrUpdateProvider'))}</h3>
         <div class="form-grid">
-          ${FormField('Provider id', 'providerId', 'ollama')}
-          ${FormField('Kind (ollama / openrouter / openai)', 'providerKind', 'ollama')}
-          ${FormField('Base URL', 'providerUrl', 'http://localhost:11434')}
-          ${FormField('Model', 'providerModel', 'llama3.2')}
-          ${FormField('API key (optional)', 'providerKey', '', 'password')}
+          ${FormField(t('providerId'), 'providerId', 'ollama')}
+          ${FormField(t('providerKind'), 'providerKind', 'ollama')}
+          ${FormField(t('providerBaseUrl'), 'providerUrl', 'http://localhost:11434')}
+          ${FormField(t('providerModel'), 'providerModel', 'llama3.2')}
+          ${FormField(t('providerApiKeyOptional'), 'providerKey', '', 'password')}
         </div>
         <div class="page-actions" style="margin-top:12px">
           ${ActionButton(t('save'), 'save-provider', 'primary')}
-          ${ActionButton('Validate', 'validate-provider')}
-          ${ActionButton('Ping', 'ping-provider')}
+          ${ActionButton(t('validate'), 'validate-provider')}
+          ${ActionButton(t('ping'), 'ping-provider')}
         </div>
         ${state.providerResult ? `<div class="notice ${state.providerResult.ok === true ? '' : state.providerResult.ok === false ? 'warning' : ''}" style="margin-top:12px">
           ${state.providerResult.ok === true ? '✓ ' : state.providerResult.ok === false ? '✗ ' : ''}
@@ -1402,16 +1791,16 @@ labels:
     </section>
     <section class="grid cols-2">
       <div class="panel">
-        <h3>API Exposure</h3>
-        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">The service API key authenticates calls to tenant-facing endpoints. Rotate at any time.</p>
+        <h3>${esc(t('apiExposure'))}</h3>
+        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">${esc(t('serviceApiKeyLead'))}</p>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-          ${StatusBadge(apiKey ? 'API key configured' : 'Not set', apiKey ? 'ok' : 'error')}
-          <span style="color:var(--muted);font-size:12px">length: ${esc(String(keyLen))}</span>
+          ${StatusBadge(apiKey ? t('apiKeyConfigured') : t('apiKeyNotSet'), apiKey ? 'ok' : 'error')}
+          <span style="color:var(--muted);font-size:12px">${esc(t('keyLength'))}: ${esc(String(keyLen))}</span>
         </div>
-        <label class="field"><span>Base URL</span><input value="${esc(baseUrl)}" readonly onclick="this.select()"></label>
+        <label class="field"><span>${esc(t('providerBaseUrl'))}</span><input value="${esc(baseUrl)}" readonly onclick="this.select()"></label>
         <label class="field" style="margin-top:8px"><span>API key hint</span><input value="${esc(keyHint)}" readonly onclick="this.select()"></label>
         <div class="notice" style="margin-top:10px;font-size:12px">
-          <strong>curl example — recall:</strong><br>
+          <strong>${esc(t('apiCurlExample'))}:</strong><br>
           <code>curl -X POST ${esc(baseUrl)}/tenants/MY_TENANT/recall \\<br>&nbsp;&nbsp;-H "X-Api-Key: YOUR_KEY" \\<br>&nbsp;&nbsp;-H "Content-Type: application/json" \\<br>&nbsp;&nbsp;-d '{"query":"what is...","collection":"main"}'</code>
         </div>
         <div class="page-actions" style="margin-top:14px">
@@ -1419,69 +1808,69 @@ labels:
         </div>
       </div>
       <div class="panel">
-        <h3>Traefik Config Generator</h3>
+        <h3>${esc(t('traefikGenerator'))}</h3>
         <div class="form-grid">
-          ${FormField('Domain (e.g. api.example.com)', 'traefikDomain', traefikDomain)}
-          ${FormField('Path prefix (e.g. /api)', 'traefikPath', traefikPath || '/api')}
+          ${FormField(t('traefikDomain'), 'traefikDomain', traefikDomain)}
+          ${FormField(t('traefikPath'), 'traefikPath', traefikPath || '/api')}
         </div>
         <div class="page-actions" style="margin-top:10px">
-          ${ActionButton('Generate labels', 'generate-traefik', 'primary')}
+          ${ActionButton(t('generateLabels'), 'generate-traefik', 'primary')}
         </div>
         ${traefikYaml ? `<pre style="background:var(--glass-md);border-radius:8px;padding:12px;font-size:11.5px;overflow-x:auto;margin-top:12px;white-space:pre-wrap">${esc(traefikYaml)}</pre>
-          <div class="page-actions" style="margin-top:6px">${ActionButton('Copy', 'copy-traefik')}</div>` : ''}
+          <div class="page-actions" style="margin-top:6px">${ActionButton(t('copy'), 'copy-traefik')}</div>` : ''}
       </div>
     </section>
     <section class="panel">
-      <h3>Docker Compose snippet</h3>
+      <h3>${esc(t('composeSnippet'))}</h3>
       <pre style="background:var(--glass-md);border-radius:8px;padding:14px;font-size:12px;overflow-x:auto;white-space:pre-wrap">${esc(composeSnippet)}</pre>
-      <div class="page-actions" style="margin-top:8px">${ActionButton('Copy snippet', 'copy-compose')}</div>
+      <div class="page-actions" style="margin-top:8px">${ActionButton(t('copySnippet'), 'copy-compose')}</div>
     </section>`;
 }
 
 function PromptsPage() {
   const prompts = annotateRows(state.lists.prompts || [], 'prompts');
   const editing = state.editingPrompt;
-  return `${PageHeader('System Prompts', 'Reusable system prompt templates for the RAG → LLM pipeline.', ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('prompts'), t('promptsLead'), ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-2">
       <div class="panel">
-        <h3>Prompt library</h3>
+        <h3>${esc(t('promptLibrary'))}</h3>
         ${DataTable(
           prompts,
           [{key:'name',label:'name'},{key:'description',label:'description'},{key:'tenant_id',label:'tenant'}],
-          'No prompts yet',
-          'Create a prompt template to use with the Chat API.'
+          t('noPrompts'),
+          t('noPromptsDesc')
         )}
       </div>
       <div class="panel">
-        <h3>${editing ? 'Edit prompt' : 'New prompt'}</h3>
+        <h3>${esc(editing ? t('editPrompt') : t('newPrompt'))}</h3>
         <div class="form-grid">
-          ${FormField('Name', 'promptName', editing?.name || '')}
-          ${FormField('Description (optional)', 'promptDesc', editing?.description || '')}
-          ${FormField('Tenant id (leave blank for global)', 'promptTenant', editing?.tenant_id || '')}
+          ${FormField(t('name'), 'promptName', editing?.name || '')}
+          ${FormField(t('promptDescriptionOptional'), 'promptDesc', editing?.description || '')}
+          ${FormField(t('promptGlobalTenant'), 'promptTenant', editing?.tenant_id || '')}
         </div>
         <label class="field" style="margin-top:8px">
-          <span>Content — use {{context}} and {{query}} as placeholders</span>
-          <textarea id="promptContent" rows="8" style="font-family:monospace;font-size:12.5px;resize:vertical">${esc(editing?.content || 'You are a helpful AI assistant.\n\nContext:\n{{context}}\n\nAnswer the following question:\n{{query}}')}</textarea>
+          <span>${esc(t('promptContentHelp'))}</span>
+          <textarea id="promptContent" rows="8" style="font-family:monospace;font-size:12.5px;resize:vertical">${esc(editing?.content || t('defaultPrompt'))}</textarea>
         </label>
         <div class="page-actions" style="margin-top:12px">
           ${ActionButton(t('save'), 'save-prompt', 'primary')}
-          ${editing ? ActionButton('Cancel', 'cancel-edit-prompt') : ''}
-          ${editing ? ActionButton('Delete', 'delete-prompt', 'danger') : ''}
+          ${editing ? ActionButton(t('cancel'), 'cancel-edit-prompt') : ''}
+          ${editing ? ActionButton(t('delete'), 'delete-prompt', 'danger') : ''}
         </div>
       </div>
     </section>
     <section class="panel">
-      <h3>Test chat (RAG → LLM)</h3>
+      <h3>${esc(t('testChat'))}</h3>
       <div class="grid cols-2" style="gap:12px">
         <div>
-          ${FormField('Tenant', 'chatTenant', state.tenant || '')}
-          ${FormField('Collection (optional)', 'chatCollection', state.collection || '')}
-          ${FormField('Prompt id (optional)', 'chatPromptId', editing?.id || '')}
-          <label class="field"><span>Question</span><textarea id="chatQuery" rows="3" placeholder="Ask anything…"></textarea></label>
-          <div class="page-actions" style="margin-top:8px">${ActionButton('Send', 'test-chat', 'primary')}</div>
+          ${FormField(t('tenant'), 'chatTenant', state.tenant || '')}
+          ${FormField(t('collectionOptional'), 'chatCollection', state.collection || '')}
+          ${FormField(t('promptIdOptional'), 'chatPromptId', editing?.id || '')}
+          <label class="field"><span>${esc(t('question'))}</span><textarea id="chatQuery" rows="3" placeholder="${esc(t('questionPlaceholder'))}"></textarea></label>
+          <div class="page-actions" style="margin-top:8px">${ActionButton(t('send'), 'test-chat', 'primary')}</div>
         </div>
         <div>
-          <h4 style="margin:0 0 8px;font-size:13px;color:var(--muted)">Response</h4>
+          <h4 style="margin:0 0 8px;font-size:13px;color:var(--muted)">${esc(t('response'))}</h4>
           <div id="chatOutput" style="background:var(--glass-md);border-radius:8px;padding:12px;min-height:120px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word">${esc(state.chatResult || '')}</div>
         </div>
       </div>
@@ -1491,46 +1880,46 @@ function PromptsPage() {
 function ObservabilityPage() {
   const s = stats();
   const physical = [
-    ['Health endpoint',   'Implemented', 'GET /health → { status: "ok" }'],
-    ['Stats',             'Implemented', '/admin/bootstrap contains full stats'],
-    ['WAL entries',       'Implemented', String(s.wal_entries ?? '—')],
-    ['Audit log',         'Implemented', `${s.audit_records ?? 0} records / ${s.audit_log_bytes ?? 0} B`],
-    ['Indexed entries',   'Implemented', String(s.indexed_entries ?? '—')],
-    ['Disk bytes',        'Implemented', String(s.disk_bytes ?? '—')],
-    ['Chunk count',       'Planned',     `${s.chunks ?? 0} counted; list endpoint planned`],
-    ['Snapshot details',  'Planned',     'snapshot inspector'],
-    ['Index health',      'Planned',     'index health panel'],
-    ['Log stream',        'Planned',     'structured log stream'],
+    [t('healthEndpoint'),  t('implemented'), 'GET /health -> { status: "ok" }'],
+    ['Stats',              t('implemented'), '/admin/bootstrap'],
+    [t('walEntries'),      t('implemented'), String(s.wal_entries ?? '—')],
+    [t('auditLog'),        t('implemented'), `${s.audit_records ?? 0} / ${s.audit_log_bytes ?? 0} B`],
+    [t('indexedEntries'),  t('implemented'), String(s.indexed_entries ?? '—')],
+    [t('diskBytes'),       t('implemented'), String(s.disk_bytes ?? '—')],
+    [t('chunkCount'),      t('planned'),     String(s.chunks ?? 0)],
+    [t('snapshotDetails'), t('planned'),     t('snapshotDetails')],
+    [t('indexHealth'),     t('planned'),     t('indexHealth')],
+    [t('logStream'),       t('planned'),     t('structuredLogStream')],
   ];
-  return `${PageHeader('Observability', t('observabilityLead'), ActionButton(t('refresh'), 'refresh'))}
+  return `${PageHeader(t('observability'), t('observabilityLead'), ActionButton(t('refresh'), 'refresh'))}
     <section class="grid cols-3">
       ${StatCard(t('health'), state.session ? 'OK' : '—', '/health')}
-      ${StatCard('Disk bytes', s.disk_bytes ?? '—')}
-      ${StatCard('Indexed entries', s.indexed_entries ?? '—')}
+      ${StatCard(t('diskBytes'), s.disk_bytes ?? '—')}
+      ${StatCard(t('indexedEntries'), s.indexed_entries ?? '—')}
     </section>
     <section class="panel">
       ${DataTable(
         physical.map((row, idx) => ({ id: idx, name: row[0], status: row[1], detail: row[2], __list: 'observability' })),
         [{key:'name',label:'metric'},{key:'status',label:'status'},{key:'detail',label:'detail'}],
-        'No observability data'
+        t('noObservabilityData')
       )}
     </section>`;
 }
 
 function SettingsPage() {
-  return `${PageHeader('Settings', 'Interface preferences and planned runtime configuration.')}
+  return `${PageHeader(t('settings'), t('settingsLead'))}
     <section class="grid cols-2">
       <div class="panel">
         <h3>Interface</h3>
         <div class="form-grid">
           ${FormField(t('language'), 'settingsLanguage', state.lang, 'text', 'placeholder="en or pt"')}
         </div>
-        <div class="notice" style="margin-top:12px">Change the language via the selector in the topbar. Settings here are for future runtime configuration.</div>
+        <div class="notice" style="margin-top:12px">${esc(t('settingsLanguageLead'))}</div>
       </div>
       <div class="panel">
-        <h3>Runtime configuration</h3>
-        ${StatusBadge('Planned', 'planned')}
-        <p style="color:var(--muted);font-size:13.5px;margin-top:10px">Embedding provider runtime, reindex controls, hybrid_alpha tuning, and table catalog settings are planned for future releases.</p>
+        <h3>${esc(t('runtimeConfiguration'))}</h3>
+        ${StatusBadge(t('planned'), 'planned')}
+        <p style="color:var(--muted);font-size:13.5px;margin-top:10px">${esc(t('runtimeConfigurationLead'))}</p>
       </div>
     </section>`;
 }
@@ -1551,7 +1940,7 @@ function LoginPage() {
       </select>
     </label>
     <button class="primary" type="submit">${esc(t('login'))}</button>
-  </form>${state.toast ? `<div class="toast">${esc(state.toast)}</div>` : ''}</div>`;
+  </form>${state.toast ? `<div class="toast">${esc(messageText(state.toast))}</div>` : ''}</div>`;
 }
 
 function renderPage() {
@@ -1575,9 +1964,10 @@ function renderPage() {
   return AppShell(DashboardPage());
 }
 
-function render() {
-  document.documentElement.lang = state.lang;
+function render(preservedFields = []) {
+  document.documentElement.lang = state.lang === 'pt' ? 'pt-BR' : 'en';
   root.innerHTML = renderPage();
+  restoreFormState(preservedFields);
 }
 
 /* ─── Data loading ───────────────────────────────────────────────────────── */
@@ -1650,7 +2040,7 @@ async function login(event) {
     body: JSON.stringify({ username, password }),
   });
   state.session = data.session;
-  state.lastOperation = 'Signed in successfully.';
+  state.lastOperation = message('signedIn');
   persist();
   await hydratePage();
 }
@@ -1658,43 +2048,43 @@ async function login(event) {
 async function createTenant() {
   const id = document.getElementById('tenantFormId')?.value.trim();
   const name = document.getElementById('tenantFormName')?.value.trim() || id;
-  if (!id) throw new Error('tenant id required');
+  if (!id) throw new Error(t('tenantIdRequired'));
   await request('/admin/tenants', { method: 'POST', body: JSON.stringify({ id, name }) });
   state.tenant = id;
-  state.lastOperation = `Created tenant "${id}". Next: create a collection.`;
+  state.lastOperation = message('tenantCreatedNext', { id });
   await hydratePage();
-  showToast(`Tenant "${id}" created. Now create a collection →`);
+  showToast(message('tenantCreated', { id }));
 }
 
 async function createCollection() {
   const name = document.getElementById('collectionName')?.value.trim();
   const description = document.getElementById('collectionDescription')?.value.trim();
-  if (!state.tenant) throw new Error('select a tenant first');
-  if (!name) throw new Error('collection name required');
+  if (!state.tenant) throw new Error(t('selectTenantFirst'));
+  if (!name) throw new Error(t('collectionNameRequired'));
   await request(`/admin/tenants/${encodeURIComponent(state.tenant)}/collections`, {
     method: 'POST',
     body: JSON.stringify({ name, description }),
   });
   state.collection = name;
-  state.lastOperation = `Created collection "${name}". Next: store your first memory or record.`;
+  state.lastOperation = message('collectionCreatedNext', { name });
   await hydratePage();
-  showToast(`Collection "${name}" created.`);
+  showToast(message('collectionCreated', { name }));
 }
 
 async function runSql() {
   const sql = document.getElementById('sqlInput')?.value.trim();
-  if (!state.tenant) throw new Error('select a tenant in the topbar first');
+  if (!state.tenant) throw new Error(t('selectTenantTopbar'));
   state.sqlError = '';
   try {
     state.sqlResult = await request('/admin/sql', {
       method: 'POST',
       body: JSON.stringify({ tenant_id: state.tenant, sql }),
     });
-    state.lastOperation = `SQL returned ${state.sqlResult.row_count} row(s).`;
+    state.lastOperation = message('sqlReturned', { count: state.sqlResult.row_count });
   } catch (err) {
     state.sqlResult = null;
     state.sqlError = err.message || String(err);
-    state.lastOperation = `SQL error: ${state.sqlError}`;
+    state.lastOperation = message('sqlErrorMessage', { message: state.sqlError });
   }
   render();
 }
@@ -1709,8 +2099,8 @@ async function storeMemory() {
     body: JSON.stringify({ collection, text, memory_type: 'semantic' }),
   });
   state.ingestDraft = { collection, table: state.ingestDraft.table, content: '' };
-  state.lastOperation = t('memoryStored');
-  showToast(t('memoryStoredToast'));
+  state.lastOperation = message('memoryStored');
+  showToast(message('memoryStoredToast'));
   await hydratePage();
 }
 
@@ -1724,8 +2114,8 @@ async function storeDocument() {
     body: JSON.stringify({ collection, text }),
   });
   state.ingestDraft = { collection, table: state.ingestDraft.table, content: '' };
-  state.lastOperation = t('documentStored');
-  showToast(t('documentStoredToast'));
+  state.lastOperation = message('documentStored');
+  showToast(message('documentStoredToast'));
   await hydratePage();
 }
 
@@ -1745,8 +2135,8 @@ async function storeRecord() {
     body: JSON.stringify({ collection, table, payload }),
   });
   state.ingestDraft = { collection, table, content: '' };
-  state.lastOperation = t('recordStored');
-  showToast(t('recordStored'));
+  state.lastOperation = message('recordStored');
+  showToast(message('recordStored'));
   await hydratePage();
 }
 
@@ -1766,7 +2156,7 @@ async function runRecall(kind) {
   state.recallKind = kind;
   state.recallTab = 'results';
   state.recallQuery = query;
-  state.lastOperation = kind === 'context' ? t('contextBuilt') : t('recallCompleted');
+  state.lastOperation = message(kind === 'context' ? 'contextBuilt' : 'recallCompleted');
   render();
 }
 
@@ -1775,9 +2165,9 @@ async function rotateKey() {
     method: 'POST',
     body: JSON.stringify({ length: 32 }),
   });
-  state.detail = { title: 'New service key (copy now — shown once)', value: result };
-  state.lastOperation = 'Service API key rotated.';
-  showToast('Key rotated. Copy it from the detail drawer.');
+  state.detail = { titleKey: 'newServiceKeyTitle', value: result };
+  state.lastOperation = message('serviceKeyRotated');
+  showToast(message('serviceKeyRotatedToast'));
   await hydratePage();
 }
 
@@ -1797,8 +2187,8 @@ async function saveProvider() {
     method: 'POST',
     body: JSON.stringify(providerBody()),
   });
-  state.lastOperation = 'Provider configuration saved.';
-  showToast('Provider saved.');
+  state.lastOperation = message('providerSaved');
+  showToast(message('providerSavedToast'));
   await hydratePage();
 }
 
@@ -1807,18 +2197,18 @@ async function validateProvider() {
     method: 'POST',
     body: JSON.stringify(providerBody()),
   });
-  state.lastOperation = 'Provider validated locally.';
+  state.lastOperation = message('providerValidated');
   render();
 }
 
 async function pingProvider() {
   const id = document.getElementById('providerId')?.value.trim();
-  if (!id) { showError('Enter the provider id to ping'); return; }
+  if (!id) { showError(t('providerIdRequired')); return; }
   state.providerResult = await request('/admin/llm-providers/ping', {
     method: 'POST',
     body: JSON.stringify({ id }),
   });
-  state.lastOperation = `Provider "${id}" pinged.`;
+  state.lastOperation = message('providerPinged', { id });
   render();
 }
 
@@ -1827,26 +2217,26 @@ async function savePrompt() {
   const desc    = document.getElementById('promptDesc')?.value.trim();
   const tenant  = document.getElementById('promptTenant')?.value.trim() || null;
   const content = document.getElementById('promptContent')?.value.trim();
-  if (!name || !content) { showError('Name and content are required'); return; }
+  if (!name || !content) { showError(t('promptNameContentRequired')); return; }
   const editing = state.editingPrompt;
   const body = { id: editing?.id || null, name, description: desc, content, tenant_id: tenant };
   const method = editing ? 'PUT' : 'POST';
   const url = editing ? `/admin/prompts/${encodeURIComponent(editing.id)}` : '/admin/prompts';
   await request(url, { method, body: JSON.stringify(body) });
   state.editingPrompt = null;
-  state.lastOperation = `Prompt "${name}" saved.`;
-  showToast(`Prompt "${name}" saved.`);
+  state.lastOperation = message('promptSaved', { name });
+  showToast(message('promptSaved', { name }));
   await hydratePage();
 }
 
 async function deletePrompt() {
   const editing = state.editingPrompt;
   if (!editing) return;
-  if (!window.confirm(`Delete prompt "${editing.name}"?`)) return;
+  if (!window.confirm(tf('deletePromptConfirm', { name: editing.name }))) return;
   await request(`/admin/prompts/${encodeURIComponent(editing.id)}`, { method: 'DELETE' });
   state.editingPrompt = null;
-  state.lastOperation = `Prompt "${editing.name}" deleted.`;
-  showToast(`Prompt "${editing.name}" deleted.`);
+  state.lastOperation = message('promptDeleteDone', { name: editing.name });
+  showToast(message('promptDeleteDone', { name: editing.name }));
   await hydratePage();
 }
 
@@ -1855,8 +2245,8 @@ async function runChat() {
   const col    = document.getElementById('chatCollection')?.value.trim() || state.collection || undefined;
   const pid    = document.getElementById('chatPromptId')?.value.trim() || undefined;
   const query  = document.getElementById('chatQuery')?.value.trim();
-  if (!tid)   { showError('Tenant is required'); return; }
-  if (!query) { showError('Enter a question'); return; }
+  if (!tid)   { showError(t('tenantRequired')); return; }
+  if (!query) { showError(t('questionRequired')); return; }
   const output = document.getElementById('chatOutput');
   if (output) output.textContent = '…';
   state.chatResult = '';
@@ -1908,7 +2298,7 @@ function openDetail(list, index) {
 }
 
 function copyCode(value) {
-  navigator.clipboard?.writeText(value).then(() => showToast(t('copied')));
+  navigator.clipboard?.writeText(value).then(() => showToast(message('copied')));
 }
 
 /* ─── Event handling ─────────────────────────────────────────────────────── */
@@ -1929,14 +2319,14 @@ async function handleAction(target) {
   if (action === 'delete-table') {
     const name = target.dataset.name;
     if (!name) return;
-    if (!window.confirm(`Delete table "${name}" and all its records? This cannot be undone.`)) return;
+    if (!window.confirm(tf('deleteTableConfirm', { name }))) return;
     const params = new URLSearchParams({ collection: state.collection });
     await request(
       `/admin/tenants/${encodeURIComponent(state.tenant)}/tables/${encodeURIComponent(name)}?${params}`,
       { method: 'DELETE' }
     );
-    state.lastOperation = `Table "${name}" deleted.`;
-    showToast(`Table "${name}" deleted.`);
+    state.lastOperation = message('tableDeleted', { name });
+    showToast(message('tableDeleted', { name }));
     await hydratePage();
     return;
   }
@@ -2001,14 +2391,14 @@ async function handleAction(target) {
   if (action === 'copy-traefik') {
     const pre = document.querySelector('pre');
     if (pre) navigator.clipboard?.writeText(pre.textContent).catch(() => {});
-    showToast('Copied to clipboard');
+    showToast(message('copiedToClipboard'));
     return;
   }
   if (action === 'copy-compose') {
     const pres = document.querySelectorAll('pre');
     const last = pres[pres.length - 1];
     if (last) navigator.clipboard?.writeText(last.textContent).catch(() => {});
-    showToast('Copied to clipboard');
+    showToast(message('copiedToClipboard'));
     return;
   }
   if (action === 'detail')            { openDetail(target.dataset.list, target.dataset.index); return; }
@@ -2019,9 +2409,9 @@ async function handleAction(target) {
 
 /* ─── File upload via XHR (progress events) ─────────────────────────────── */
 async function uploadFile(file) {
-  if (!state.tenant) throw new Error('select a tenant first');
+  if (!state.tenant) throw new Error(t('selectTenantFirst'));
   const collection = document.getElementById('fileCollection')?.value.trim() || state.collection;
-  if (!collection) throw new Error('collection required — fill the collection field above the drop zone');
+  if (!collection) throw new Error(t('uploadCollectionRequired'));
   state.uploadProgress = 1;
   state.uploadResult = null;
   render();
@@ -2051,7 +2441,7 @@ async function uploadFile(file) {
     };
     xhr.onerror = () => {
       state.uploadProgress = 0;
-      reject(new Error('Network error during upload'));
+      reject(new Error(t('uploadNetworkError')));
     };
     xhr.send(fd);
   });
@@ -2061,8 +2451,8 @@ function handleDroppedFiles(files) {
   Array.from(files).forEach((file) => {
     uploadFile(file)
       .then(() => {
-        showToast(`${file.name} uploaded successfully.`);
-        state.lastOperation = `Uploaded ${file.name} → ${state.uploadResult?.kind}`;
+        showToast(message('uploadComplete', { name: file.name }));
+        state.lastOperation = message('uploadLastOperation', { name: file.name, kind: state.uploadResult?.kind });
         return hydratePage();
       })
       .catch(showError);
@@ -2088,9 +2478,10 @@ root.addEventListener('change', (event) => {
     hydratePage().catch(showError);
   }
   if (event.target.id === 'languageSelect' || event.target.id === 'loginLang') {
+    const fields = captureFormState();
     state.lang = event.target.value;
     persist();
-    render();
+    render(fields);
   }
   if (event.target.id === 'fileInput' && event.target.files.length > 0) {
     handleDroppedFiles(event.target.files);
