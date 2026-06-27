@@ -2,48 +2,47 @@
 
 ## Nome da feature
 
-**Matched Terms v0.1**
+**Ingestion & Recall UX Hardening v0.1**
 
 ## Por que importa
 
-Ao depurar qualidade de recall, operadores precisam saber quais tokens da
-query de fato apareceram em cada resultado retornado. O campo `reason` expoe
-decomposicao de score mas nao cobertura textual. Adicionar `matched_terms`
-permite que o LLM cite quais termos motivaram o match e que desenvolvedores
-identifiquem se baixo recall se deve a incompatibilidade vocabular ou a
-distancia vetorial.
+A pagina Ingestion & Recall agora funciona de ponta a ponta, mas a experiencia
+ainda e baseada em formularios simples. Usuarios que nao sabem qual collection
+usar precisam sair da pagina para verificar. Adicionar autocomplete de collection
+(populado da lista carregada), renderizacao de cards de resultado de recall
+(em vez de dump JSON bruto) e contagem de tokens para build_context tornara
+o ciclo ingestao → recall muito mais fluido sem mudancas no servidor.
 
 ## Comportamento
 
-- Adicionar `matched_terms: Vec<String>` em `RecallResult` (serde default `[]`).
-- Populado em `query.rs`: intersecao dos tokens da query com os tokens do
-  texto do resultado. Apenas termos presentes nos dois conjuntos sao listados;
-  duplicatas removidas; vazio quando modo for vector puro (sem tokens de query).
-- O campo e puramente informativo; nunca afeta ranking ou filtragem.
-- Callers existentes que omitem o campo na deserializacao nao sao afetados
-  por causa de `#[serde(default)]`.
+- **Autocomplete de collection**: campos de collection nas secoes Store e Recall
+  auto-populam com `<datalist>` de `state.collections`.
+- **Cards de resultado de recall**: substituir `JsonViewer` por uma lista de cards
+  estruturados com score, badge de tipo, matched_terms, snippet de texto e
+  botao de copiar id.
+- **Resultado de build_context**: mostrar contagem de tokens, badges de
+  items incluidos/descartados e texto formatado em bloco `<pre>` legivel.
+- **Selecao de tipo por radio**: chaves Memory/Document/Record/File devem
+  mostrar/ocultar campos relevantes (ex: nome da tabela apenas para Record).
 
 ## Arquivos provaveis
 
-- `crates/hippocore/src/model.rs` (RecallResult)
-- `crates/hippocore/src/query.rs` (build_result / execute)
+- `crates/hippocore-server/src/admin/app.js` (IngestionRecallPage, cards)
+- `crates/hippocore-server/src/admin/styles.css` (estilos de card de recall)
 - `docs/en/STATUS.md`
 - `docs/pt-br/STATUS.md`
 - `CHANGELOG.md`
 
 ## Criterios de aceitacao
 
-- `RecallResult` tem `matched_terms: Vec<String>` com default `[]`.
-- Para recall hibrido ou textual, termos presentes em query e texto do
-  resultado sao listados (minusculo, deduplicados).
-- Para recall puramente vetorial, `matched_terms` e vazio.
-- Resultados serializados que omitem o campo deserializam sem erro.
-- `cargo fmt --all --check`, `cargo test --workspace`, e
-  `cargo clippy --workspace --all-targets -- -D warnings` passam.
+- Input de collection exibe datalist com collections conhecidas para o tenant selecionado.
+- Resultados de recall renderizam como cards, nao JSON bruto (exceto aba JSON).
+- Resultado de build_context mostra contagem de tokens + items incluidos/descartados + texto.
+- Selecao de tipo por radio exibe/oculta o campo de tabela dinamicamente.
+- Toda a funcionalidade existente preservada; portao de qualidade verde.
 
 ## Fora de escopo
 
-- Offsets ou posicoes de caracteres.
-- Pesos de termos ou scores IDF na lista.
-- Passar matched_terms como metadado estruturado para o LLM (escolha do caller).
-- Qualquer mudanca em storage ou index.
+- UI de upload de arquivo (drag-and-drop e feature separada).
+- Ingestao em lote (API batch disponivel mas UI fora de escopo aqui).
+- Streaming em tempo real de progresso de ingestao.

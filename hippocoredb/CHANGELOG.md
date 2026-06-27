@@ -5,6 +5,27 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane Liquid Glass UI v0.1
+
+- Complete visual redesign of `/admin` with Liquid Glass design system:
+  translucent glass cards (`backdrop-filter: blur`), radial gradient body,
+  cyan glow accent, smooth hover/focus transitions, slide-in detail drawer,
+  toast notifications, and a `.loading` pulse animation.
+- New `Documentation` page with 9 embedded bilingual sections (Overview,
+  Quickstart, Concepts, Data Model, SQL Guide, RAG/Context Guide, API Auth,
+  CLI Guide, Architecture) and a sticky left-nav sidebar.
+- `DashboardPage()` welcome card with 4-step onboarding flow for first-time
+  users (no tenants state): create tenant → collection → ingest → recall.
+- Empty states with actionable guidance on every data page (Tenants,
+  Collections, Records, Memories, Documents, Files, Graph, Data Explorer).
+- Quick-action card grid on Dashboard with shortcut navigation to all major flows.
+- Navigation shortcuts (`go-tenants`, `go-collections`, `go-sql`,
+  `go-explorer`, `go-ingest`, `go-keys`, `go-docs`) from empty states.
+- `index.html` loads Inter font via Google Fonts for premium typography.
+- `styles.css` fully rewritten: CSS custom properties design system, group
+  labels in sidebar, `.welcome-card`, `.onboarding-step`, `.quick-action-card`,
+  `.docs-layout`, `.docs-nav`, `.docs-content`, `.radio-card`, `.code-block`.
+
 ### Added — MMR (Maximal Marginal Relevance) v0.1
 
 - `RecallRequest` gains `mmr: bool` (default `false`) and `mmr_lambda: f32`

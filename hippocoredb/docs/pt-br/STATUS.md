@@ -4,7 +4,29 @@ _Última atualização: 2026-06-26._
 
 ## Implementado por último
 
-**MMR (Maximal Marginal Relevance) v0.1**:
+**Control Plane — Liquid Glass UI v0.1**:
+
+- Redesign visual completo do `/admin` em interface Liquid Glass premium:
+  cards translucidos com `backdrop-filter: blur`, fundo com gradiente radial,
+  accent cyan com glow, transicoes suaves, drawer com animacao slide-in,
+  notificacoes toast e empty states com orientacao de proximos passos.
+- Nova pagina `Documentation` com docs bilíngues embutidos (9 secoes:
+  Visao Geral, Quickstart, Conceitos, Modelo de Dados, Guia SQL, Guia RAG,
+  Autenticacao API, Guia CLI, Arquitetura) e navegacao em sidebar sticky.
+- `DashboardPage()` agora exibe welcome card com 4 passos de onboarding
+  quando nao ha tenants, guiando novos usuarios por tenant → collection →
+  ingestao → recall.
+- Empty states em todas as paginas (Tenants, Collections, Records, Memories,
+  Documents, Files, Data Explorer) com texto de orientacao e botoes contextuais.
+- Grade de quick-action cards no Dashboard com classe CSS `.quick-action-card`
+  e indicador de seta.
+- Atalhos de navegacao (`go-tenants`, `go-collections`, `go-sql`, `go-explorer`,
+  `go-ingest`, `go-keys`, `go-docs`) acessiveis de qualquer empty state.
+- `index.html` atualizado para importar a fonte Inter via Google Fonts.
+- Toda a funcionalidade existente preservada; nenhuma pagina removida; i18n PT/EN mantido.
+- Portao de qualidade: `cargo fmt`, `cargo test --workspace`, `cargo clippy -D warnings` todos verdes.
+
+Anterior: **MMR (Maximal Marginal Relevance) v0.1**:
 
 - Adicionado `mmr: bool` e `mmr_lambda: f32` em `RecallRequest` (defaults: `false`, `0.5`).
 - Quando ativado, resultados sao reranqueados selecionando iterativamente itens
