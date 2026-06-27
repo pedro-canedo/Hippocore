@@ -93,6 +93,8 @@ cargo clippy --workspace --all-targets -- -D warnings
   ativos, com validação de JSON no cliente.
 - Recall: testar recuperação via `POST /admin/tenants/{tid}/recall` com escopo
   opcional de collection, `top_k`, toggles dedup/MMR e cards de resultado.
+- Upload de arquivo: drag-and-drop (PDF/TXT/MD/CSV/JSON) na página Ingestion via
+  `POST /admin/tenants/{tid}/files`, com barra de progresso XHR.
 - Chave de sessão compartilhada (`hippocore.adminSession`) com o console `/admin`.
 
 ## Plano de migração

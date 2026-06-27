@@ -4,7 +4,21 @@ _Última atualização: 2026-06-27._
 
 ## Implementado por último
 
-**Control Plane TS — Recall v0.6**:
+**Control Plane TS — Upload de Arquivos (drag-and-drop) v0.7**:
+
+- A página Ingestion ganha uma zona **Upload file** drag-and-drop (PDF/TXT/MD/
+  CSV/JSON), condicionada a um tenant ativo e a uma collection selecionada.
+- Uploads usam `XMLHttpRequest` para renderizar uma barra de progresso real,
+  postando multipart `file` + `collection` no `POST /admin/tenants/{tid}/files`
+  existente; o servidor faz dispatch por tipo (documents vs records).
+- Um banner de sucesso mostra o resultado do servidor (`kind`, `count`, `name`),
+  as contagens do Dashboard atualizam e os dados aparecem no Data Explorer;
+  clicar na zona também abre um seletor de arquivos. Tipos não suportados/erros
+  renderizam inline.
+- Isso completa a paridade de ingestão com o console clássico para os caminhos
+  de escrita comuns. Sem mudanças no servidor; assets rebuildados e embarcados.
+
+Anterior: **Control Plane TS — Recall v0.6**:
 
 - Nova página **Recall** no `/console`, condicionada a um tenant ativo, chamando
   o `POST /admin/tenants/{tid}/recall` existente.

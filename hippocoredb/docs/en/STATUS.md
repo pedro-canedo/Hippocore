@@ -4,7 +4,20 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TS — Recall v0.6**:
+**Control Plane TS — File Upload (drag-and-drop) v0.7**:
+
+- The Ingestion page gains a drag-and-drop **Upload file** zone (PDF/TXT/MD/CSV/
+  JSON), gated on an active tenant and a selected collection.
+- Uploads use `XMLHttpRequest` to render a real progress bar, posting multipart
+  `file` + `collection` to the existing `POST /admin/tenants/{tid}/files`; the
+  server dispatches by type (documents vs records).
+- A success banner shows the server's result (`kind`, `count`, `name`),
+  Dashboard counts refresh, and the data appears in the Data Explorer; clicking
+  the zone also opens a file picker. Unsupported types/errors render inline.
+- This completes ingestion parity with the classic console for the common write
+  paths. No server changes; assets rebuilt and embedded.
+
+Previous: **Control Plane TS — Recall v0.6**:
 
 - New **Recall** page in `/console`, gated on an active tenant, calling the
   existing `POST /admin/tenants/{tid}/recall`.

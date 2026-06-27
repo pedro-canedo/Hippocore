@@ -2,33 +2,32 @@
 
 ## Nome da feature
 
-**Control Plane TS — Upload de Arquivos (drag-and-drop) v0.7**
+**Control Plane TS — Integrations (LLM) v0.8**
 
 ## Por que importa
 
-A ingestão no `/console` cobre Memory, Record e Document, mas não arquivos. O
-console clássico tem upload drag-and-drop (PDF/CSV/TXT/MD/JSON) via
-`POST /admin/tenants/{tid}/files`. Portá-lo completa a paridade de ingestão e é
-o último caminho de escrita comum faltando no console TypeScript.
+O console cobre todo o loop de dados, mas não a configuração do "cérebro" LLM. O
+console clássico tem uma página Integrations (providers + validate + ping ao vivo
++ exposição da API). Portar a configuração de provider para o `/console`
+desbloqueia a feature de Chat (RAG → LLM) futura e permite conectar o cérebro na
+nova UI tipada.
 
 ## Comportamento
 
-- Adicionar uma drop zone à página Ingestion (ou uma aba Files dedicada)
-  aceitando `.pdf`, `.txt`, `.md`, `.csv`, `.json`, condicionada a tenant +
-  collection.
-- Upload via `XMLHttpRequest` para expor progresso real (barra de progresso),
-  postando multipart `file` + `collection` em `POST /admin/tenants/{tid}/files`.
-- Mostrar um banner de sucesso com o resultado de dispatch do servidor
-  (`{ file_id, kind, count, name }`) e atualizar as contagens do Dashboard;
-  clicar na zona também abre um seletor de arquivos.
-- Tipos não suportados e erros do servidor renderizam inline.
+- Adicionar uma página **Integrations** à sidebar.
+- Listar providers configurados de `GET /admin/llm-providers`; adicionar/atualizar
+  um via `POST /admin/llm-providers` (id, kind, base_url, model, api_key opcional).
+- **Validate** a config de um provider localmente
+  (`POST /admin/llm-providers/validate`) e **Ping** ao vivo
+  (`POST /admin/llm-providers/ping`), mostrando ok/mensagem e latência sem
+  quebrar em falha de rede.
+- Mostrar a exposição da API de `GET /admin/api-info` (base URL, hint da key
+  mascarada) com um exemplo curl de recall.
 
 ## Arquivos provaveis
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (helper de upload XHR + progresso)
-- `crates/hippocore-server/admin-ui/src/views/IngestionView.tsx` (drop zone) ou
-  um novo `views/FilesView.tsx`
-- `crates/hippocore-server/admin-ui/src/components/DropZone.tsx` (novo)
+- `crates/hippocore-server/admin-ui/src/api.ts` (calls de provider + api-info)
+- `crates/hippocore-server/admin-ui/src/views/IntegrationsView.tsx` (novo)
 - `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Assets rebuildados em `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
@@ -36,20 +35,21 @@ o último caminho de escrita comum faltando no console TypeScript.
 
 ## Criterios de aceitacao
 
-- Arrastar ou selecionar um arquivo suportado faz upload com barra de progresso
-  visível e mostra o resultado de dispatch; os dados aparecem no Data Explorer.
-- Extensões não suportadas e erros do servidor renderizam inline sem quebrar.
+- Listar, adicionar/atualizar, validar e pingar providers funcionam; a API key
+  armazenada nunca é mostrada (apenas indicador de set/length e hint mascarado).
+- Uma URL de ping ruim retorna ok:false inline (sem crash, sem 500 fatal).
 - `pnpm type-check` e `pnpm build` passam; o portão Rust fica verde.
 - Texto novo voltado ao usuário existe em inglês e português.
 
 ## Testes
 
 - Assets de `/console` continuam públicos (teste de integração existente).
-- Testes do endpoint de upload existente continuam verdes.
+- Testes existentes do registro de providers (mascaramento de segredo) continuam
+  verdes.
 - `tsc --noEmit` strict passa; build atualiza `src/console/`.
 
 ## Fora de escopo
 
-- Integrations (LLM), Prompts, Context builder/Chat, Observability, Graph.
-- Filas multi-arquivo além de uploads sequenciais.
-- Aposentar o `/admin`.
+- Prompts e Chat (o próximo incremento depois deste).
+- Geradores de config Traefik/Docker (podem vir depois).
+- Observability, Graph, Settings.

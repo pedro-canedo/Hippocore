@@ -355,3 +355,57 @@ export function recall(
 ): Promise<RecallItem[]> {
   return postTenant<RecallItem[]>(session, tenantId, "recall", body);
 }
+
+export interface UploadResult {
+  file_id: string | null;
+  kind: string;
+  count: number;
+  name: string;
+}
+
+/**
+ * Upload a file via multipart. Uses XMLHttpRequest (not fetch) so the caller
+ * can render real upload progress through `onProgress`.
+ */
+export function uploadFile(
+  session: string,
+  tenantId: string,
+  file: File,
+  collection: string,
+  onProgress: (percent: number) => void,
+): Promise<UploadResult> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    form.append("collection", collection);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/admin/tenants/${encodeURIComponent(tenantId)}/files`);
+    xhr.setRequestHeader("x-admin-session", session);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as UploadResult);
+        } catch {
+          reject(new ApiError(xhr.status, "invalid upload response"));
+        }
+        return;
+      }
+      let message = `HTTP ${xhr.status}`;
+      try {
+        const body = JSON.parse(xhr.responseText) as { error?: string };
+        if (body && typeof body.error === "string") message = body.error;
+      } catch {
+        // keep status message
+      }
+      reject(new ApiError(xhr.status, message));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "network error"));
+    xhr.send(form);
+  });
+}

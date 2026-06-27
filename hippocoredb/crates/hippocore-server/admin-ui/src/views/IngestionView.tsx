@@ -4,9 +4,12 @@ import {
   createDocument,
   createMemory,
   createRecord,
+  uploadFile,
   type Collection,
+  type UploadResult,
 } from "../api";
 import { loadActiveCollection, saveActiveCollection } from "../session";
+import { DropZone } from "../components/DropZone";
 
 interface IngestionViewProps {
   session: string;
@@ -24,6 +27,30 @@ export function IngestionView({
   const [collection, setCollection] = useState<string>(() =>
     loadActiveCollection(activeTenant),
   );
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [uploadError, setUploadError] = useState("");
+
+  async function handleFile(file: File) {
+    setUploadError("");
+    setUploadResult(null);
+    setUploadPct(0);
+    try {
+      const result = await uploadFile(
+        session,
+        activeTenant,
+        file,
+        collection,
+        setUploadPct,
+      );
+      setUploadResult(result);
+      setUploadPct(null);
+      onChanged(`Uploaded ${result.name} → ${result.kind} (${result.count}).`);
+    } catch (err) {
+      setUploadPct(null);
+      setUploadError(err instanceof ApiError ? err.message : String(err));
+    }
+  }
 
   if (!activeTenant) {
     return (
@@ -89,6 +116,32 @@ export function IngestionView({
             collection={collection}
             onChanged={onChanged}
           />
+        </section>
+      ) : null}
+
+      {ready ? (
+        <section className="panel glass">
+          <h3>Upload file</h3>
+          <p className="muted small">
+            PDF/TXT/MD become documents; CSV/JSON-array become records; other
+            JSON becomes a document. Stored in <strong>{collection}</strong>.
+          </p>
+          <DropZone
+            accept=".pdf,.txt,.md,.csv,.json"
+            disabled={uploadPct !== null}
+            onFile={(file) => void handleFile(file)}
+          />
+          {uploadPct !== null ? (
+            <div className="progress">
+              <div className="progress-bar" style={{ width: `${uploadPct}%` }} />
+            </div>
+          ) : null}
+          {uploadResult ? (
+            <div className="notice success">
+              ✓ {uploadResult.name} → {uploadResult.kind} ({uploadResult.count})
+            </div>
+          ) : null}
+          {uploadError ? <div className="notice error">{uploadError}</div> : null}
         </section>
       ) : null}
     </>

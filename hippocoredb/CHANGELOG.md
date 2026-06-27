@@ -5,6 +5,15 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: File Upload (drag-and-drop) v0.7
+
+- Ingestion page gains a drag-and-drop upload zone (PDF/TXT/MD/CSV/JSON) over
+  the existing `POST /admin/tenants/{tid}/files`, gated on tenant + collection.
+- XHR upload with a real progress bar, success banner (`kind`/`count`/`name`),
+  Dashboard count refresh, and inline errors for unsupported types.
+- Typed `uploadFile` + `UploadResult` and a reusable `DropZone` component.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TS: Recall v0.6
 
 - New Recall page in `/console` (gated on an active tenant) over the existing
