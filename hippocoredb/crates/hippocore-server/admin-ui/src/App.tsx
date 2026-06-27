@@ -24,6 +24,7 @@ import { LoginView } from "./views/LoginView";
 import { DashboardView } from "./views/DashboardView";
 import { TenantsView } from "./views/TenantsView";
 import { CollectionsView } from "./views/CollectionsView";
+import { DataExplorerView } from "./views/DataExplorerView";
 
 export function App() {
   const [session, setSession] = useState<string>(() => loadSession());
@@ -96,7 +97,7 @@ export function App() {
   }, [session, refresh]);
 
   useEffect(() => {
-    if (session && view === "collections") {
+    if (session && (view === "collections" || view === "explorer")) {
       void loadCollections(session, activeTenant);
     }
   }, [session, view, activeTenant, loadCollections]);
@@ -197,6 +198,13 @@ export function App() {
           collections={collections}
           loading={loading}
           onChanged={onCollectionsChanged}
+        />
+      )}
+      {view === "explorer" && (
+        <DataExplorerView
+          session={session}
+          activeTenant={activeTenant}
+          collections={collections}
         />
       )}
       <Toast message={toast} />

@@ -4,7 +4,23 @@ _Última atualização: 2026-06-27._
 
 ## Implementado por último
 
-**Control Plane TS — Shell de Navegação + Tenants & Collections v0.2**:
+**Control Plane TS — Data Explorer (leitura) v0.3**:
+
+- Nova página **Data Explorer** no `/console`, condicionada a um tenant ativo,
+  com um seletor de collection cuja escolha é lembrada por tenant no local
+  storage.
+- Abas por tipo (Records, Memories, Documents, Files) carregam em paralelo para
+  o escopo selecionado e mostram contagens por tipo; clicar numa linha abre um
+  drawer de detalhe com o JSON completo do objeto.
+- Linhas de Record renderizam as chaves do payload como colunas deterministas e
+  ordenadas, enquanto `id` e `table` ficam como colunas de sistema estáveis; os
+  demais tipos mostram seus campos principais.
+- Cliente de API tipado estendido com `listRecords`, `listMemories`,
+  `listDocuments`, `listFiles` sobre os endpoints `/admin/*` existentes; as
+  leituras são escopadas por tenant, então só os dados do tenant ativo aparecem.
+- Sem mudanças no servidor; assets rebuildados e embarcados.
+
+Anterior: **Control Plane TS — Shell de Navegação + Tenants & Collections v0.2**:
 
 - O app `/console` ganha um shell de sidebar persistente (Dashboard, Tenants,
   Collections) com troca de view client-side — sem biblioteca de router — mais

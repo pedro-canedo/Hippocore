@@ -2,36 +2,33 @@
 
 ## Nome da feature
 
-**Control Plane TS — Data Explorer (leitura) v0.3**
+**Control Plane TS — SQL Editor v0.4**
 
 ## Por que importa
 
-Com tenants e collections gerenciáveis no `/console`, o próximo passo de maior
-valor é ver os dados dentro deles. Um Data Explorer read-only permite navegar
-Records, Memories, Documents e Files do tenant ativo e de uma collection
-escolhida, estabelecendo o padrão de listagem de entidades reutilizado por todas
-as páginas de gestão seguintes.
+O Data Explorer navega records por collection; o próximo passo é consultá-los.
+Portar o SQL Editor read-only para o `/console` dá aos operadores o poder do
+endpoint existente `POST /admin/sql` (`SELECT` escopado por tenant sobre payloads
+de records) dentro do novo console tipado, completando o loop central de "ver e
+consultar seus dados".
 
 ## Comportamento
 
-- Adicionar uma página **Data Explorer** à sidebar, condicionada a um tenant
-  ativo.
-- Um seletor de collection (populado por `GET /admin/collections?tenant_id=`)
-  escolhe o escopo; lembrar a última collection por tenant localmente.
-- Abas por tipo — Records, Memories, Documents, Files — carregam em paralelo para
-  a collection ativa e mostram contagens por tipo nas abas.
-- Records renderizam as chaves do payload como colunas deterministas (id e table
-  ficam como colunas de sistema estáveis); outros tipos mostram seus campos
-  principais. Um drawer de detalhe mostra o JSON completo da linha selecionada.
-- Empty states orientam a criar uma collection ou ingerir o primeiro dado pelo
-  console clássico enquanto a ingestão não foi portada.
+- Adicionar uma página **SQL Editor** à sidebar, condicionada a um tenant ativo.
+- Um textarea de query com botão Run e `Ctrl/Cmd + Enter` para executar contra
+  `POST /admin/sql` com `{ tenant_id, sql }`.
+- Renderizar resultados de sucesso como tabela com colunas deterministas de
+  payload e um toggle Raw JSON; mostrar a duração observada no cliente e a
+  contagem de linhas.
+- Expor erros estruturados de validação/parse via o `ApiError` tipado.
+- Manter a query atual no estado da view; snippets de exemplo preenchem o editor
+  sem executar automaticamente. Explicar brevemente que campos sem prefixo
+  mapeiam para `payload.<field>`.
 
 ## Arquivos provaveis
 
-- `crates/hippocore-server/admin-ui/src/api.ts` (listar records/memories/
-  documents/files; reutilizar `/admin/{records,memories,documents,files}`)
-- `crates/hippocore-server/admin-ui/src/views/DataExplorerView.tsx` (novo)
-- `crates/hippocore-server/admin-ui/src/components/Drawer.tsx` (novo)
+- `crates/hippocore-server/admin-ui/src/api.ts` (adicionar `runSql`)
+- `crates/hippocore-server/admin-ui/src/views/SqlEditorView.tsx` (novo)
 - `crates/hippocore-server/admin-ui/src/App.tsx`, `views.ts`, `styles.css`
 - Assets rebuildados em `crates/hippocore-server/src/console/`
 - `crates/hippocore-server/tests/server_integration.rs`
@@ -39,22 +36,21 @@ as páginas de gestão seguintes.
 
 ## Criterios de aceitacao
 
-- Selecionar tenant e collection lista cada tipo com contagens corretas.
-- Chaves do payload de records aparecem como colunas deterministas; o drawer
-  mostra JSON completo; isolamento de tenant é respeitado (só dados do tenant
-  ativo aparecem).
-- A collection escolhida é lembrada por tenant entre reloads.
+- Botão Run e `Ctrl/Cmd + Enter` executam o mesmo request escopado por tenant.
+- Resultados mostram colunas deterministas de payload e uma visão JSON completa;
+  duração e contagem de linhas aparecem.
+- Erros de parse/validação renderizam inline sem quebrar a view.
 - `pnpm type-check` e `pnpm build` passam; o portão Rust fica verde.
 - Texto novo voltado ao usuário existe em inglês e português.
 
 ## Testes
 
 - Assets de `/console` continuam públicos (teste de integração existente).
-- Endpoints de listagem do servidor continuam verdes.
+- Testes do endpoint `/admin/sql` existente continuam verdes.
 - `tsc --noEmit` strict passa; build atualiza `src/console/`.
 
 ## Fora de escopo
 
-- Criar/editar/excluir entidades pelo Explorer (read-only por enquanto).
-- Portar SQL Editor, Ingestion & Recall, Integrations, Prompts, Observability.
-- Paginação, busca server-side ou export CSV.
+- Expandir a gramática SQL ou adicionar escrita.
+- Histórico de queries, queries salvas, paginação ou export CSV.
+- Portar Ingestion & Recall, Integrations, Prompts, Observability.

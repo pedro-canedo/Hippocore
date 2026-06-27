@@ -5,6 +5,17 @@ All notable changes to Hippocore DB are documented here. This project adheres to
 
 ## [Unreleased]
 
+### Added — Control Plane TS: Data Explorer (read) v0.3
+
+- New Data Explorer page in `/console` (gated on an active tenant) with a
+  per-tenant-remembered collection selector and entity-type tabs (Records,
+  Memories, Documents, Files) loaded in parallel with per-type counts.
+- Record rows show deterministic sorted payload columns (id/table stay as
+  system columns); a detail drawer shows the full JSON of any selected row.
+- Typed API client extended with `listRecords`, `listMemories`,
+  `listDocuments`, `listFiles`; reads are tenant-scoped.
+- No server changes; assets rebuilt and re-embedded.
+
 ### Added — Control Plane TS: Navigation Shell + Tenants & Collections v0.2
 
 - `/console` gains a persistent sidebar shell with client-side view switching

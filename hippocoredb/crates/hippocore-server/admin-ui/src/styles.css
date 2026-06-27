@@ -410,6 +410,97 @@ form .field {
   z-index: 50;
 }
 
+/* ── Data Explorer ───────────────────────────────────── */
+.explorer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0;
+  flex-wrap: wrap;
+}
+.tab {
+  background: var(--glass-hi);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+  padding: 7px 12px;
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.tab:hover {
+  color: var(--text);
+}
+.tab.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.tab-count {
+  display: inline-block;
+  min-width: 18px;
+  text-align: center;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 11px;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.table-scroll .table tbody tr {
+  cursor: pointer;
+}
+.table td {
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Detail drawer ───────────────────────────────────── */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 40;
+}
+.drawer {
+  width: min(520px, 92vw);
+  height: 100%;
+  border-left: 1px solid var(--border);
+  padding: 18px;
+  overflow-y: auto;
+  border-radius: 0;
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.json {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 9px;
+  padding: 12px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

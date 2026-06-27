@@ -50,6 +50,47 @@ export interface Bootstrap {
   tenants: Tenant[];
 }
 
+export interface RecordRow {
+  id: string;
+  table: string;
+  collection: string;
+  payload: Record<string, unknown>;
+  created_at: number;
+  updated_at: number;
+  version: number;
+  [key: string]: unknown;
+}
+
+export interface MemoryRow {
+  id: string;
+  collection: string;
+  memory_type: string;
+  text: string;
+  confidence: number | null;
+  created_at: number;
+  [key: string]: unknown;
+}
+
+export interface DocumentRow {
+  id: string;
+  collection: string;
+  text: string;
+  version: number;
+  created_at: number;
+  updated_at: number;
+  [key: string]: unknown;
+}
+
+export interface FileRow {
+  id: string;
+  collection: string;
+  name: string;
+  media_type: string;
+  size_bytes: number;
+  created_at: number;
+  [key: string]: unknown;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
@@ -154,4 +195,61 @@ export async function createCollection(
   );
   if (!res.ok) return parseError(res);
   return (await res.json()) as Collection;
+}
+
+async function listEntities<T>(
+  session: string,
+  path: string,
+  tenantId: string,
+  collection: string,
+): Promise<T[]> {
+  const params = new URLSearchParams({ tenant_id: tenantId });
+  if (collection) params.set("collection", collection);
+  const res = await fetch(`${path}?${params.toString()}`, {
+    headers: { "x-admin-session": session },
+  });
+  if (!res.ok) return parseError(res);
+  return (await res.json()) as T[];
+}
+
+export function listRecords(
+  session: string,
+  tenantId: string,
+  collection: string,
+): Promise<RecordRow[]> {
+  return listEntities<RecordRow>(session, "/admin/records", tenantId, collection);
+}
+
+export function listMemories(
+  session: string,
+  tenantId: string,
+  collection: string,
+): Promise<MemoryRow[]> {
+  return listEntities<MemoryRow>(
+    session,
+    "/admin/memories",
+    tenantId,
+    collection,
+  );
+}
+
+export function listDocuments(
+  session: string,
+  tenantId: string,
+  collection: string,
+): Promise<DocumentRow[]> {
+  return listEntities<DocumentRow>(
+    session,
+    "/admin/documents",
+    tenantId,
+    collection,
+  );
+}
+
+export function listFiles(
+  session: string,
+  tenantId: string,
+  collection: string,
+): Promise<FileRow[]> {
+  return listEntities<FileRow>(session, "/admin/files", tenantId, collection);
 }

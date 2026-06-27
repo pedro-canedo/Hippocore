@@ -30,3 +30,28 @@ export function saveActiveTenant(tenantId: string): void {
   if (tenantId) localStorage.setItem(TENANT_KEY, tenantId);
   else localStorage.removeItem(TENANT_KEY);
 }
+
+// Active collection is remembered per tenant in a small JSON map.
+const COLLECTION_MAP_KEY = "hippocore.console.collectionByTenant";
+
+function readCollectionMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(COLLECTION_MAP_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function loadActiveCollection(tenantId: string): string {
+  if (!tenantId) return "";
+  return readCollectionMap()[tenantId] ?? "";
+}
+
+export function saveActiveCollection(tenantId: string, collection: string): void {
+  if (!tenantId) return;
+  const map = readCollectionMap();
+  if (collection) map[tenantId] = collection;
+  else delete map[tenantId];
+  localStorage.setItem(COLLECTION_MAP_KEY, JSON.stringify(map));
+}

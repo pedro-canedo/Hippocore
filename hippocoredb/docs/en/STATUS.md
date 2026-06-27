@@ -4,7 +4,22 @@ _Last updated: 2026-06-27._
 
 ## What was implemented last
 
-**Control Plane TS — Navigation Shell + Tenants & Collections v0.2**:
+**Control Plane TS — Data Explorer (read) v0.3**:
+
+- New **Data Explorer** page in `/console`, gated on an active tenant, with a
+  collection selector whose choice is remembered per tenant in local storage.
+- Entity-type tabs (Records, Memories, Documents, Files) load in parallel for
+  the selected scope and show per-type counts; clicking a row opens a detail
+  drawer with the full JSON of that object.
+- Record rows render their payload keys as deterministic, sorted columns while
+  `id` and `table` stay as stable system columns; the other types show their
+  core fields.
+- Typed API client extended with `listRecords`, `listMemories`,
+  `listDocuments`, `listFiles` over the existing `/admin/*` endpoints; reads are
+  tenant-scoped so only the active tenant's data is shown.
+- No server changes; assets rebuilt and embedded.
+
+Previous: **Control Plane TS — Navigation Shell + Tenants & Collections v0.2**:
 
 - The `/console` app gains a persistent sidebar shell (Dashboard, Tenants,
   Collections) with client-side view switching — no router library — plus a
